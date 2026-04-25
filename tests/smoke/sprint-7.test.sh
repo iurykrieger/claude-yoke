@@ -164,8 +164,9 @@ fi
 # 4. trace-analyzer.sh — DoD #3 (traces mode)
 # ------------------------------------------------------------------
 trace_dir="$tmpdir/trace-task"
-mkdir -p "$trace_dir"
-cat > "$trace_dir/contracts.md" <<'EOF'
+mkdir -p "$trace_dir/contracts"
+# v0.6.0: trace-analyzer globs <trace-dir>/contracts/*.md (per-task archive).
+cat > "$trace_dir/contracts/2026-04-25-recurrence-fixture.md" <<'EOF'
 # Sprint contracts
 
 ## Contract c1
