@@ -2,7 +2,7 @@
 name: ask
 description: >
   Mediated query against canonical memory (Orchestrator skill in Mediator
-  mode). Every query writes to `.yoke/query-trace.md` for audit and future
+  mode). Every query writes to `.yoke/query-traces/<slug>.md` for audit and future
   canonization signal. Returns matching entries (text grep in v0.5.0;
   subgraph traversal in Sprint 6). Generator and Validator subagents must
   use this skill — never read the canonical-memory repo directly.
@@ -19,19 +19,20 @@ read the canonical-memory repo directly.**
 > **Sprint-5 amendment.** Sprint 2 shipped a basic text-grep version of
 > this skill that wrote nothing to working memory. Sprint 5 routes the
 > read through the Orchestrator (Mediator mode) and writes a query trace
-> to `.yoke/query-trace.md`. Sprint 6 will add subgraph traversal
+> to `.yoke/query-traces/<slug>.md`. Sprint 6 will add subgraph traversal
 > (progressive disclosure).
 
 ## Pre-conditions
 
 - `.yoke/config.yaml` exists with a populated `canonical_memory.url`.
+- `.yoke/.current` exists and points at a valid slug (resolved via `lib/working-memory/paths.sh`'s `wm_active_slug`). If absent, abort: "no active task; run `/yoke:discover` first."
 - The canonical-memory repo exists at the URL.
 
 ## Process
 
 ### 1. Mode declaration
 
-Print on stdout (also written to `.yoke/query-trace.md`):
+Print on stdout (also written to `.yoke/query-traces/<slug>.md`):
 
 ```
 [orchestrator:mediator] query="<term>" subgraph_depth=1
@@ -49,18 +50,31 @@ grep only). Sprint 6 makes this configurable.
 
 ### 3. Run text grep with deterministic trace writing
 
-Invoke
-`lib/canonical-memory/query.sh --trace .yoke/query-trace.md --invoker "<calling-skill-or-agent>" "<term>"`.
+Resolve the trace path via the helper:
+
+```bash
+source lib/working-memory/paths.sh
+trace_path="$(wm_query_trace_path)"            # uses active slug
+mkdir -p "$(dirname "$trace_path")"             # lazily create .yoke/query-traces/
+```
+
+Then invoke
+`lib/canonical-memory/query.sh --trace "$trace_path" --invoker "<calling-skill-or-agent>" "<term>"`.
 
 The script:
 
 - Performs the text grep over the canonical repo (≤ 20 matches).
-- Writes a YAML trace entry to `.yoke/query-trace.md` capturing
-  timestamp, mode, query, match count, capping flag, and invoker.
+- Writes a YAML trace entry to the resolved versioned path
+  (`.yoke/query-traces/<slug>.md`) capturing timestamp, mode, query, match
+  count, capping flag, and invoker.
 - Returns matches as `<file>:<line>:<excerpt>`.
 
-If `.yoke/query-trace.md` doesn't exist, the script initializes it with
-a `# Query trace` header.
+If the trace file doesn't exist, the script initializes it with
+a `# Query trace` header. The trace file is **versioned** (committed to
+the host project's git, per the v0.6.0 layout — see
+`templates/yoke-config.yaml` and `lib/working-memory/paths.sh`), so
+host-project commit cadence applies (batch-commit at task closeout, or
+per-query if fine-grained traceability is desired).
 
 ### 4. Empty-state UX
 

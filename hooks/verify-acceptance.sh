@@ -1,9 +1,11 @@
 #!/bin/bash
-# verify-acceptance.sh — runs the sensors declared in
-# .yoke/acceptance-contract.md and emits structured per-criterion results.
+# verify-acceptance.sh — runs the sensors declared in the active task's
+# Acceptance Contract and emits structured per-criterion results.
 #
 # Usage: verify-acceptance.sh [<acceptance-contract-path>]
-# Default path: .yoke/acceptance-contract.md
+# Default path: resolved via lib/working-memory/paths.sh::wm_acceptance_contract_path
+#               (i.e., .yoke/acceptance-contracts/<slug>.md, where <slug> comes
+#               from .yoke/.current).
 #
 # v0.3.0 supports only "shell command" sensor types (e.g. `npm test`,
 # `pytest`). Richer sensor types (structural fixtures, inferential
@@ -41,7 +43,17 @@
 
 set -euo pipefail
 
-contract="${1:-.yoke/acceptance-contract.md}"
+# Locate paths helper relative to this hook (so cwd doesn't matter).
+hook_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/working-memory/paths.sh
+source "${hook_dir}/../lib/working-memory/paths.sh"
+
+# Resolve contract: explicit arg or active-task default.
+if [ -n "${1:-}" ]; then
+  contract="$1"
+else
+  contract="$(wm_acceptance_contract_path)" || exit 3
+fi
 
 if [ ! -f "$contract" ]; then
   echo "Error: Acceptance Contract not found at '$contract'." >&2

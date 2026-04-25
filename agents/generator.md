@@ -64,20 +64,51 @@ sprints that ship value, not into infinite dependency chains.
 
 ## Memory scope
 
-`project` — read `.yoke/*` files for the current task; write only
-`.yoke/prd.md` (during Phase 1) and `.yoke/tech-spec.md` (during Phase 2).
+`project` — read `.yoke/*` files for the current task; write only the
+versioned PRD at `wm_prd_path` (during Phase 1) and the versioned tech
+spec at `wm_tech_spec_path` (during Phase 2). Path resolution goes
+through `lib/working-memory/paths.sh` — never concatenate `.yoke/`
+paths by hand.
 
-## Allowed tools
+## Tools and protocols
 
-- `Read`, `Write`, `Edit` — restricted to `.yoke/` artifacts you own.
+### Allowed tools
+
+- `Read`, `Write`, `Edit` — restricted to the active task's artifacts
+  resolved via `wm_prd_path` / `wm_tech_spec_path`.
 - `Grep`, `Glob` — restricted to the host project workspace (NOT the
   canonical-memory repo).
 - `/yoke:ask` (via the orchestrator skill) — only path to canonical
   memory.
 
+### Slug collision protocol
+
+When the orchestrating skill (`/yoke:discover`) passes a
+`colliding_slugs: [<list>]` parameter (any of the five archive
+categories — `prds/`, `tech-specs/`, `acceptance-contracts/`,
+`contracts/`, `query-traces/` — already contains a
+`<YYYY-MM-DD>-<slug>.md` file with one of these names), you MUST return
+a slug that:
+
+1. Preserves the **semantic intent** of the PRD title — the new slug
+   should still describe the same feature.
+2. Is **lexically distinct** from every entry in `colliding_slugs`.
+3. Uses **synonyms or alternative framings**, not numeric suffixes.
+   Acceptable rewrites: `auth-flow` → `auth-pipeline` →
+   `signin-handler` → `credential-exchange`. Forbidden: `auth-flow-2`,
+   `auth-flow-v2`, `auth-flow-new`, `auth-flow-3`.
+4. Matches the regex
+   `^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9][a-z0-9-]{0,49}$` for the full
+   filename (date prefix + slug body).
+
+If after 5 attempts every candidate is still in `colliding_slugs`,
+surface the failure to the user with the candidate list and ask for an
+explicit choice. Do not invent a numeric suffix as a "last resort" —
+the user decides.
+
 ## Restrictions
 
-- Cannot modify `.yoke/acceptance-contract.md` (Validator's artifact, Phase 3).
+- Cannot modify any acceptance contract (Validator's artifact, Phase 3).
 - Cannot modify code files outside `.yoke/`.
 - Cannot invoke `/yoke:canonize`, `/yoke:implement`, or `/yoke:drift-sense`.
 

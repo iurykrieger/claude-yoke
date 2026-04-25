@@ -5,9 +5,10 @@ description: >
   mode) spawns the Implementation Agent and Validation Agent via the Task
   tool and iterates them against the binding Acceptance Contract until
   every criterion passes or the loop pauses for human arbitration. Sprint
-  contracts on consensus persist to `.yoke/contracts.md`. Hard bounds and
-  the formal Trigger-4 escalation packet ship in Sprint 6; in v0.4.0 the
-  loop pauses with a clear message on divergence or contradiction.
+  contracts on consensus persist to `.yoke/contracts/<slug>.md`; runtime
+  state lives under `.yoke/runtime/`. Hard bounds and the formal Trigger-4
+  escalation packet ship in Sprint 6; in v0.4.0 the loop pauses with a
+  clear message on divergence or contradiction.
 argument-hint: ""
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Task
 ---
@@ -29,16 +30,22 @@ binding Acceptance Contract.
 
 ### 1. Pre-flight (deterministic)
 
+- Source `lib/working-memory/paths.sh`. All paths below resolve through
+  `wm_*_path` helpers. The active task is read from `.yoke/.current` via
+  `wm_active_slug`; if missing, abort with the helper's "no active task"
+  error.
 - Run `lib/ralph-loop/orchestrate.sh preflight`. The script verifies:
   - `.yoke/config.yaml` exists.
-  - `.yoke/prd.md`, `.yoke/tech-spec.md`, `.yoke/acceptance-contract.md`
-    all exist and carry `Status: approved` (PRD/Tech Spec) or
-    `Status: ratified` (Contract).
-  - On any missing pre-condition, the script aborts with a clear
-    message (exit codes 3 or 4).
+  - `.yoke/.current` exists and points at a valid slug.
+  - `wm_prd_path "$slug"` exists with `Status: approved`.
+  - `wm_tech_spec_path "$slug"` exists with `Status: approved`.
+  - `wm_acceptance_contract_path "$slug"` exists with `Status: ratified`.
+  - On any missing pre-condition, the script aborts (exit codes 3 or 4).
 - Run `hooks/pre-implementation.sh` (skeleton in v0.4.0; Sprint 6
   populates it).
-- Initialize `.yoke/progress.md` and `.yoke/contracts.md` from
+- Ensure `.yoke/runtime/` and `.yoke/contracts/` exist (`mkdir -p`).
+  Initialize `wm_progress_path` (`.yoke/runtime/progress.md`) and
+  `wm_contracts_path "$slug"` (`.yoke/contracts/<slug>.md`) from
   `templates/progress.md` and `templates/contracts.md` if they don't
   exist (cycle 0 entries).
 
@@ -48,32 +55,33 @@ For each cycle (numbered starting at 1):
 
 1. **Implementation Agent step (agentic).** Spawn
    `agents/implementation.md` via the Task tool, providing:
-   - Approved upstream artifacts (read-only).
-   - Current `.yoke/progress.md` (last cycle's state).
-   - Current `.yoke/contracts.md` (sprint contracts so far).
+   - Approved upstream artifacts (read-only): PRD, Tech Spec, AC at
+     versioned paths via `wm_*_path`.
+   - Current runtime progress at `wm_progress_path` (last cycle's state).
+   - Current sprint contracts at `wm_contracts_path` (so far).
    - Last `verify-acceptance.sh` snapshot from
-     `.yoke/.snapshots/cycle-<N-1>.yaml` (if any).
+     `wm_snapshots_dir`/`cycle-<N-1>.yaml` (if any).
 
    The agent applies code changes targeting the next failing
-   Acceptance Contract criterion. It writes `.yoke/progress.md` at
+   Acceptance Contract criterion. It writes `wm_progress_path` at
    the end of its turn (per its restrictions).
 
 2. **Sensor execution (deterministic).** Run
-   `hooks/verify-acceptance.sh` against
-   `.yoke/acceptance-contract.md`. Capture the structured YAML output.
+   `hooks/verify-acceptance.sh` against `wm_acceptance_contract_path`.
+   Capture the structured YAML output.
 
 3. **Validation Agent step (agentic).** Spawn
    `agents/validation.md` via the Task tool, providing:
-   - Approved Acceptance Contract.
+   - Approved Acceptance Contract at `wm_acceptance_contract_path`.
    - Sensor output from step 2.
-   - Last `.yoke/contracts.md`.
-   - The Implementation Agent's `progress.md` entry for this cycle
+   - Latest sprint contracts at `wm_contracts_path`.
+   - The Implementation Agent's `wm_progress_path` entry for this cycle
      (read-only).
 
    The agent emits structured JSON verdicts per criterion. If
    Implementation and Validation reach consensus on a sub-objective
    interpretation, both append a sprint contract to
-   `.yoke/contracts.md` (deterministic helper:
+   `wm_contracts_path` (deterministic helper:
    `lib/ralph-loop/orchestrate.sh append-contract <yaml-fragment>`).
 
 4. **Contradiction check (deterministic).** Run
@@ -87,10 +95,12 @@ For each cycle (numbered starting at 1):
 
 5. **Persist (deterministic).** Run `hooks/post-iteration.sh`. The
    hook:
-   - Increments the cycle counter at `.yoke/.cycle-counter` (read by
-     Sprint-6's `check-hard-bounds.sh`).
+   - Increments the cycle counter at `wm_cycle_counter_path`
+     (`.yoke/runtime/.cycle-counter`; read by Sprint-6's
+     `check-hard-bounds.sh`).
    - Snapshots `verify-acceptance.sh` output to
-     `.yoke/.snapshots/cycle-<N>.yaml`.
+     `wm_snapshots_dir`/`cycle-<N>.yaml`
+     (`.yoke/runtime/.snapshots/cycle-<N>.yaml`).
 
 6. **Stop check.** If every criterion in the Acceptance Contract has
    `status: pass` in the latest sensor output AND no `divergence`
@@ -103,8 +113,9 @@ For each cycle (numbered starting at 1):
   next-step pointer to `/yoke:canonize`.
 - **Sprint contract contradicts Acceptance Contract** → invoke
   `lib/ralph-loop/escalate.sh --reason contract-conflict`. The script
-  emits the structured Trigger-4 packet to `.yoke/.trigger4-packet.yaml`
-  and stdout. Loop pauses for human arbitration.
+  emits the structured Trigger-4 packet to `wm_trigger4_packet_path`
+  (`.yoke/runtime/.trigger4-packet.yaml`) and stdout. Loop pauses for
+  human arbitration.
 - **Divergence verdict from Validation Agent** → invoke
   `lib/ralph-loop/escalate.sh --reason divergence --category <quality-policies-broken|technical-infeasibility|business-conflict|requires-contract-modification>`.
   The script writes the Trigger-4 packet. Loop pauses.
@@ -120,8 +131,10 @@ The Trigger-4 packet is non-coalescable with Triggers 1, 2, 3, 5 — see
 
 ## Pre-conditions
 
-- `.yoke/config.yaml`, `.yoke/prd.md` (approved), `.yoke/tech-spec.md`
-  (approved), `.yoke/acceptance-contract.md` (ratified).
+- `.yoke/config.yaml` exists.
+- `.yoke/.current` exists and points at a valid slug.
+- `.yoke/prds/<slug>.md` (approved), `.yoke/tech-specs/<slug>.md`
+  (approved), `.yoke/acceptance-contracts/<slug>.md` (ratified).
 
 ## Output contract
 

@@ -1,15 +1,14 @@
 #!/bin/bash
 # trace-analyzer.sh — drift-sense detector for working-memory traces.
 #
-# Reads .yoke/contracts.md and .yoke/query-trace.md from the host project
-# (or one or more provided directories) and detects recurring patterns
-# that never reached canonization.
+# Reads `.yoke/contracts/*.md` (versioned per-task contract archives) from
+# the host project (or one or more provided trace directories — each a
+# `.yoke/`) and detects recurring patterns that never reached canonization.
 #
-# v0.7.0 logic: count `topic:` occurrences in contracts.md across all
-# provided trace dirs (typically merged tasks). Emit findings for topics
-# that recur ≥ N times (default 3) but have no corresponding entry in
-# the canonical-memory repo (matched by topic substring against `# <id>`
-# headings).
+# v0.7.0 logic: count `topic:` occurrences in every contracts archive across
+# all provided trace dirs. Emit findings for topics that recur ≥ N times
+# (default 3) but have no corresponding entry in the canonical-memory repo
+# (matched by topic substring against `# <id>` headings).
 #
 # Usage:
 #   trace-analyzer.sh [--canonical <repo-path>] [--config <path>]
@@ -96,13 +95,16 @@ if [ -z "$min_recurrence" ] && [ -f "$config" ]; then
 fi
 min_recurrence="${min_recurrence:-3}"
 
-# Collect topics from all contracts.md files across all trace dirs
+# Collect topics from every contracts archive across all trace dirs.
+# v0.6.0 layout: `<trace-dir>/contracts/*.md` (versioned per task).
 topics_file=$(mktemp)
 trap 'rm -f "$topics_file"' EXIT
 
 for d in "${trace_dirs[@]}"; do
-  contracts="${d}/contracts.md"
-  if [ -f "$contracts" ]; then
+  contracts_dir="${d}/contracts"
+  [ -d "$contracts_dir" ] || continue
+  for contracts in "$contracts_dir"/*.md; do
+    [ -f "$contracts" ] || continue
     awk '
       /^[[:space:]]*-?[[:space:]]*topic:[[:space:]]*/ {
         line = $0
@@ -112,7 +114,7 @@ for d in "${trace_dirs[@]}"; do
         if (line != "") print line
       }
     ' "$contracts" >> "$topics_file"
-  fi
+  done
 done
 
 # Count topic occurrences

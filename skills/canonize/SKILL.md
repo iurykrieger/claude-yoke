@@ -27,11 +27,14 @@ writes that pass the five-criterion cascade.
 
 ### 1. Pre-flight
 
+- Source `lib/working-memory/paths.sh`. Resolve the active task:
+  `slug="$(wm_active_slug)"`. Abort with "no active task" if `.current` is
+  missing.
 - Verify `.yoke/config.yaml` exists with a populated
   `canonical_memory.url`.
-- Verify the task is complete: `.yoke/progress.md` exists AND the most
+- Verify the task is complete: `wm_progress_path` exists AND the most
   recent verify-acceptance snapshot
-  (`.yoke/.snapshots/cycle-<latest>.yaml`) shows every criterion at
+  (`$(wm_snapshots_dir)/cycle-<latest>.yaml`) shows every criterion at
   `status: pass`. Abort otherwise: "Task not complete; run
   `/yoke:implement` to convergence first."
 - Print Orchestrator mode declaration:
@@ -39,9 +42,12 @@ writes that pass the five-criterion cascade.
 
 ### 2. Apply canonization criteria
 
-Invoke `lib/canonical-memory/canonization-criteria.sh`:
+Invoke `lib/canonical-memory/canonization-criteria.sh` with the
+versioned input paths for the active task:
 
-- Reads `.yoke/progress.md`, `.yoke/contracts.md`, `.yoke/query-trace.md`.
+- `--progress "$(wm_progress_path)"` — runtime progress (`.yoke/runtime/progress.md`)
+- `--contracts "$(wm_contracts_path "$slug")"` — sprint contracts (`.yoke/contracts/<slug>.md`)
+- `--query-trace "$(wm_query_trace_path "$slug")"` — query trace (`.yoke/query-traces/<slug>.md`)
 - Reads thresholds from `.yoke/config.yaml`:
   - `canonization.repeatability_min` (default 3)
   - `canonization.generality_min` (default 2)

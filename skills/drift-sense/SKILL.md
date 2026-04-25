@@ -42,8 +42,9 @@ Reads the canonical-memory repo via the cached path
 
 - **Staleness:** items not consulted for > N days (default 30; configurable
   via `.yoke/config.yaml` `overrides.drift_sense.staleness_max_days`).
-  Source for "consulted" is `.yoke/query-trace.md` if available;
-  otherwise `last_validated` from frontmatter.
+  Source for "consulted" is the union of every per-task query-trace under
+  `.yoke/query-traces/*.md` (versioned archive); otherwise
+  `last_validated` from frontmatter.
 - **Model drift:** items with `model_calibrated_against` ≠ the configured
   current model (env `YOKE_MODEL_ID` or default `claude-opus-4-7`).
 - **Contradictions:** items with `contradicts_with` referring to entries
@@ -51,9 +52,10 @@ Reads the canonical-memory repo via the cached path
 
 ### `--target traces`
 
-Reads `.yoke/contracts.md` and `.yoke/query-trace.md` from completed
-tasks (those merged to main of the host project) and detects recurring
-patterns that never reached canonization. Invokes
+Globs `.yoke/contracts/*.md` and `.yoke/query-traces/*.md` from completed
+tasks (those merged to main of the host project — every task with files
+in those versioned archive folders) and detects recurring patterns that
+never reached canonization. Invokes
 `lib/canonical-memory/trace-analyzer.sh`:
 
 - Counts occurrences of each contract `topic:` across tasks.
@@ -122,7 +124,7 @@ sensing should be a high-signal channel, not a noisy one.
 - `.yoke/config.yaml` exists (recommended; standalone mode possible).
 - For canonical-memory mode: `canonical_memory.url` is configured.
 - For traces mode: at least one completed task has emitted
-  `.yoke/contracts.md` or `.yoke/query-trace.md`.
+  `.yoke/contracts/<slug>.md` or `.yoke/query-traces/<slug>.md`.
 - For codebase mode: host `CLAUDE.md` declares a detector under
   `## Dead code`, `## Linting`, or `## Build`.
 

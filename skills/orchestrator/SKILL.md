@@ -3,7 +3,7 @@ name: orchestrator
 description: >
   The Orchestrator skill — three operating modes for canonical memory.
   Mediator mode services /yoke:ask queries from Generator/Validator (writes
-  .yoke/query-trace.md). Runtime coordinator mode is invoked by /yoke:implement
+  .yoke/query-traces/<slug>.md). Runtime coordinator mode is invoked by /yoke:implement
   to spawn Implementation/Validation Agents. Canonizer mode is invoked by
   /yoke:canonize to apply the five canonization criteria and propose writes
   via Model C. Sole writer of canonical memory.
@@ -24,7 +24,7 @@ allowed-tools: Read, Write, Edit, Grep, Glob, Bash
 ## Three modes
 
 The Orchestrator declares its current mode explicitly when invoked. Mode
-declarations write to `.yoke/query-trace.md` so traces show provenance for
+declarations write to `.yoke/query-traces/<slug>.md` so traces show provenance for
 every operation.
 
 ### Mode A — Mediator
@@ -38,7 +38,7 @@ queries from spec-phase agents:
 - Returns matching entries (text grep in v0.5.0; subgraph traversal in
   Sprint 6).
 - Writes the query, result count, and invoker (when known) to
-  `.yoke/query-trace.md` for audit and future canonization signal.
+  `.yoke/query-traces/<slug>.md` for audit and future canonization signal.
 - **Detects and flags** any attempt by Generator/Validator to bypass the
   Orchestrator and read canonical memory directly. In v0.5.0, bypass
   detection is conservative: every legitimate query writes a trace
@@ -67,7 +67,10 @@ Invoked by `/yoke:canonize` (Phase 5). The Orchestrator reads working
 memory after a successful task and proposes writes to canonical memory
 under Model C:
 
-- Reads `.yoke/progress.md`, `.yoke/contracts.md`, `.yoke/query-trace.md`.
+- Reads runtime + archive artifacts via `lib/working-memory/paths.sh`:
+  `wm_progress_path` (`.yoke/runtime/progress.md`),
+  `wm_contracts_path` (`.yoke/contracts/<slug>.md`), and
+  `wm_query_trace_path` (`.yoke/query-traces/<slug>.md`).
 - Invokes `lib/canonical-memory/canonization-criteria.sh` to apply the
   five-criterion cascade (repeatability / generality / stability / impact /
   non-contradiction).
@@ -84,7 +87,7 @@ under Model C:
 ## Mode declarations
 
 Every Orchestrator invocation begins with a single-line mode declaration
-on stdout, also written to `.yoke/query-trace.md`:
+on stdout, also written to `.yoke/query-traces/<slug>.md`:
 
 ```
 [orchestrator:mediator] query="<term>" subgraph_depth=1
@@ -128,7 +131,7 @@ directly. v0.5.0 enforces:
 - Generator and Validator subagents declare in their prompts that they
   read canonical memory only via `/yoke:ask` (which routes through the
   Orchestrator in Mediator mode).
-- `/yoke:ask` writes every query to `.yoke/query-trace.md`. Bypass
+- `/yoke:ask` writes every query to `.yoke/query-traces/<slug>.md`. Bypass
   attempts (direct grep of the substrate by spec-phase agents) are
   detectable from the trace's absence — if a Generator claims to have
   consulted canonical memory but no trace entry exists for that query,
