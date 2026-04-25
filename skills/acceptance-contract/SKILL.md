@@ -113,9 +113,10 @@ defines what the user is ratifying; the menu is the choice of how to
 act on it. Embedding the binding statement inside an option label
 would dilute both.
 
-After the binding statement, render the **shared approval menu** defined
-in `templates/approval-menu.md`. The menu is the surface for **Trigger
-3 — Acceptance Contract ratification (BINDING)**, which blocks Phase 4.
+After the binding statement, render the **shared approval menu**
+defined in `templates/approval-menu.md`. The menu is the surface for
+**Trigger 3 — Acceptance Contract ratification (BINDING)**, which
+blocks Phase 4.
 
 Inputs passed to the menu:
 
