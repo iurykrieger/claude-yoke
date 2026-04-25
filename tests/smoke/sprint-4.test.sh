@@ -292,11 +292,14 @@ grep -q "agents_involved" templates/contracts.md \
   && pass "templates/contracts.md has agents_involved field" \
   || err "templates/contracts.md missing agents_involved"
 
-# 21. Anti-scope: status skill still placeholder.
-if grep -q "placeholder" skills/status/SKILL.md; then
-  pass "skills/status/SKILL.md still placeholder (advanced only in Sprint 8)"
+# 21. Status skill — Part 6 of the bedrock canonical-memory port
+#     (2026-04-25) extended /yoke:status with bedrock's healthcheck
+#     surface. Verifies the read-only contract instead of the
+#     historical placeholder marker.
+if grep -qE 'Read-only|read-only contract' skills/status/SKILL.md; then
+  pass "skills/status/SKILL.md declares read-only contract (Part 6 extension)"
 else
-  err "skills/status/SKILL.md was modified — anti-scope violation"
+  err "skills/status/SKILL.md missing read-only declaration"
 fi
 
 # 22. Sprint regressions

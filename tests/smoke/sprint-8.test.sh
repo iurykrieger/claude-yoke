@@ -124,11 +124,15 @@ grep -qF "github.com/iurykrieger/claude-bedrock" docs/lineage.md \
   || err "docs/lineage.md missing Bedrock URL"
 
 # Lineage names per-skill mapping
-for skill in discover tech-spec query.sh graph.sh propose-write.sh; do
+for skill in discover tech-spec graph.sh; do
   grep -q "$skill" docs/lineage.md \
     && pass "docs/lineage.md documents $skill provenance" \
     || err "docs/lineage.md missing $skill provenance"
 done
+# query.sh was retired in Part 3, propose-write.sh in Part 4 of the
+# bedrock canonical-memory port. Their lineage entries are preserved
+# for historical record but no longer enforced as present-day
+# deliverables.
 
 grep -qF "ex nihilo" docs/lineage.md \
   && pass "docs/lineage.md has honesty statement" \

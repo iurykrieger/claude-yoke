@@ -43,122 +43,29 @@ for mode in codebase canonical-memory traces; do
 done
 
 # ------------------------------------------------------------------
-# 3. staleness-check.sh — DoD #2 (canonical-memory mode)
+# 3. Staleness / model-drift / contradiction detection — DoD #2.
+#
+# Part 6 of the bedrock canonical-memory port retired
+# `lib/canonical-memory/staleness-check.sh`. The same detection
+# logic now lives in `skills/status/SKILL.md`'s Section 2.5
+# (Stale content / rippability) and is exercised through
+# `/yoke:status --canonical`. The behavioral test (running the
+# library directly) is replaced with a documentation check
+# against the new SKILL.
 # ------------------------------------------------------------------
-canon="$tmpdir/canon"
-mkdir -p "$canon/policies"
+ST="skills/status/SKILL.md"
 
-# Fresh entry: should NOT be flagged
-recent_iso=$(date -u +%Y-%m-%d)
-cat > "$canon/policies/fresh.md" <<EOF
----
-ratified_at: ${recent_iso}
-model_calibrated_against: claude-opus-4-7
-last_validated: ${recent_iso}
-traceability: "test"
-impact_level: low
-depends_on: []
-supersedes: []
-applies_to: []
-contradicts_with: []
----
-# fresh
-recent entry
-EOF
+grep -qiE 'older than 15 days|stale|last_validated' "$ST" \
+  && pass "$ST flags stale entries via last_validated comparison" \
+  || err "$ST missing stale-entry detection"
 
-# Stale entry: last_validated > 30 days ago
-old_iso="2026-01-01"
-cat > "$canon/policies/stale.md" <<EOF
----
-ratified_at: 2026-01-01
-model_calibrated_against: claude-opus-4-7
-last_validated: ${old_iso}
-traceability: "test"
-impact_level: low
-depends_on: []
-supersedes: []
-applies_to: []
-contradicts_with: []
----
-# stale
-old entry
-EOF
+grep -qiE 'model_calibrated_against|retired model|model drift' "$ST" \
+  && pass "$ST detects model drift via model_calibrated_against" \
+  || err "$ST missing model-drift detection"
 
-# Model-drift entry: calibrated against a different model
-cat > "$canon/policies/old-model.md" <<EOF
----
-ratified_at: ${recent_iso}
-model_calibrated_against: claude-sonnet-3
-last_validated: ${recent_iso}
-traceability: "test"
-impact_level: low
-depends_on: []
-supersedes: []
-applies_to: []
-contradicts_with: []
----
-# old-model
-calibrated old
-EOF
-
-# Contradiction entry: contradicts_with → live entry
-cat > "$canon/policies/contradiction-source.md" <<EOF
----
-ratified_at: ${recent_iso}
-model_calibrated_against: claude-opus-4-7
-last_validated: ${recent_iso}
-traceability: "test"
-impact_level: low
-depends_on: []
-supersedes: []
-applies_to: []
-contradicts_with: ["policies/contradiction-target.md"]
----
-# contradiction-source
-EOF
-cat > "$canon/policies/contradiction-target.md" <<EOF
----
-ratified_at: ${recent_iso}
-model_calibrated_against: claude-opus-4-7
-last_validated: ${recent_iso}
-traceability: "test"
-impact_level: low
-depends_on: []
-supersedes: []
-applies_to: []
-contradicts_with: []
----
-# contradiction-target
-EOF
-
-# Run staleness-check
-out=$(bash lib/canonical-memory/staleness-check.sh --repo "$canon" --current-model claude-opus-4-7 --max-days 30 2>&1) || true
-
-echo "$out" | grep -q "kind: stale" \
-  && pass "staleness-check.sh detects stale entry (last_validated > max-days)" \
-  || err "staleness-check did not detect stale entry: $out"
-echo "$out" | grep -q "kind: model-drift" \
-  && pass "staleness-check.sh detects model drift (calibrated ≠ current)" \
-  || err "staleness-check did not detect model drift: $out"
-echo "$out" | grep -q "kind: contradiction" \
-  && pass "staleness-check.sh detects live contradiction" \
-  || err "staleness-check did not detect contradiction: $out"
-
-# Fresh entry should NOT appear in findings
-fresh_count=$(echo "$out" | grep -c 'location: "policies/fresh.md"' || true)
-[ "$fresh_count" -eq 0 ] \
-  && pass "staleness-check.sh does NOT flag fresh, well-aligned entry (no false positive)" \
-  || err "staleness-check produced false positive on fresh entry: $out"
-
-# False-positive rate: of 4 entries, only 3 should be flagged (1 fresh = clean)
-# Acceptable rate: 0% on synthetic test (target: <20%)
-total_findings=$(echo "$out" | grep -c '^  - target: canonical-memory' || true)
-expected_findings=3  # stale, model-drift, contradiction (live)
-if [ "$total_findings" -ge "$expected_findings" ] && [ "$total_findings" -le $((expected_findings + 1)) ]; then
-  pass "staleness-check.sh false-positive rate within target (<20%): $total_findings findings on synthetic input"
-else
-  err "staleness-check.sh finding count off ($total_findings, expected ~$expected_findings): $out"
-fi
+grep -qiE 'rippability|five.*rippability|5.*rippability fields' "$ST" \
+  && pass "$ST validates rippability frontmatter" \
+  || err "$ST missing rippability validation"
 
 # ------------------------------------------------------------------
 # 4. trace-analyzer.sh — DoD #3 (traces mode)
@@ -292,10 +199,16 @@ grep -qF "no auto-merging" "$sk" || grep -qF "no auto-merge" "$sk" || grep -qF "
   && pass "drift-sense skill declares no auto-merge anti-pattern" \
   || err "drift-sense skill missing auto-merge anti-pattern"
 
-# Status skill still placeholder (Sprint 8 territory)
-grep -q "placeholder" skills/status/SKILL.md \
-  && pass "skills/status/SKILL.md still placeholder (Sprint 8 territory)" \
-  || err "status skill was modified — anti-scope violation"
+# Status skill — Part 6 of the bedrock canonical-memory port (2026-04-25)
+# extended /yoke:status with bedrock's healthcheck surface, retiring the
+# Sprint-8 "placeholder" assertion. The SKILL is now read-only and
+# absorbs the canonical-memory diagnostic.
+grep -qE 'Read-only|read-only contract' skills/status/SKILL.md \
+  && pass "skills/status/SKILL.md declares read-only contract (Part 6 extension)" \
+  || err "skills/status/SKILL.md missing read-only declaration"
+grep -qE 'healthcheck|--canonical' skills/status/SKILL.md \
+  && pass "skills/status/SKILL.md absorbs the canonical-memory healthcheck surface" \
+  || err "skills/status/SKILL.md missing healthcheck integration"
 
 # ------------------------------------------------------------------
 # 8. Sprint regressions

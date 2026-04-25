@@ -43,52 +43,63 @@ for mode in consult monitor canonize; do
   fi
 done
 
-# 3. /yoke:canonize — manual escape hatch (DoD #4 of Part 6).
-sk="skills/canonize/SKILL.md"
+# 3. /yoke:preserve — single write point (Part 4 of the bedrock
+#    canonical-memory port retired skills/canonize and propose-write.sh).
+sk="skills/preserve/SKILL.md"
 [ -f "$sk" ] || err "missing $sk"
 
 allowed_line=$(awk '/^allowed-tools:/{print; exit}' "$sk" || true)
-echo "$allowed_line" | grep -qw "Task" \
-  && pass "$sk allowed-tools includes Task (spawns Orchestrator subagent)" \
-  || err "$sk missing Task in allowed-tools"
+echo "$allowed_line" | grep -qw "Skill" \
+  && pass "$sk allowed-tools includes Skill (Phase 5 invokes /yoke:ask, etc.)" \
+  || err "$sk missing Skill in allowed-tools"
 
-grep -qE "escape hatch|Manual canonization|Never auto-runs" "$sk" \
-  && pass "$sk positions itself as a manual escape hatch" \
-  || err "$sk does not position itself as an escape hatch"
+grep -qE "single write point|single write entry|sole write" "$sk" \
+  && pass "$sk positions itself as the single write entry" \
+  || err "$sk does not declare single-write-point invariant"
 
-grep -q "agents/orchestrator.md" "$sk" \
-  && pass "$sk spawns the Orchestrator subagent" \
-  || err "$sk does not spawn the Orchestrator subagent"
+grep -qE "Model C|impact_level|impact-class" "$sk" \
+  && pass "$sk wires Model C in Phase 3" \
+  || err "$sk missing Model C wiring"
 
-grep -qE "mode=canonize|canonize mode" "$sk" \
-  && pass "$sk invokes canonize mode" \
-  || err "$sk does not invoke canonize mode"
+# Skills/canonize was retired in Part 4 (DoD-4).
+[ ! -d "skills/canonize" ] \
+  && pass "skills/canonize/ removed (Part 4 DoD-4)" \
+  || err "skills/canonize/ still present"
+
+# propose-write.sh was retired in Part 4 (DoD-4).
+[ ! -f "lib/canonical-memory/propose-write.sh" ] \
+  && pass "lib/canonical-memory/propose-write.sh removed (Part 4 DoD-4)" \
+  || err "propose-write.sh still present"
 
 # 4. /yoke:implement issues auto-canonize handoff at loop termination
-#    (DoD #4 of Part 6 — auto-canonize fires from /yoke:implement).
+#    (auto-canonize fires from /yoke:implement; Orchestrator invokes
+#    /yoke:preserve via the Skill tool — Part 4 of the bedrock port).
 imp="skills/implement/SKILL.md"
-grep -q "mode=canonize" "$imp" \
-  && pass "$imp issues canonize handoff at loop termination (auto-canonize)" \
+grep -qE 'mode=canonize|canonize-mode|/yoke:preserve' "$imp" \
+  && pass "$imp issues canonize handoff at loop termination" \
   || err "$imp missing auto-canonize termination handoff"
 
-grep -qE "Termination handoff|termination canonization handoff|canonize handoff" "$imp" \
+grep -qE "Termination|termination|canonize handoff" "$imp" \
   && pass "$imp documents termination canonization handoff" \
   || err "$imp missing termination handoff documentation"
 
-# 5. /yoke:ask — thin direct-call canonical-memory query
+# 5. /yoke:ask — adaptive read against the registered memory (Part 3 of
+#    the bedrock canonical-memory port retired the query.sh shell-out;
+#    the skill now resolves via Part 1's resolve-memory.sh and reads
+#    the filesystem directly).
 ask="skills/ask/SKILL.md"
-grep -q "query-trace" "$ask" \
-  && pass "$ask references .yoke/query-trace.md" \
+grep -qE 'query-traces|query-trace' "$ask" \
+  && pass "$ask references the query-traces directory" \
   || err "$ask does not declare query trace"
-grep -qF -- "--trace" "$ask" \
-  && pass "$ask invokes query.sh with --trace" \
-  || err "$ask does not call query.sh with --trace"
+grep -q "resolve-memory.sh" "$ask" \
+  && pass "$ask resolves the active memory via Part 1's lib" \
+  || err "$ask does not reference resolve-memory.sh"
 
 ask_allowed=$(awk '/^allowed-tools:/{print; exit}' "$ask" || true)
 if echo "$ask_allowed" | grep -qw "Task"; then
-  err "$ask allowed-tools includes Task (should be thin direct-call skill)"
+  err "$ask allowed-tools includes Task (should not spawn subagents)"
 else
-  pass "$ask is a thin direct-call skill (no Task)"
+  pass "$ask does not spawn subagents (no Task)"
 fi
 
 # 6. canonization-criteria.sh against missing contracts.md
@@ -155,7 +166,37 @@ elapsed=$((end - start))
   && pass "canonization-criteria.sh runs in ${elapsed}s on 100 contracts" \
   || err "canonization-criteria.sh too slow: ${elapsed}s"
 
-# 10. propose-write.sh — usage error
+# 10-12. The propose-write.sh primitive was retired in Part 4 of the
+# bedrock canonical-memory port. Impact-class routing now lives in
+# skills/preserve/SKILL.md Phase 3. The remaining checks verify the
+# new SKILL.md declares the routing rules. Original tests are deleted
+# — propose-write.sh no longer exists.
+
+pre="skills/preserve/SKILL.md"
+grep -qE 'CI checks gate|auto-merge.*after CI|auto-merge after CI' "$pre" \
+  && pass "$pre documents low-impact auto-merge after CI" \
+  || err "$pre missing low-impact auto-merge documentation"
+
+grep -qE 'veto window' "$pre" \
+  && pass "$pre documents medium-impact veto window" \
+  || err "$pre missing medium-impact veto window documentation"
+
+grep -qE 'no-auto-merge|auto-merge: never|auto-merge.*never' "$pre" \
+  && pass "$pre documents high/regulatory no-auto-merge" \
+  || err "$pre missing high/regulatory no-auto-merge documentation"
+
+grep -qE 'CODEOWNERS|Compliance' "$pre" \
+  && pass "$pre routes regulatory writes to Compliance" \
+  || err "$pre missing regulatory Compliance routing"
+
+# Block all remaining propose-write.sh tests in this sprint by stubbing
+# a no-op that always passes. (The original logic referenced a file
+# that no longer exists.)
+true_test() { true; }
+
+# Skip the original propose-write.sh assertions (lines below would have
+# tested the deleted primitive's flags and outputs).
+if false; then
 set +e
 bash lib/canonical-memory/propose-write.sh > /dev/null 2>&1
 rc=$?
@@ -201,34 +242,32 @@ echo "$out" | grep -q "impact-low" \
 echo "$out" | grep -qi "auto-merge" \
   && pass "propose-write.sh dry-run mentions auto-merge config" \
   || err "propose-write.sh missing auto-merge in dry-run output"
+fi  # end-skip block opened earlier (Part 4 retired propose-write.sh)
 
-# 13. query.sh --trace flag writes trace entries
-empty_canon="$tmpdir/empty-canon"
-mkdir -p "$empty_canon"
-trace_path="$tmpdir/.yoke/query-trace.md"
-rm -f "$trace_path"
-bash lib/canonical-memory/query.sh --trace "$trace_path" --invoker "test" "anything" "$empty_canon" > /dev/null 2>&1 || true
-[ -f "$trace_path" ] \
-  && pass "query.sh --trace creates the trace file" \
-  || err "query.sh did not create trace file"
-grep -qE "mode: (mediator|ask)" "$trace_path" \
-  && pass "trace entry declares query mode" \
-  || err "trace entry missing query mode"
-grep -q "invoker: \"test\"" "$trace_path" \
-  && pass "trace entry records invoker" \
-  || err "trace entry missing invoker"
-grep -q "matches: 0" "$trace_path" \
-  && pass "trace entry records match count" \
-  || err "trace entry missing match count"
-grep -q "notes: \"empty-memory\"" "$trace_path" \
-  && pass "trace entry notes empty-memory state" \
-  || err "trace entry missing empty-memory note"
+# 13. /yoke:ask trace contract (Part 3): the SKILL document declares the
+#     YAML trace shape that lands in .yoke/query-traces/<slug>.md. The
+#     standalone query.sh path was retired; runtime trace verification
+#     is exercised by tests/smoke/ask-no-clone.test.sh.
+grep -qE 'mode: ask' "$ask" \
+  && pass "/yoke:ask trace declares 'mode: ask' value" \
+  || err "/yoke:ask trace missing 'mode: ask'"
+grep -q 'entities_read' "$ask" \
+  && pass "/yoke:ask trace records entities_read count" \
+  || err "/yoke:ask trace missing entities_read field"
+grep -q 'capped' "$ask" \
+  && pass "/yoke:ask trace records capping flag" \
+  || err "/yoke:ask trace missing capped flag"
+grep -q 'invoker' "$ask" \
+  && pass "/yoke:ask trace records invoker" \
+  || err "/yoke:ask trace missing invoker"
 
 # 14. Anti-scope: status skill still placeholder.
-if grep -q "placeholder" skills/status/SKILL.md; then
-  pass "skills/status/SKILL.md still placeholder (advanced only in Sprint 8)"
+# Part 6 of the bedrock canonical-memory port (2026-04-25) extended
+# /yoke:status with bedrock's healthcheck surface.
+if grep -qE 'Read-only|read-only contract' skills/status/SKILL.md; then
+  pass "skills/status/SKILL.md declares read-only contract (Part 6 extension)"
 else
-  err "skills/status/SKILL.md was modified — anti-scope violation"
+  err "skills/status/SKILL.md missing read-only declaration"
 fi
 
 # 15. Sprint regressions
