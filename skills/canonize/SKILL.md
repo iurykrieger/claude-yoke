@@ -37,9 +37,12 @@ Re-run canonization on an existing task's working memory. Spawns the
 ## Pre-conditions
 
 - `.yoke/config.yaml` exists with a populated `canonical_memory.url`.
-- `.yoke/progress.md` exists.
+- `.yoke/.current` exists and points at a valid slug (resolved via
+  `lib/working-memory/paths.sh`'s `wm_active_slug`).
+- The runtime progress at `wm_progress_path`
+  (`.yoke/runtime/progress.md`) exists.
 - The most recent `verify-acceptance.sh` snapshot
-  (`.yoke/.snapshots/cycle-<latest>.yaml`) shows every criterion at
+  (`$(wm_snapshots_dir)/cycle-<latest>.yaml`) shows every criterion at
   `status: pass`. Abort otherwise: "Task not complete; run
   `/yoke:implement` to convergence first, or use `--force` to
   re-canonize an incomplete task (advanced)."
@@ -49,20 +52,23 @@ Re-run canonization on an existing task's working memory. Spawns the
 
 ### 1. Pre-flight
 
+- Source `lib/working-memory/paths.sh`. Resolve the active task: `slug="$(wm_active_slug)"`.
 - Verify the pre-conditions above.
 - Verify that `agents/orchestrator.md` is present in the plugin
   (smoke check; should always be true).
 
 ### 2. Spawn the Orchestrator subagent in canonize mode
 
-Issue a single Task call spawning `agents/orchestrator.md` with
-input:
+Issue a single Task call spawning `agents/orchestrator.md` with input:
 
 - `mode=canonize`
 - `trigger=manual` (distinguishes from automatic termination handoff)
-- `.yoke/progress.md`, `.yoke/contracts.md`, `.yoke/query-trace.md`
-  (read-only references)
-- All `.yoke/.snapshots/cycle-*.yaml`
+- `slug=<active slug>` (so the Orchestrator can resolve archive paths)
+- Read-only references resolved via the path helper:
+  - `wm_progress_path` — `.yoke/runtime/progress.md`
+  - `wm_contracts_path "$slug"` — `.yoke/contracts/<slug>.md`
+  - `wm_query_trace_path "$slug"` — `.yoke/query-traces/<slug>.md`
+- All `$(wm_snapshots_dir)/cycle-*.yaml`
 - Optional flags from the user: `--dry-run`, `--candidates-only`,
   `--impact-filter <low|medium|high|regulatory>`.
 

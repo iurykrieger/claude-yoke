@@ -53,7 +53,7 @@ done
 
 # 3. Generator declares no-modify rule on upstream artifacts.
 flat=$(tr '\n' ' ' < agents/generator.md)
-echo "$flat" | grep -qE "Never modify.*prd\.md.*tech-spec\.md.*acceptance-contract\.md" \
+echo "$flat" | grep -qE "Never modify.*prds.*tech-specs.*acceptance-contracts" \
   && pass "Generator declares no-modify rule on upstream artifacts" \
   || err "Generator does not declare no-modify rule on upstream artifacts"
 
@@ -150,8 +150,12 @@ popd > /dev/null
   || err "preflight wrong exit on missing .yoke/ (got $rc)"
 
 # 13. Preflight: .yoke/ exists but artifacts missing → exit 4
+# v0.6.0: needs .yoke/.current with a valid slug; preflight then
+# resolves wm_*_path and reports artifacts missing.
+SLUG="2026-04-25-sprint-4-preflight"
 mkdir -p "$tmpdir/.yoke"
 echo "yoke_version: 1.1.0" > "$tmpdir/.yoke/config.yaml"
+printf '%s' "$SLUG" > "$tmpdir/.yoke/.current"
 pushd "$tmpdir" > /dev/null
 set +e
 bash "$PLUGIN_ROOT/lib/ralph-loop/orchestrate.sh" preflight > /dev/null 2>&1
@@ -163,15 +167,16 @@ popd > /dev/null
   || err "preflight wrong exit on missing artifacts (got $rc)"
 
 # 14. Preflight: artifacts present and approved → exit 0
-cat > "$tmpdir/.yoke/prd.md" <<'EOF'
+mkdir -p "$tmpdir/.yoke/prds" "$tmpdir/.yoke/tech-specs" "$tmpdir/.yoke/acceptance-contracts"
+cat > "$tmpdir/.yoke/prds/$SLUG.md" <<'EOF'
 # PRD: test
 > Status: approved
 EOF
-cat > "$tmpdir/.yoke/tech-spec.md" <<'EOF'
+cat > "$tmpdir/.yoke/tech-specs/$SLUG.md" <<'EOF'
 # Tech Spec: test
 > Status: approved
 EOF
-cat > "$tmpdir/.yoke/acceptance-contract.md" <<'EOF'
+cat > "$tmpdir/.yoke/acceptance-contracts/$SLUG.md" <<'EOF'
 # Acceptance Contract: test
 > Status: ratified
 
@@ -194,7 +199,7 @@ echo "$out" | grep -q "ok" \
   && pass "preflight succeeds with full state" \
   || err "preflight should succeed: $out"
 
-# 15. append-contract appends a YAML fragment
+# 15. append-contract appends a YAML fragment to .yoke/contracts/<slug>.md
 cat > "$tmpdir/contract-fragment.yaml" <<'EOF'
 - id: c1
   topic: "interpretation of FR-1"
@@ -207,8 +212,8 @@ EOF
 pushd "$tmpdir" > /dev/null
 bash "$PLUGIN_ROOT/lib/ralph-loop/orchestrate.sh" append-contract "$tmpdir/contract-fragment.yaml" > /dev/null
 popd > /dev/null
-[ -f "$tmpdir/.yoke/contracts.md" ] && grep -q "FR-1 means doing the thing" "$tmpdir/.yoke/contracts.md" \
-  && pass "append-contract writes to .yoke/contracts.md" \
+[ -f "$tmpdir/.yoke/contracts/$SLUG.md" ] && grep -q "FR-1 means doing the thing" "$tmpdir/.yoke/contracts/$SLUG.md" \
+  && pass "append-contract writes to .yoke/contracts/<slug>.md" \
   || err "append-contract did not write contract"
 
 # 16. check-contradiction: clean case → exit 0
@@ -220,7 +225,7 @@ echo "$out" | grep -q "ok" \
   || err "check-contradiction should pass: $out"
 
 # 17. check-contradiction: contradictory sprint contract → exit 10
-cat >> "$tmpdir/.yoke/contracts.md" <<'EOF'
+cat >> "$tmpdir/.yoke/contracts/$SLUG.md" <<'EOF'
 
 ## Contract c2
 - id: c2
@@ -252,23 +257,24 @@ rm -rf "$empty"
   && pass "post-iteration exits 3 without .yoke/" \
   || err "post-iteration wrong exit without .yoke/ (got $rc)"
 
-# 19. post-iteration.sh: increments counter and snapshots
+# 19. post-iteration.sh: increments counter and snapshots (v0.6.0:
+# runtime files live under .yoke/runtime/).
 pushd "$tmpdir" > /dev/null
-out=$(bash "$PLUGIN_ROOT/hooks/post-iteration.sh" "$tmpdir/.yoke/acceptance-contract.md" 2>&1) || true
+out=$(bash "$PLUGIN_ROOT/hooks/post-iteration.sh" "$tmpdir/.yoke/acceptance-contracts/$SLUG.md" 2>&1) || true
 popd > /dev/null
 echo "$out" | grep -q "cycle=1" \
   && pass "post-iteration starts cycle counter at 1" \
   || err "post-iteration cycle counter wrong: $out"
 
 pushd "$tmpdir" > /dev/null
-bash "$PLUGIN_ROOT/hooks/post-iteration.sh" "$tmpdir/.yoke/acceptance-contract.md" > /dev/null
+bash "$PLUGIN_ROOT/hooks/post-iteration.sh" "$tmpdir/.yoke/acceptance-contracts/$SLUG.md" > /dev/null
 popd > /dev/null
-counter=$(cat "$tmpdir/.yoke/.cycle-counter")
+counter=$(cat "$tmpdir/.yoke/runtime/.cycle-counter")
 [ "$counter" = "2" ] \
   && pass "post-iteration counter monotonically increments" \
   || err "post-iteration counter did not increment: $counter"
 
-[ -f "$tmpdir/.yoke/.snapshots/cycle-1.yaml" ] \
+[ -f "$tmpdir/.yoke/runtime/.snapshots/cycle-1.yaml" ] \
   && pass "post-iteration creates snapshot file" \
   || err "post-iteration did not create snapshot"
 

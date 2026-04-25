@@ -26,7 +26,7 @@ tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
 
 mkdir -p "$tmpdir/.yoke"
-mkdir -p "$tmpdir/.yoke/.snapshots"
+mkdir -p "$tmpdir/.yoke/runtime/.snapshots"
 echo "yoke_version: 0.6.0" > "$tmpdir/.yoke/config.yaml"
 
 # 1a. No state files → no bound hit (exit 0)
@@ -41,7 +41,7 @@ popd > /dev/null
   || err "check-hard-bounds.sh wrong exit on empty state (got $rc)"
 
 # 1b. Cycle limit hit → exit 10
-echo "8" > "$tmpdir/.yoke/.cycle-counter"
+echo "8" > "$tmpdir/.yoke/runtime/.cycle-counter"
 pushd "$tmpdir" > /dev/null
 set +e
 bash "$PLUGIN_ROOT/hooks/check-hard-bounds.sh" > /dev/null 2>&1
@@ -61,7 +61,7 @@ overrides:
     timeout_seconds: 14400
     token_budget: 200000
 EOF
-echo "8" > "$tmpdir/.yoke/.cycle-counter"
+echo "8" > "$tmpdir/.yoke/runtime/.cycle-counter"
 pushd "$tmpdir" > /dev/null
 set +e
 bash "$PLUGIN_ROOT/hooks/check-hard-bounds.sh" > /dev/null 2>&1
@@ -74,8 +74,8 @@ popd > /dev/null
 
 # 1d. Timeout limit hit → exit 10 (set start time far in past, default timeout)
 echo "yoke_version: 0.6.0" > "$tmpdir/.yoke/config.yaml"
-echo "1" > "$tmpdir/.yoke/.cycle-counter"
-echo "$(($(date +%s) - 99999))" > "$tmpdir/.yoke/.loop-start"
+echo "1" > "$tmpdir/.yoke/runtime/.cycle-counter"
+echo "$(($(date +%s) - 99999))" > "$tmpdir/.yoke/runtime/.loop-start"
 pushd "$tmpdir" > /dev/null
 set +e
 bash "$PLUGIN_ROOT/hooks/check-hard-bounds.sh" > /dev/null 2>&1
@@ -87,7 +87,7 @@ popd > /dev/null
   || err "check-hard-bounds.sh wrong exit on timeout (got $rc)"
 
 # Reset state for subsequent tests
-rm -f "$tmpdir/.yoke/.cycle-counter" "$tmpdir/.yoke/.loop-start" "$tmpdir/.yoke/.token-budget-used"
+rm -f "$tmpdir/.yoke/runtime/.cycle-counter" "$tmpdir/.yoke/runtime/.loop-start" "$tmpdir/.yoke/runtime/.token-budget-used"
 
 # ------------------------------------------------------------------
 # 2. Trigger-4 escalation packet (DoD #2)
@@ -121,8 +121,8 @@ echo "$out" | grep -qE "unresolved_sprint_contract:[[:space:]]*\"c1\"" \
   || err "escalate.sh missing unresolved contract: $out"
 
 # Packet file persists
-[ -f "$tmpdir/.yoke/.trigger4-packet.yaml" ] \
-  && pass "escalate.sh writes packet to .yoke/.trigger4-packet.yaml" \
+[ -f "$tmpdir/.yoke/runtime/.trigger4-packet.yaml" ] \
+  && pass "escalate.sh writes packet to .yoke/runtime/.trigger4-packet.yaml" \
   || err "escalate.sh did not persist packet file"
 
 # 2c. escalate.sh hard-bound packet includes state (cycles, timeout, etc.)

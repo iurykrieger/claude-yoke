@@ -4,7 +4,8 @@ description: >
   Phase 2 — Technical specification. Turns an approved PRD into a Tech
   Spec divided into sprints with delivery objectives; each sprint has
   tasks described as use cases with explicit acceptance criteria. Saves
-  to `.yoke/tech-spec.md`. Pauses for Trigger 2 approval.
+  to `.yoke/tech-specs/<slug>.md`, where <slug> comes from
+  `.yoke/.current`. Pauses for Trigger 2 approval.
 argument-hint: ""
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash
 ---
@@ -39,16 +40,17 @@ proposed structure is wrong.
 
 ### 1. Pre-flight
 
+- Source `lib/working-memory/paths.sh`. All paths below resolve through `wm_*_path`.
 - Verify `.yoke/config.yaml` exists. If not, abort: "Run `/yoke:bootstrap` first."
-- Verify `.yoke/prd.md` exists AND is approved (header carries
+- Resolve the active task: `slug="$(wm_active_slug)"`. If `.yoke/.current` is missing, the helper aborts with "no active task" — surface that and instruct the user to run `/yoke:discover`.
+- Verify `wm_prd_path "$slug"` exists AND is approved (header carries
   `Status: approved`). If missing or unapproved, abort: "PRD missing
-  or unapproved. Run `/yoke:discover` first."
-- If `.yoke/tech-spec.md` already exists: offer overwrite, save as
-  `tech-spec-v2.md`, or abort.
+  or unapproved at <path>. Run `/yoke:discover` first."
+- If `wm_tech_spec_path "$slug"` already exists: offer overwrite (replace in place — same path) or abort. No `tech-spec-v2.md` shadowing — the per-task slug already provides versioning across tasks.
 
 ### 2. Read upstream context
 
-- Read approved `.yoke/prd.md` (read-only).
+- Read the approved PRD at `wm_prd_path "$slug"` (read-only).
 - Read `templates/tech-spec.md` for the artifact shape.
 - For topology templates, prior decisions, or applicable patterns from
   canonical memory, invoke `/yoke:ask`. Never read canonical memory
@@ -69,7 +71,7 @@ look like later sprints — confirm split?").
 
 ### 4. Tech Spec draft
 
-Draft `.yoke/tech-spec.md` matching `templates/tech-spec.md`:
+Ensure `.yoke/tech-specs/` exists (`mkdir -p "$(dirname "$(wm_tech_spec_path "$slug")")"`). Draft the spec at `wm_tech_spec_path "$slug"` (i.e., `.yoke/tech-specs/<slug>.md`) matching `templates/tech-spec.md`:
 
 - ≥ 1 sprint with a delivery objective (a coherent value increment).
 - ≥ 1 task per sprint, each described as a use case (Given / When /
@@ -99,32 +101,35 @@ Display the draft and ask the explicit Trigger-2 prompt:
 > required: `approve` / `revise <feedback>` / `back to PRD`.
 
 `back to PRD` aborts the skill and instructs the user to re-run
-`/yoke:discover`. The skill does not return until the user responds
-explicitly.
+`/yoke:discover` (which would create a *new* task with a new slug;
+the current task stays archived as PRD-only). The skill does not
+return until the user responds explicitly.
 
 ### 6. Output
 
 On `approve`:
-- `.yoke/tech-spec.md` written with `Status: approved`, `Approved by`,
-  `Approved at` headers.
+- `wm_tech_spec_path "$slug"` written with `Status: approved`,
+  `Approved by`, `Approved at` headers.
 - Print: "Tech Spec approved. Run `/yoke:acceptance-contract` to
   advance to Phase 3."
 
 ## Pre-conditions
 
 - `.yoke/config.yaml` exists.
-- `.yoke/prd.md` exists and is approved.
+- `.yoke/.current` exists and points at a valid slug.
+- `.yoke/prds/<slug>.md` exists and is approved.
 
 ## Output contract
 
-- Exit 0 with `.yoke/tech-spec.md` populated and approved.
-- Exit non-zero on missing/unapproved PRD, user abort, or revise loop
+- Exit 0 with `.yoke/tech-specs/<slug>.md` populated and approved.
+- Exit non-zero on missing `.current`, missing/unapproved PRD, user abort, or revise loop
   exhaustion.
 
 ## Anti-patterns
 
 - Do NOT proceed without an approved PRD — abort immediately.
-- Do NOT modify `.yoke/prd.md` (Phase 1's artifact). Read-only.
+- Do NOT modify the PRD (`.yoke/prds/<slug>.md` is Phase 1's artifact). Read-only.
+- Do NOT write to any flat path. All paths go through `lib/working-memory/paths.sh`.
 - Do NOT auto-approve.
 - Do NOT let any task have a vague acceptance criterion ("works
   correctly", "looks good") — every task must be binary and

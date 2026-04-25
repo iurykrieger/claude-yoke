@@ -2,8 +2,12 @@
 # query.sh — read canonical memory.
 #
 # Sprint 2: basic text grep. Sprint 5: mediated through the Orchestrator
-# skill, emits to .yoke/query-trace.md. Sprint 6: subgraph traversal for
-# progressive disclosure.
+# skill, writes a YAML trace entry to a path supplied by the caller.
+# v0.6.0: callers (skills/ask) resolve the trace path via
+# `lib/working-memory/paths.sh::wm_query_trace_path` so traces land at
+# `.yoke/query-traces/<slug>.md` (versioned per task). This script remains
+# path-agnostic — it writes wherever `--trace` points.
+# Sprint 6: subgraph traversal for progressive disclosure.
 #
 # Usage:
 #   query.sh [--trace <path>] [--invoker <name>] <term> [<canonical-repo-path>]

@@ -4,9 +4,10 @@ description: >
   Phase 3 — Acceptance Contract. Produces a binding artifact with BDD
   scenarios for every Tech-Spec task, validation fixtures, measurable
   functional requirements, applicable policies, and the sensors that
-  will run during Phase 4. Saves to `.yoke/acceptance-contract.md`.
-  Pauses for Trigger-3 ratification with the binding statement printed
-  verbatim.
+  will run during Phase 4. Saves to
+  `.yoke/acceptance-contracts/<slug>.md`, where <slug> comes from
+  `.yoke/.current`. Pauses for Trigger-3 ratification with the binding
+  statement printed verbatim.
 argument-hint: ""
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash
 ---
@@ -47,16 +48,16 @@ the Generator captures intent, you express measurable rigor:
 
 ### 1. Pre-flight
 
+- Source `lib/working-memory/paths.sh`. All paths below resolve through `wm_*_path`.
 - Verify `.yoke/config.yaml` exists. If not, abort: "Run
   `/yoke:bootstrap` first."
-- Verify `.yoke/prd.md` exists AND is approved (header carries
-  `Status: approved`). Abort otherwise: "PRD missing or unapproved.
-  Run `/yoke:discover` first."
-- Verify `.yoke/tech-spec.md` exists AND is approved. Abort
-  otherwise: "Tech Spec missing or unapproved. Run `/yoke:tech-spec`
-  first."
-- If `.yoke/acceptance-contract.md` already exists: offer overwrite,
-  save as `acceptance-contract-v2.md`, or abort.
+- Resolve the active task: `slug="$(wm_active_slug)"`. If `.yoke/.current` is missing, surface the helper's "no active task" error and instruct the user to run `/yoke:discover`.
+- Verify `wm_prd_path "$slug"` exists AND is approved. Abort otherwise:
+  "PRD missing or unapproved at <path>. Run `/yoke:discover` first."
+- Verify `wm_tech_spec_path "$slug"` exists AND is approved. Abort
+  otherwise: "Tech Spec missing or unapproved at <path>. Run
+  `/yoke:tech-spec` first."
+- If `wm_acceptance_contract_path "$slug"` already exists: offer overwrite (replace in place — same path) or abort. No `-v2.md` shadowing — the per-task slug already provides versioning across tasks.
 
 ### 2. Discover sensors from host CLAUDE.md
 
@@ -73,8 +74,8 @@ with empty sensors.
 
 ### 3. Read upstream artifacts
 
-- Read approved `.yoke/prd.md` (read-only).
-- Read approved `.yoke/tech-spec.md` (read-only).
+- Read the approved PRD at `wm_prd_path "$slug"` (read-only).
+- Read the approved Tech Spec at `wm_tech_spec_path "$slug"` (read-only).
 - Read `templates/acceptance-contract.md` for artifact shape.
 - For applicable regulatory policies (PCI-DSS, LGPD, HIPAA, etc.) and
   prior sensor calibrations: invoke `/yoke:ask`. Never read canonical
@@ -82,7 +83,9 @@ with empty sensors.
 
 ### 4. Acceptance Contract draft
 
-Draft `.yoke/acceptance-contract.md` matching
+Ensure `.yoke/acceptance-contracts/` exists (`mkdir -p`). Draft the
+Acceptance Contract at `wm_acceptance_contract_path "$slug"` (i.e.,
+`.yoke/acceptance-contracts/<slug>.md`) matching
 `templates/acceptance-contract.md`:
 
 - Header with `PRD:`, `Tech Spec:` paths and approval state.
@@ -119,28 +122,30 @@ The skill does not return until the user responds explicitly.
 ### 6. Output
 
 On `ratify`:
-- `.yoke/acceptance-contract.md` written with `Status: ratified`,
-  `Ratified by`, `Ratified at` headers.
+- `wm_acceptance_contract_path "$slug"` written with
+  `Status: ratified`, `Ratified by`, `Ratified at` headers.
 - Print: "Acceptance Contract ratified. Run `/yoke:implement` to
   advance to Phase 4."
 
 ## Pre-conditions
 
 - `.yoke/config.yaml` exists.
-- `.yoke/prd.md` exists and is approved.
-- `.yoke/tech-spec.md` exists and is approved.
+- `.yoke/.current` exists and points at a valid slug.
+- `.yoke/prds/<slug>.md` exists and is approved.
+- `.yoke/tech-specs/<slug>.md` exists and is approved.
 
 ## Output contract
 
-- Exit 0 with `.yoke/acceptance-contract.md` populated and ratified.
-- Exit non-zero on missing/unapproved upstream artifacts, sensor
+- Exit 0 with `.yoke/acceptance-contracts/<slug>.md` populated and ratified.
+- Exit non-zero on missing `.current`, missing/unapproved upstream artifacts, sensor
   discovery failure with no fallback answer from the user, or user
   abort.
 
 ## Anti-patterns
 
 - Do NOT proceed without an approved PRD AND an approved Tech Spec.
-- Do NOT modify `.yoke/prd.md` or `.yoke/tech-spec.md`. Read-only.
+- Do NOT modify the PRD or Tech Spec (Phase 1/2 artifacts). Read-only.
+- Do NOT write to any flat path. All paths go through `lib/working-memory/paths.sh`.
 - Do NOT auto-ratify. The binding statement must be printed verbatim
   and the user must respond explicitly.
 - Do NOT accept BDD scenarios without fixtures/sensors. Every
