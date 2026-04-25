@@ -79,9 +79,9 @@ fr_count=$(grep -cE '^- \[ \] \*\*FR-' "$ex_dir/.yoke/acceptance-contract.md" ||
 # ------------------------------------------------------------------
 # 2. README finalized (DoD #2)
 # ------------------------------------------------------------------
-grep -q "Version:.*1\.0\.0" README.md \
-  && pass "README.md states v1.0.0" \
-  || err "README.md not at v1.0.0"
+grep -q "Version:.*1\.1\.0" README.md \
+  && pass "README.md states v1.1.0" \
+  || err "README.md not at v1.1.0"
 
 grep -qF "/plugin marketplace add iurykrieger/yoke" README.md \
   && pass "README.md has install command" \
@@ -176,18 +176,21 @@ grep -qF "json.load" "$ci" \
 # 5. Marketplace artifacts at v1.0.0 (DoD #5)
 # ------------------------------------------------------------------
 ver=$(python3 -c "import json; print(json.load(open('.claude-plugin/plugin.json'))['version'])")
-[ "$ver" = "1.0.0" ] \
-  && pass "plugin.json version is 1.0.0" \
-  || err "plugin.json version is $ver (expected 1.0.0)"
+[ "$ver" = "1.1.0" ] \
+  && pass "plugin.json version is 1.1.0" \
+  || err "plugin.json version is $ver (expected 1.1.0)"
 
 mp_meta=$(python3 -c "import json; print(json.load(open('.claude-plugin/marketplace.json'))['metadata']['version'])")
 mp_plugin=$(python3 -c "import json; print(json.load(open('.claude-plugin/marketplace.json'))['plugins'][0]['version'])")
-[ "$mp_meta" = "1.0.0" ] && [ "$mp_plugin" = "1.0.0" ] \
-  && pass "marketplace.json metadata + plugin both at 1.0.0" \
-  || err "marketplace.json versions: metadata=$mp_meta plugin=$mp_plugin (expected 1.0.0)"
+[ "$mp_meta" = "1.1.0" ] && [ "$mp_plugin" = "1.1.0" ] \
+  && pass "marketplace.json metadata + plugin both at 1.1.0" \
+  || err "marketplace.json versions: metadata=$mp_meta plugin=$mp_plugin (expected 1.1.0)"
 
+grep -qE "^## \[1\.1\.0\]" CHANGELOG.md \
+  && pass "CHANGELOG.md has 1.1.0 entry" \
+  || err "CHANGELOG.md missing 1.1.0 entry"
 grep -qE "^## \[1\.0\.0\]" CHANGELOG.md \
-  && pass "CHANGELOG.md has 1.0.0 entry" \
+  && pass "CHANGELOG.md preserves 1.0.0 entry" \
   || err "CHANGELOG.md missing 1.0.0 entry"
 
 # ------------------------------------------------------------------
@@ -217,21 +220,23 @@ skill_count=$(find skills -mindepth 2 -name 'SKILL.md' | wc -l | tr -d ' ')
   && pass "skills/ has $skill_count SKILL.md files (≥9)" \
   || err "skills/ has $skill_count SKILL.md files (expected ≥9)"
 
-# 4 agent files present (post Sprint-5 amendment: Orchestrator moved to skills/orchestrator/)
+# 3 runtime subagent files present (v1.1 — runtime-only-agents refactor;
+# spec-phase Generator/Validator subagents eliminated).
 agent_count=$(find agents -name '*.md' | wc -l | tr -d ' ')
-[ "$agent_count" -ge 4 ] \
-  && pass "agents/ has $agent_count agent files (≥4 after Orchestrator-as-skill amendment)" \
-  || err "agents/ has $agent_count files (expected ≥4)"
+[ "$agent_count" -eq 3 ] \
+  && pass "agents/ has exactly 3 files (v1.1 runtime-only-agents topology)" \
+  || err "agents/ has $agent_count files (expected exactly 3)"
 
-# Orchestrator skill at new location
-[ -f "skills/orchestrator/SKILL.md" ] \
-  && pass "skills/orchestrator/SKILL.md exists (PRD v0 amendment honored)" \
-  || err "skills/orchestrator/SKILL.md missing"
+# Orchestrator skill REMOVED in v1.1 (canonize logic moved into agents/orchestrator.md;
+# mediator logic moved into skills/ask/).
+[ ! -f "skills/orchestrator/SKILL.md" ] \
+  && pass "skills/orchestrator/SKILL.md removed (v1.1 retires the Orchestrator skill)" \
+  || err "skills/orchestrator/SKILL.md still present (should be removed in v1.1)"
 
-# Old orchestrator placeholder is deleted
-[ ! -f "agents/orchestrator.md" ] \
-  && pass "agents/orchestrator.md deleted (Sprint 5 deletion verified)" \
-  || err "agents/orchestrator.md still present (should be deleted in Sprint 5)"
+# Orchestrator runtime subagent present at agents/orchestrator.md (v1.1 promotion).
+[ -f "agents/orchestrator.md" ] \
+  && pass "agents/orchestrator.md present (v1.1 runtime subagent)" \
+  || err "agents/orchestrator.md missing (should be the runtime Orchestrator subagent in v1.1)"
 
 # ------------------------------------------------------------------
 # 8. Full audit-gate regression — every prior sprint smoke must pass

@@ -79,6 +79,29 @@ input parameter `mode=canonize`.
   - Regulatory → routed to Compliance reviewers; never auto-merge.
 - This is the only mode in which canonical-memory writes happen.
 
+## Impact classification rules
+
+The Orchestrator (canonize mode) classifies every candidate's impact
+before invoking `propose-write.sh`. Classification is keyword-based
+and operates on `tolower(topic + " " + decision)` of the candidate:
+
+| Impact | Trigger keywords | PR behavior |
+| :--- | :--- | :--- |
+| `regulatory` | `regulatory`, `gdpr`, `lgpd`, `pci`, `hipaa`, `soc2`, `compliance` | `auto-merge: never`; routed to Compliance via CODEOWNERS in the canonical repo |
+| `high` | `policy`, `must` (word-bounded), `require` | `auto-merge: never`; synchronous human approval required |
+| `medium` | `template`, `convention`, `naming` | PR comment announces veto window (default 24 h); auto-merge after window closes |
+| `low` | (default — no high/medium/regulatory keyword match) | Auto-merge after CI checks |
+
+The classification is intentionally conservative: keyword overlap
+with a higher class wins. For example, "compliance template"
+classifies as `regulatory` (regulatory > medium).
+
+Veto-window length and auto-merge defaults are configurable via
+`.yoke/config.yaml` overrides under `model_c.veto_window_hours`.
+`propose-write.sh` rejects unknown impact strings with exit code 4.
+Operator overrides (manually editing the candidate's impact value)
+are audited via the canonical-memory PR history.
+
 ## Behaviors
 
 ### Always

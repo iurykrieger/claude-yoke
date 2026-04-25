@@ -359,20 +359,20 @@ elapsed=$((end - start))
 # ------------------------------------------------------------------
 # 7. Orchestrator skill declares impact-classification rules (DoD #7 craftsmanship)
 # ------------------------------------------------------------------
-grep -qF "Impact classification rules" skills/orchestrator/SKILL.md \
-  && pass "skills/orchestrator/SKILL.md documents impact-classification rules (craftsmanship gate)" \
-  || err "Orchestrator skill missing impact-classification rules"
+grep -qF "Impact classification rules" agents/orchestrator.md \
+  && pass "agents/orchestrator.md documents impact-classification rules (craftsmanship gate)" \
+  || err "Orchestrator subagent missing impact-classification rules"
 
-# Each impact-class token must appear in the Orchestrator skill (multi-line table).
+# Each impact-class token must appear in the Orchestrator subagent (multi-line table).
 all_classes=true
 for cls in regulatory high medium low; do
-  if ! grep -q "\`${cls}\`" skills/orchestrator/SKILL.md; then
+  if ! grep -q "\`${cls}\`" agents/orchestrator.md; then
     all_classes=false
   fi
 done
 $all_classes \
-  && pass "Orchestrator skill enumerates all 4 impact classes (regulatory, high, medium, low)" \
-  || err "Orchestrator skill missing one or more impact classes"
+  && pass "Orchestrator subagent enumerates all 4 impact classes (regulatory, high, medium, low)" \
+  || err "Orchestrator subagent missing one or more impact classes"
 
 # Architecture doc has Model C table
 grep -qF "Model C" docs/architecture.md \
