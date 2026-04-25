@@ -4,100 +4,164 @@ modules: []
 applies_to: [agents, skills, prompts]
 confidence: validated
 ---
-# Pattern: Three Agentified Roles
+# Pattern: Three Agentified Roles (Runtime Subagents)
 
 <!-- vibeflow:auto:start -->
 ## What
-Yoke structures the entire flow around three agentified roles with disjoint
-functional objectives: **Generator** produces spec artifacts, **Validator**
-judges conformance against determinable signals, and **Orchestrator** mediates
-canonical memory, coordinates runtime, and canonizes learnings. Read and write
-authority for each role is declared explicitly — there is no implicit access.
+Yoke structures runtime around three agentified roles with disjoint
+functional objectives: **Generator** writes implementation code,
+**Validator** judges conformance against determinable signals, and
+**Orchestrator** mediates canonical memory live during cycles, monitors
+for divergence, and owns the canonization handoff at loop termination.
+Read and write authority for each role is declared explicitly — there
+is no implicit access.
+
+Spec-phase work (Phases 1–3) is performed by **skills** with embedded
+persona prompts (Generator persona in `/yoke:discover` and
+`/yoke:tech-spec`; Validator persona in `/yoke:acceptance-contract`).
+Skills do not spawn subagents at spec phase. The human is the
+adversary via Triggers 1/2/3. *Skills deliberate; subagents adapt.*
 
 ## Where
-Conceptually, every task touches all three roles. Generator and Validator are
-also instantiated at runtime as the Implementation Agent and the Validation
-Agent. The Orchestrator is a singleton — the only role with write authority
-on canonical memory.
+Conceptually, every task touches all three roles. Generator and
+Validator runtime subagents are spawned by `/yoke:implement` in Phase
+4; the Orchestrator subagent is spawned alongside them every cycle and
+once more at loop termination (canonize mode). Spec-phase Generator
+and Validator personas are inline in their respective skills, not
+separate subagents.
 
 ## The Pattern
 
-### Generator
-Objective: turn declared intent into structured artifacts that describe what
-and how something should be built.
-- Produces: `prd.md` (Phase 1) and `tech-spec.md` (Phase 2).
-- At runtime: spawns an **Implementation Agent** that iterates over the Tech Spec, writes `progress.md`, and consumes structured sensor feedback from the Validation Agent.
-- Reads canonical memory: only via the Orchestrator.
+### Generator (runtime subagent)
+Objective: turn the approved Tech Spec + Acceptance Contract into code
+that satisfies every Contract criterion.
+- Spawned: by `/yoke:implement` every cycle, alongside Validator and
+  Orchestrator (single concurrent Task batch).
+- Writes: `.yoke/progress.md` every cycle; `.yoke/contracts.md`
+  jointly with the Validator on consensus events.
+- Reads: upstream artifacts read-only; sensor output from
+  `verify-acceptance.sh`; `.yoke/query-trace.md` for subgraph entries
+  the Orchestrator surfaced.
+- Reads canonical memory: never directly. Consumes
+  Orchestrator-surfaced subgraph via `.yoke/query-trace.md`.
 - Writes canonical memory: never.
-- Writes working memory: freely, inside `prd.md`, `tech-spec.md`, `progress.md`.
 
-### Validator
-Objective: judge conformance against determinable signals (declared policies,
-approved fixtures, computational sensors, calibrated inferential sensors).
-- Produces: `acceptance-contract.md` (Phase 3), binding once approved by the human.
-- At runtime: spawns a **Validation Agent** that runs all available sensors, runs an inferential semantic judge when computational sensors cannot judge, validates progress emitted by the Implementation Agent, and emits structured pass / fail / divergence verdicts.
-- Reads canonical memory: only via the Orchestrator.
+### Validator (runtime subagent)
+Objective: judge conformance against the binding Acceptance Contract
+using declared sensors and structured verdicts.
+- Spawned: by `/yoke:implement` every cycle, alongside Generator and
+  Orchestrator.
+- Writes: `.yoke/contracts.md` jointly with the Generator on
+  consensus events. Emits structured JSON verdicts that the next cycle
+  reads.
+- Reads: sensor output from `verify-acceptance.sh`; upstream artifacts
+  read-only; `.yoke/query-trace.md`.
+- Reads canonical memory: never directly. Consumes
+  Orchestrator-surfaced subgraph via `.yoke/query-trace.md`.
 - Writes canonical memory: never.
-- Writes working memory: freely, inside `acceptance-contract.md`, `contracts.md`.
 
-### Orchestrator
-Three responsibilities sharing one role for operational coherence:
-1. **Upstream canonical-memory mediator.** Every read of canonical memory by Generator or Validator passes through the Orchestrator, which applies progressive disclosure and emits query traces that feed future canonization.
-2. **Runtime coordinator.** Spawns the Implementation Agent and the Validation Agent, observes their interaction, persists sprint contracts in `contracts.md`, escalates divergence to the user (Trigger 4), and stops the loop when hard bounds are hit.
-3. **Canonizer (post-implementation).** Reads working memory, applies the canonization criteria, and proposes writes to canonical memory under Model C.
+### Orchestrator (runtime subagent — sole canonical-memory writer)
+Three runtime modes:
 
-The Orchestrator is the only writer of canonical memory and is load-bearing
-during Phase 4 — frequent state checkpointing and a recovery protocol from
-`progress.md` + `contracts.md` mitigate this single point of failure.
+1. **Consult.** Per cycle, alongside Generator and Validator. Reads
+   canonical memory via `lib/canonical-memory/query.sh` and surfaces
+   relevant subgraph entries to `.yoke/query-trace.md` (progressive
+   disclosure — never the full memory).
+2. **Monitor.** Per cycle. Detects Generator↔Validator divergence and
+   sprint-contract / Acceptance-Contract contradictions; on detection
+   invokes `lib/ralph-loop/escalate.sh` to emit the Trigger-4 packet.
+3. **Canonize.** Once at loop termination. Applies the five-criterion
+   cascade via `lib/canonical-memory/canonization-criteria.sh`,
+   classifies impact per Model C, and proposes writes via
+   `lib/canonical-memory/propose-write.sh`. The only canonical-memory
+   write path during the loop.
+
+The Orchestrator is the **sole writer of canonical memory** under
+Model C; no other agent or skill may propose writes; no other agent
+may write directly. Bypass detection: any read that does not leave a
+trace entry in `.yoke/query-trace.md` is a bypass.
+
+### Spec-phase personas (inline in skills, no subagents)
+- **Generator persona** lives inline in `skills/discover/SKILL.md` and
+  `skills/tech-spec/SKILL.md`. The skill drives the dialogue; the
+  user-facing Claude executes.
+- **Validator persona** lives inline in
+  `skills/acceptance-contract/SKILL.md`. Same model.
+- Both skills route canonical-memory reads through `/yoke:ask`
+  (a thin skill calling `lib/canonical-memory/query.sh` directly).
 
 ## Rules
-- Every read of canonical memory passes through the Orchestrator. There is no direct path.
-- Only the Orchestrator writes to canonical memory, and only with Model C applied.
-- Generator and Validator write freely to working memory inside their canonical files.
-- An Implementation Agent is **not** the Generator. It is a runtime instance — same skill base, different context.
-- A Validation Agent is **not** the Validator. Same relationship.
-- Implementation Agent and Validation Agent must have separate prompts and contexts — the adversarial separation between generation and validation is by design.
-- The Orchestrator loads only the subgraph of canonical memory relevant to the current phase/task. Never the whole memory.
+- Every read of canonical memory passes through `/yoke:ask` (spec
+  phases) or the Orchestrator subagent (runtime). There is no other
+  read path.
+- Only the Orchestrator subagent writes to canonical memory, and
+  only in canonize mode at loop termination, and only with Model C
+  applied.
+- Generator and Validator (runtime subagents) write freely to working
+  memory inside their declared file ownership.
+- The three runtime subagents are spawned in **a single concurrent
+  Task batch per cycle** (1 assistant turn, 3 Task calls). Per-agent
+  file-ownership contracts prevent within-batch write collisions.
+- The runtime subagents must never share context. Adversarial
+  separation between code generation and code judgment is by design
+  — communicate only via working-memory files and
+  `verify-acceptance.sh` output.
+- Canonical-memory writes happen only at loop termination. Mid-loop
+  writes are forbidden.
+- Spec-phase skills do not spawn subagents. Their `allowed-tools`
+  must not include `Task`.
 
 ## Examples from this codebase
-> Repository is empty. Expected layout once implementation begins:
 
 ```
 agents/
-├── generator/
-│   ├── prompt.md          # role-level prompt
-│   └── skills/            # PRD, Tech Spec generation
-├── validator/
-│   ├── prompt.md
-│   └── skills/            # Acceptance Contract generation
-├── orchestrator/
-│   ├── prompt.md          # role + canonization criteria
-│   └── skills/            # canonical-memory-read, canonization
-└── runtime/
-    ├── implementation-agent/  # runtime instance of Generator
-    └── validation-agent/      # runtime instance of Validator
+├── generator.md          # runtime subagent — code generation
+├── validator.md          # runtime subagent — sensor execution + verdicts
+└── orchestrator.md       # runtime subagent — consult + monitor + canonize
+
+skills/
+├── discover/SKILL.md            # Generator persona inline (no subagent spawn)
+├── tech-spec/SKILL.md           # Generator persona inline
+├── acceptance-contract/SKILL.md # Validator persona inline
+├── ask/SKILL.md                 # thin canonical-memory query skill
+├── implement/SKILL.md           # spawns 3 subagents per cycle in parallel
+└── canonize/SKILL.md            # manual escape hatch (spawns Orchestrator subagent)
 ```
 
 <!-- vibeflow:auto:end -->
 
 ## Anti-patterns
 - Generator or Validator writing directly to canonical memory — breaks Model C, pollutes doctrine.
-- Generator or Validator reading canonical memory directly, bypassing the Orchestrator — breaks progressive disclosure, context explodes.
+- Generator or Validator reading canonical memory directly, bypassing Orchestrator/`/yoke:ask` — breaks progressive disclosure, context explodes.
 - A single agent doing both generation and validation — recreates the self-evaluation bias the role split exists to mitigate.
-- Implementation Agent and Validation Agent sharing prompt/context — breaks adversariality.
+- Generator and Validator subagents sharing prompt/context — breaks adversariality.
 - Treating the Orchestrator as a passive router instead of a stateful coordinator with checkpointing — runtime failures lose recovery state.
+- Spawning the runtime subagents sequentially across multiple turns instead of in a single concurrent batch — defeats parallelism.
+- Mid-loop canonical-memory writes — defeats Model C governance windows.
+- Spec-phase skills spawning subagents via the Task tool — adds latency without rigor; Triggers 1/2/3 with the human are the adversary at spec phase.
 
 ## Implementation Mapping
 
-From `yoke-implementation-plan.md` (2026-04-24) — concrete artifact paths
-for each role:
+From `yoke-implementation-plan.md` (2026-04-24, refreshed
+2026-04-25 — see `.vibeflow/decisions.md` "Three runtime subagents
+only") — concrete artifact paths for each role:
 
-- **Generator** → `agents/generator.md` (memory scope: `project`; tools: read project files, `/yoke:ask`, write `.yoke/prd.md` and `.yoke/tech-spec.md`).
-- **Validator** → `agents/validator.md` (memory scope: `project`; tools: read PRD + Tech Spec, `/yoke:ask`, parse host `CLAUDE.md`, write `.yoke/acceptance-contract.md`).
-- **Orchestrator** → `agents/orchestrator.md` (three operating modes — mediator, coordinator, canonizer — declared explicitly when active; memory scope: `project` + canonical repo).
-- **Implementation Agent** → `agents/implementation.md` (memory scope: `task`; writes `.yoke/progress.md` and `.yoke/contracts.md`; never writes `.yoke/acceptance-contract.md`).
-- **Validation Agent** → `agents/validation.md` (executes `hooks/verify-acceptance.sh`; emits structured JSON verdicts; co-writes `.yoke/contracts.md`).
+- **Generator** → `agents/generator.md` (runtime subagent; memory
+  scope: `task`; tools: read project files + host code; write
+  `.yoke/progress.md` + `.yoke/contracts.md`).
+- **Validator** → `agents/validator.md` (runtime subagent; memory
+  scope: `task`; runs `hooks/verify-acceptance.sh`; emits structured
+  JSON verdicts; co-writes `.yoke/contracts.md`).
+- **Orchestrator** → `agents/orchestrator.md` (runtime subagent;
+  three modes — consult, monitor, canonize; memory scope: `task` +
+  canonical substrate; tools: `lib/canonical-memory/*.sh`,
+  `lib/ralph-loop/escalate.sh`).
+- **Spec-phase Generator persona** → `skills/discover/SKILL.md`,
+  `skills/tech-spec/SKILL.md` (inline, no subagent).
+- **Spec-phase Validator persona** →
+  `skills/acceptance-contract/SKILL.md` (inline, no subagent).
 
-The Generator/Implementation and Validator/Validation distinctions are
-materialized as **five separate subagent files**, not as runtime modes of
-three agents (decision 2026-04-24 — Five subagents).
+The Generator/Validator/Orchestrator distinction is materialized as
+**three subagent files**, instantiated only at runtime
+(decision 2026-04-25 — Three runtime subagents only; supersedes
+2026-04-24 — Five subagents).
