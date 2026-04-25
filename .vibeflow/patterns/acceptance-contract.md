@@ -15,9 +15,9 @@ Any change during Phase 4 requires a fresh ratification round — sprint
 contracts cannot override it.
 
 ## Where
-Lives as `acceptance-contract.md` in working memory of the task. Consumed by
-the Validation Agent during Phase 4 and by the Orchestrator when judging
-loop stop conditions.
+Lives as `acceptance-contract.md` in working memory of the task. Consumed
+by the Validator runtime subagent during Phase 4 and by the Orchestrator
+runtime subagent when judging loop stop conditions.
 
 ## The Pattern
 

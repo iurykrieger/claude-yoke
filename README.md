@@ -4,19 +4,22 @@
 
 [![CI](https://github.com/iurykrieger/yoke/actions/workflows/ci.yml/badge.svg)](https://github.com/iurykrieger/yoke/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Yoke v1.0](https://img.shields.io/badge/yoke-v1.0.0-FFB000)](CHANGELOG.md)
+[![Yoke v1.1](https://img.shields.io/badge/yoke-v1.1.0-FFB000)](CHANGELOG.md)
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 **Manifesto:** [`yoke.md`](https://github.com/iurykrieger/yoke/blob/main/yoke.md)
 **License:** MIT
 
 ## What
 
-Yoke couples two adversarial agents (Implementation and Validation) inside an
-envelope defined by a binding human contract, forcing them to converge or
-escalate to human arbitration. It pairs that runtime loop with a pre-runtime
-binding spec (PRD → Tech Spec → Acceptance Contract) and governed canonical
-memory (Model C — contextual write authority by impact class).
+Yoke spawns three runtime subagents (Generator, Validator, Orchestrator) in
+parallel inside an envelope defined by a binding human contract, forcing
+the adversarial Generator and Validator to converge or escalate to human
+arbitration. It pairs that runtime loop with a pre-runtime binding spec
+(PRD → Tech Spec → Acceptance Contract — driven by skills with embedded
+persona, not subagents) and governed canonical memory (Model C —
+contextual write authority by impact class; written only at loop
+termination).
 
 The name comes from the harness piece that couples two animals so they pull
 together in the same direction. That is the central image of the framework.
@@ -52,18 +55,21 @@ Architecture summary: [`docs/architecture.md`](docs/architecture.md).
 Worked example: [`examples/greenfield-payment-service/`](examples/greenfield-payment-service/).
 Trouble? See [`docs/troubleshooting.md`](docs/troubleshooting.md).
 
-## Status — v1.0.0
+## Status — v1.1.0
 
-This is the **first stable release**. All six manifesto phases are
-operational:
+This is the **runtime-only-agents refactor** of v1.0. All six manifesto
+phases remain operational; agent topology simplified to three runtime
+subagents (Generator, Validator, Orchestrator) spawned in parallel.
+Spec phases are now skill-only.
 
-- ✅ **Phase 1–2 (binding spec)** — `/yoke:discover`, `/yoke:tech-spec` with explicit human gates
-- ✅ **Phase 3 (binding contract)** — `/yoke:acceptance-contract` with sensor discovery from host `CLAUDE.md`
-- ✅ **Phase 4 (adversarial loop)** — `/yoke:implement` with hard bounds (cycles + timeout + budget) and Trigger-4 escalation packet
-- ✅ **Phase 5 (canonization)** — `/yoke:canonize` with full Model C (low / medium / high / regulatory)
+- ✅ **Phase 1–2 (binding spec)** — `/yoke:discover`, `/yoke:tech-spec` skills with embedded Generator persona; explicit human gates (Triggers 1, 2)
+- ✅ **Phase 3 (binding contract)** — `/yoke:acceptance-contract` skill with embedded Validator persona; sensor discovery from host `CLAUDE.md`; Trigger 3 binding ratification
+- ✅ **Phase 4 (adversarial loop)** — `/yoke:implement` spawns 3 runtime subagents in parallel per cycle; hard bounds; Trigger-4 escalation packet
+- ✅ **Phase 5 (canonization)** — auto-canonize at `/yoke:implement` loop termination via Orchestrator subagent; full Model C (low / medium / high / regulatory); `/yoke:canonize` as manual escape hatch
 - ✅ **Phase 6 (drift sensing)** — `/yoke:drift-sense` with daily GitHub Actions schedule
 - ✅ **Five distinct human triggers** — non-coalescable schemas
-- ✅ **Progressive disclosure** — subgraph queries via `/yoke:ask --subgraph-depth N`
+- ✅ **Progressive disclosure** — subgraph queries via `/yoke:ask --subgraph-depth N` (thin skill calling `query.sh` directly)
+- ✅ **Skills deliberate; subagents adapt** — new architectural invariant codified in v1.1
 
 What's planned for v1.1+:
 

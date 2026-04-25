@@ -8,21 +8,23 @@ confidence: validated
 
 <!-- vibeflow:auto:start -->
 ## What
-Yoke distinguishes two memory layers with disjoint lifetimes, authorities and
-purposes. **Working memory** is per-task, free-write for the agents that own
-the artifact, lives in the project repo. **Canonical memory** is permanent,
-versioned, written only by the Orchestrator under Model C, and lives in an
-external substrate accessed over MCP.
+Yoke distinguishes two memory layers with disjoint lifetimes,
+authorities and purposes. **Working memory** is per-task, free-write
+for the agents that own the artifact, lives in the project repo.
+**Canonical memory** is permanent, versioned, written only by the
+Orchestrator subagent (in canonize mode at loop termination) under
+Model C, and lives in an external substrate accessed over MCP.
 
-The split centralizes **canonization**, not memory. Agents write freely to
-working memory; only what survives as organizational doctrine goes through
-the Orchestrator.
+The split centralizes **canonization**, not memory. Agents write
+freely to working memory; only what survives as organizational
+doctrine goes through the Orchestrator.
 
 ## Where
-Working memory is materialized as a fixed set of files in the project repo,
-one set per task. Canonical memory is materialized as markdown files with
-YAML frontmatter forming a graph in an external repo (e.g., Claude Bedrock
-substrate); MCP exposes it for read access.
+Working memory is materialized as a fixed set of files in the
+project repo, one set per task. Canonical memory is materialized as
+markdown files with YAML frontmatter forming a graph in an external
+repo (e.g., Claude Bedrock substrate); MCP exposes it for read
+access.
 
 ## The Pattern
 
@@ -30,23 +32,30 @@ substrate); MCP exposes it for read access.
 
 | File | Writer | Readers | Purpose |
 | :--- | :--- | :--- | :--- |
-| `prd.md` | Generator | all | Phase 1 ratified artifact |
-| `tech-spec.md` | Generator | all | Phase 2 ratified artifact |
-| `acceptance-contract.md` | Validator | all | Phase 3 binding artifact |
-| `progress.md` | Implementation Agent | Validation Agent, Orchestrator | implementation state across cycles |
-| `contracts.md` | both Agents (jointly) | both + Orchestrator | accumulated sprint contracts |
+| `prd.md` | `/yoke:discover` skill (Generator persona) | all | Phase 1 ratified artifact |
+| `tech-spec.md` | `/yoke:tech-spec` skill (Generator persona) | all | Phase 2 ratified artifact |
+| `acceptance-contract.md` | `/yoke:acceptance-contract` skill (Validator persona) | all | Phase 3 binding artifact |
+| `progress.md` | Generator (runtime subagent) | Validator + Orchestrator | implementation state across cycles |
+| `contracts.md` | Generator + Validator (jointly, on consensus) | both + Orchestrator | accumulated sprint contracts |
+| `query-trace.md` | `/yoke:ask` skill + Orchestrator (consult mode) | all | mediated canonical-memory queries |
 | free notes | any agent | any agent | rough context, no schema |
 
-Lifetime: task / sprint / PR scope. May extend until Orchestrator
-consolidation. Location: project repo (gitignored or in a `.yoke/` folder by
-convention — to be decided).
+Lifetime: task / sprint / PR scope. Location: `.yoke/` in the host
+project repo, created by `/yoke:bootstrap`.
 
 ### Canonical memory (permanent, organization-wide)
 
-- Writer: only the Orchestrator (Model C applied).
-- Readers: every agent, but always **mediated** by the Orchestrator (progressive disclosure).
-- Lifetime: permanent, versioned (git-native via the substrate repo).
-- Location: external substrate (Claude Bedrock or any MCP-accessible equivalent).
+- Writer: only the **Orchestrator subagent**, only in **canonize
+  mode**, only at **loop termination** (Model C applied).
+- Readers: every agent, but always **mediated**:
+  - Spec phases (1–3) read via `/yoke:ask` (a thin skill calling
+    `lib/canonical-memory/query.sh`).
+  - Runtime (Phase 4) reads via the Orchestrator subagent's
+    consult mode (also calls `query.sh`, also writes the trace).
+- Lifetime: permanent, versioned (git-native via the substrate
+  repo).
+- Location: external substrate (Claude Bedrock or any
+  MCP-accessible equivalent).
 
 #### Per-item format
 - Body: markdown.
@@ -62,29 +71,51 @@ convention — to be decided).
   - `applies_to: [...]`
   - `contradicts_with: [...]`
 
-The graph is what makes progressive disclosure operationally viable — the
-Orchestrator loads only the relevant subgraph per phase/task.
+The graph is what makes progressive disclosure operationally viable
+— the Orchestrator loads only the relevant subgraph per phase/task.
 
 #### Scope of content (non-exhaustive)
-Ratified policies (RFC 2119, semver), consolidated domain specs, harness
-templates by topology, resolved divergence patterns, structured ADRs, skills
-and how-tos, sensor calibrations (known false positives/negatives), state
-and trajectory of business projects.
+Ratified policies (RFC 2119, semver), consolidated domain specs,
+harness templates by topology, resolved divergence patterns,
+structured ADRs, skills and how-tos, sensor calibrations (known
+false positives/negatives), state and trajectory of business
+projects.
 
-The scope is intentionally open. **Governance does not filter what may be
-proposed; it filters when and how each proposition becomes doctrine.**
-Model C applies by impact class of the write, not by content type.
+The scope is intentionally open. **Governance does not filter what
+may be proposed; it filters when and how each proposition becomes
+doctrine.** Model C applies by impact class of the write, not by
+content type.
+
+### Canonical-memory access timing
+- **Consult (live, during runtime).** The Orchestrator subagent
+  reads canonical memory every cycle and surfaces relevant subgraph
+  entries to `.yoke/query-trace.md`. The Generator and Validator
+  consume the trace as freshest-snapshot input.
+- **Canonize (write, at loop termination only).** The
+  Orchestrator's canonize mode is the only canonical-memory write
+  path. Mid-loop writes are forbidden — they would bypass Model C
+  governance windows.
 
 ## Rules
-- No agent except the Orchestrator writes to canonical memory. Ever.
-- No agent reads canonical memory directly. Reads are always mediated by the Orchestrator.
-- Working memory files are write-owned by the role that produces the artifact (table above). Other roles only read.
-- Every canonical-memory item carries the mandatory metadata frontmatter. Items without traceability are pruning candidates.
-- Canonical memory writes go through PRs on the substrate repo. Rollback is `git revert`.
-- Working memory is free-write within its files — no Model C, no veto windows. The blast radius is one task.
+- No agent except the Orchestrator subagent writes to canonical
+  memory. Ever.
+- No agent reads canonical memory directly. Reads are always
+  mediated — via `/yoke:ask` (spec phases) or via the Orchestrator
+  subagent's consult mode (runtime).
+- Working memory files are write-owned by the role that produces
+  the artifact (table above). Other roles only read.
+- Every canonical-memory item carries the mandatory metadata
+  frontmatter. Items without traceability are pruning candidates.
+- Canonical memory writes go through PRs on the substrate repo.
+  Rollback is `git revert`.
+- Working memory is free-write within its files — no Model C, no
+  veto windows. The blast radius is one task.
+- Mid-loop canonical-memory writes are forbidden. Canonization
+  fires only at `/yoke:implement` loop termination via the
+  Orchestrator's canonize mode.
 
 ## Examples from this codebase
-> Repository is empty. Expected canonical-memory item layout:
+> Expected canonical-memory item layout:
 
 ```markdown
 ---
@@ -112,13 +143,16 @@ listed in `policies/pii-fields.md` before writing the log line.
 Working-memory layout for a task:
 
 ```
-.yoke/tasks/2026-04-24-payment-reversal/
+.yoke/
 ├── prd.md
 ├── tech-spec.md
 ├── acceptance-contract.md
 ├── progress.md
 ├── contracts.md
-└── notes/
+├── query-trace.md
+├── config.yaml
+└── .snapshots/
+    └── cycle-N.yaml
 ```
 
 <!-- vibeflow:auto:end -->
@@ -129,22 +163,38 @@ Working-memory layout for a task:
 - Reusing working memory across tasks — corrupts isolation; ephemeral by definition.
 - Canonical-memory items without `traceability` — undeletable junk over time.
 - Working memory in a different repo than the project — recovery and audit become harder, no benefit.
+- Mid-loop canonical-memory writes — bypasses Model C governance windows.
+- Agents reading canonical memory by `cat`/`grep`/cloning the substrate — bypasses progressive disclosure and bypass detection.
 
 ## Implementation Mapping
 
-From `yoke-implementation-plan.md` (2026-04-24) — concrete locations:
+From `yoke-implementation-plan.md` (2026-04-24, refreshed 2026-04-25
+— see `.vibeflow/decisions.md` "Consult live, canonize on
+termination") — concrete locations:
 
-**Working memory** — directory `.yoke/` at the host project root, created by
-`/yoke:bootstrap`:
-- `.yoke/prd.md`, `.yoke/tech-spec.md`, `.yoke/acceptance-contract.md`, `.yoke/progress.md`, `.yoke/contracts.md`
-- `.yoke/query-trace.md` — log of every mediated canonical-memory query (Sprint 5+)
-- `.yoke/config.yaml` — per-project Yoke config (hard-bound overrides, canonical-repo URL)
+**Working memory** — directory `.yoke/` at the host project root,
+created by `/yoke:bootstrap`:
 
-**Canonical memory** — a **separate git repository** created or pointed-to
-during bootstrap. Substrate is git-native (PR-based ratification, Decision
-2026-04-24 git-native protocol). It is NOT a submodule of the project repo.
-The bootstrap skill offers `gh repo create` if the canonical repo does not
-yet exist.
+- `.yoke/prd.md`, `.yoke/tech-spec.md`,
+  `.yoke/acceptance-contract.md`, `.yoke/progress.md`,
+  `.yoke/contracts.md`
+- `.yoke/query-trace.md` — log of every mediated canonical-memory
+  query (written by `/yoke:ask` and the Orchestrator subagent's
+  consult mode)
+- `.yoke/config.yaml` — per-project Yoke config (hard-bound
+  overrides, canonical-repo URL)
+- `.yoke/.snapshots/cycle-N.yaml` — per-cycle
+  `verify-acceptance.sh` snapshots
+
+**Canonical memory** — a **separate git repository** created or
+pointed-to during bootstrap. Substrate is git-native (PR-based
+ratification, Decision 2026-04-24 git-native protocol). It is NOT a
+submodule of the project repo. The bootstrap skill offers
+`gh repo create` if the canonical repo does not yet exist.
 
 **Plugin templates** for both layers live in `templates/`:
-- `templates/canonical-entry-frontmatter.yaml` — mandatory rippability metadata (Decision 2026-04-24 rippability) + relationship edges (`depends_on`, `supersedes`, `applies_to`, `contradicts_with`).
+
+- `templates/canonical-entry-frontmatter.yaml` — mandatory
+  rippability metadata (Decision 2026-04-24 rippability) +
+  relationship edges (`depends_on`, `supersedes`, `applies_to`,
+  `contradicts_with`).

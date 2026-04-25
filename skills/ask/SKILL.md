@@ -1,26 +1,28 @@
 ---
 name: ask
 description: >
-  Mediated query against canonical memory (Orchestrator skill in Mediator
-  mode). Every query writes to `.yoke/query-trace.md` for audit and future
-  canonization signal. Returns matching entries (text grep in v0.5.0;
-  subgraph traversal in Sprint 6). Generator and Validator subagents must
-  use this skill — never read the canonical-memory repo directly.
+  Read-only canonical-memory query. Calls lib/canonical-memory/query.sh
+  directly and writes the query, result count, and invoker to
+  .yoke/query-trace.md for audit and bypass detection. Returns matching
+  entries (text grep in v0.5.0; subgraph traversal in Sprint 6).
+  Spec-phase skills (`/yoke:discover`, `/yoke:tech-spec`,
+  `/yoke:acceptance-contract`) and the runtime Orchestrator subagent
+  must use this skill — never read the canonical-memory repo directly.
 argument-hint: "<term>"
 allowed-tools: Bash, Read, Write
 ---
 
-# /yoke:ask — mediated canonical-memory query (v0.5.0)
+# /yoke:ask — canonical-memory query (thin skill, v1.1.0)
 
-Read-only access to canonical memory, mediated by the Orchestrator skill
-in Mediator mode. **Generator and Validator must use this skill — never
-read the canonical-memory repo directly.**
+Read-only access to canonical memory. **Spec-phase skills must use
+this skill — never read the canonical-memory repo directly.**
 
-> **Sprint-5 amendment.** Sprint 2 shipped a basic text-grep version of
-> this skill that wrote nothing to working memory. Sprint 5 routes the
-> read through the Orchestrator (Mediator mode) and writes a query trace
-> to `.yoke/query-trace.md`. Sprint 6 will add subgraph traversal
-> (progressive disclosure).
+> **v1.1.0 refresh.** Earlier versions routed this skill through the
+> Orchestrator-skill in mediator mode. With Orchestrator promoted to a
+> runtime subagent (consult mode handles canonical-memory reads during
+> the loop), `/yoke:ask` becomes a thin direct-call skill: it invokes
+> `lib/canonical-memory/query.sh` and writes the query trace itself.
+> The "Orchestrator skill in mediator mode" concept is retired.
 
 ## Pre-conditions
 
@@ -29,23 +31,24 @@ read the canonical-memory repo directly.**
 
 ## Process
 
-### 1. Mode declaration
+### 1. Trace mode declaration
 
 Print on stdout (also written to `.yoke/query-trace.md`):
 
 ```
-[orchestrator:mediator] query="<term>" subgraph_depth=1
+[ask] query="<term>" subgraph_depth=1
 ```
 
-Subgraph depth in v0.5.0 is implicitly 1 (no graph traversal yet — text
-grep only). Sprint 6 makes this configurable.
+Subgraph depth in v1.1.0 is implicitly 1 (no graph traversal yet —
+text grep only). Sprint 6 makes this configurable.
 
 ### 2. Locate canonical memory
 
 - Read `canonical_memory.url` from `.yoke/config.yaml`.
 - If empty: emit `"Canonical memory not configured."` and exit 0.
-  Append a `[orchestrator:mediator] not-configured` line to the trace.
-- Clone or update the cached repo at `~/.cache/yoke/canonical/<slug>/`.
+  Append a `[ask] not-configured` line to the trace.
+- Clone or update the cached repo at
+  `~/.cache/yoke/canonical/<slug>/`.
 
 ### 3. Run text grep with deterministic trace writing
 
@@ -59,8 +62,8 @@ The script:
   timestamp, mode, query, match count, capping flag, and invoker.
 - Returns matches as `<file>:<line>:<excerpt>`.
 
-If `.yoke/query-trace.md` doesn't exist, the script initializes it with
-a `# Query trace` header.
+If `.yoke/query-trace.md` doesn't exist, the script initializes it
+with a `# Query trace` header.
 
 ### 4. Empty-state UX
 
@@ -74,22 +77,28 @@ a `# Query trace` header.
 
 ### 5. Output
 
-- Print matches in the format `- <file>:<line> — <excerpt>` (one per line).
-- Cap output at 20 matches by default. Append a truncation note if more.
+- Print matches in the format `- <file>:<line> — <excerpt>` (one per
+  line).
+- Cap output at 20 matches by default. Append a truncation note if
+  more.
 
 ## Detecting bypass attempts
 
-Bypass detection in v0.5.0 is conservative:
+Every legitimate canonical-memory read writes a trace entry to
+`.yoke/query-trace.md`. Absence of a trace entry for a claimed read
+is the bypass signal:
 
-- Every legitimate query through `/yoke:ask` writes a trace entry.
-- If a Generator/Validator claims to have consulted canonical memory
-  but no `[orchestrator:mediator]` trace entry exists for that query,
-  that is a bypass.
-- A future audit hook (Sprint 8) will scan the trace for inconsistencies.
+- If a spec-phase skill or the Orchestrator subagent claims to have
+  consulted canonical memory but no `[ask]` or
+  `[orchestrator:consult]` trace entry exists for that query, that
+  is a bypass.
+- A future audit hook (Sprint 8) will scan the trace for
+  inconsistencies.
 
 ## Anti-patterns
 
-- Do NOT skip the trace write. Trace absence is how bypass is detected.
+- Do NOT skip the trace write. Trace absence is how bypass is
+  detected.
 - Do NOT load the entire canonical memory into context. The grep is
   bounded; results are capped at 20.
 - Do NOT bypass `/yoke:ask` to read the substrate directly. That
@@ -100,5 +109,6 @@ Bypass detection in v0.5.0 is conservative:
 
 - `.vibeflow/patterns/memory-model.md`.
 - `.vibeflow/patterns/model-c-governance.md`.
-- `skills/orchestrator/SKILL.md` — Mediator mode.
+- `agents/orchestrator.md` — runtime canonical-memory access (consult
+  mode).
 - `lib/canonical-memory/query.sh`.
