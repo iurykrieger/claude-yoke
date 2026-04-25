@@ -53,14 +53,34 @@ fast-track to a 2-round dialogue (summarize understanding + 1–2 challenges
 ### 4. Draft and review
 
 The Generator drafts `.yoke/prd.md` per `templates/prd.md`. The skill
-displays the draft to the user and asks the explicit Trigger-1 prompt:
+displays the draft to the user and renders the **shared approval menu**
+defined in `templates/approval-menu.md`. The menu is the surface for
+**Trigger 1 — PRD approval**, which blocks Phase 2.
 
-> **Trigger 1 — PRD approval.** This blocks Phase 2. Decision required:
-> `approve` / `revise <feedback>` / `restart`.
+Inputs passed to the menu:
 
-The skill does not return until the user responds explicitly. `revise`
-loops back to the Generator for another iteration. `restart` discards the
-draft and re-runs the dialogue.
+- `artifact_path`: `.yoke/prd.md`
+- `artifact_label`: `PRD`
+- `next_skill`: `/yoke:tech-spec`
+- `language`: the language detected for the dialogue
+- `binding_statement`: empty (Trigger 1 is not a binding gate)
+
+The menu renders, every time, in this order: (a) the open-questions
+detection block (scans the PRD body for the `## Open questions` section
+and inline `TODO:` / `TBD` / `FIXME:` / `<placeholder>` markers per the
+template's deterministic rule), then (b) the 4-option prompt mapping to
+the internal verbs `approve_and_continue` / `approve` / `reject` /
+`revise`. These verbs map 1:1 to today's schema: `approve` covers
+options 1 and 2; `restart` ↔ `reject`; `revise` ↔ option 4.
+
+The skill does not return until the user replies. `revise` loops back to
+the Generator with the multi-line feedback. `reject` prompts for a
+single secondary confirmation before discarding the draft. `approve`
+records approval and stops. `approve_and_continue` records approval and
+chains into `/yoke:tech-spec` via the `Skill` tool in the same turn —
+**but** if the open-questions detection returned at least one match, the
+template requires a `yes` / `no` warning confirmation before chaining;
+on `no`, the skill records approval and stops (collapses to `approve`).
 
 ### 5. Idempotency
 
@@ -72,11 +92,24 @@ If `.yoke/prd.md` already existed when the skill started:
 
 ### 6. Output
 
-On approve:
+On `approve` or `approve_and_continue`:
 
 - `.yoke/prd.md` is written and approved (header carries `Status: approved`,
   `Approved by`, `Approved at`).
-- Print: "PRD approved. Run `/yoke:tech-spec` to advance to Phase 2."
+- On `approve_and_continue` (after the open-questions warning, when
+  applicable, returns `yes`): the skill invokes `/yoke:tech-spec` via the
+  `Skill` tool in the same turn. No manual paste is required from the user.
+- **Fallback when `Skill` tool is unavailable.** Some runtimes (older Claude
+  Code versions, non-Claude harnesses) do not expose the `Skill` tool to a
+  running skill body. The skill MUST detect availability before rendering
+  the menu and, when unavailable, render option 1 with the suffix
+  `(manual: run /yoke:tech-spec after this step)`. On selection of option
+  1 in fallback mode, the skill records approval, prints
+  "PRD approved. Run `/yoke:tech-spec` to advance to Phase 2.", and exits
+  cleanly. This preserves today's behavior verbatim on degraded runtimes.
+
+On `reject` (after secondary confirmation): the artifact is marked rejected
+(no `Status: approved` is written) and the skill exits cleanly.
 
 ## Pre-conditions
 
@@ -100,4 +133,5 @@ On approve:
 - `.vibeflow/patterns/phase-flow.md` (Phase 1).
 - `.vibeflow/patterns/roles.md` (Generator).
 - `.vibeflow/patterns/human-triggers.md` (Trigger 1).
+- `templates/approval-menu.md` (shared menu shape, detection rule, fallback).
 - `agents/generator.md`.

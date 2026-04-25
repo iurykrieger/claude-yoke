@@ -56,19 +56,59 @@ The Generator drafts `.yoke/tech-spec.md` matching `templates/tech-spec.md`:
 
 ### 4. Review
 
-The skill displays the draft and asks the explicit Trigger-2 prompt:
+The skill displays the draft and renders the **shared approval menu**
+defined in `templates/approval-menu.md`. The menu is the surface for
+**Trigger 2 — Tech Spec approval**, which blocks Phase 3.
 
-> **Trigger 2 — Tech Spec approval.** This blocks Phase 3. Decision required:
-> `approve` / `revise <feedback>` / `back to PRD`.
+Inputs passed to the menu:
 
-`back to PRD` aborts the skill and instructs the user to re-run `/yoke:discover`.
+- `artifact_path`: `.yoke/tech-spec.md`
+- `artifact_label`: `Tech Spec`
+- `next_skill`: `/yoke:acceptance-contract`
+- `language`: the language detected for the dialogue
+- `binding_statement`: empty (Trigger 2 is not a binding gate)
+
+The menu renders, every time, in this order: (a) the open-questions
+detection block (scans the Tech Spec body for inline `TODO:` / `TBD` /
+`FIXME:` / `<placeholder>` markers per the template's deterministic rule
+— `templates/tech-spec.md` does not carry an `## Open questions` section
+today, so detection relies on inline markers), then (b) the 4-option
+prompt mapping to internal verbs `approve_and_continue` / `approve` /
+`reject` / `revise`. These verbs map 1:1 to today's schema: `approve`
+covers options 1 and 2; `back to PRD` is replaced by `reject` plus the
+template's secondary confirmation (which on `yes` discards the draft
+and instructs the user to re-run `/yoke:discover`); `revise` ↔ option 4.
+
+The skill does not return until the user replies. `revise` loops back to
+the Generator with the multi-line feedback. `reject` prompts for the
+secondary confirmation; on `yes`, the skill aborts and instructs the
+user to re-run `/yoke:discover`. `approve` records approval and stops.
+`approve_and_continue` records approval and chains into
+`/yoke:acceptance-contract` via the `Skill` tool in the same turn —
+**but** if the open-questions detection returned at least one match, the
+template requires a `yes` / `no` warning confirmation before chaining;
+on `no`, the skill records approval and stops (collapses to `approve`).
 
 ### 5. Output
 
-On approve:
+On `approve` or `approve_and_continue`:
 
-- `.yoke/tech-spec.md` is written and approved.
-- Print: "Tech Spec approved. Run `/yoke:acceptance-contract` to advance to Phase 3."
+- `.yoke/tech-spec.md` is written and approved (header carries
+  `Status: approved`, `Approved by`, `Approved at`).
+- On `approve_and_continue` (after the open-questions warning, when
+  applicable, returns `yes`): the skill invokes `/yoke:acceptance-contract`
+  via the `Skill` tool in the same turn. No manual paste is required from
+  the user.
+- **Fallback when `Skill` tool is unavailable.** Some runtimes do not
+  expose the `Skill` tool to a running skill body. The skill MUST detect
+  availability before rendering the menu and, when unavailable, render
+  option 1 with the suffix `(manual: run /yoke:acceptance-contract after
+  this step)`. On selection of option 1 in fallback mode, the skill
+  records approval, prints "Tech Spec approved. Run
+  `/yoke:acceptance-contract` to advance to Phase 3.", and exits cleanly.
+
+On `reject` (after secondary confirmation): the artifact is marked
+rejected (no `Status: approved` is written) and the skill exits cleanly.
 
 ## Pre-conditions
 
@@ -92,4 +132,5 @@ On approve:
 - `.vibeflow/patterns/phase-flow.md` (Phase 2).
 - `.vibeflow/patterns/roles.md` (Generator).
 - `.vibeflow/patterns/human-triggers.md` (Trigger 2).
+- `templates/approval-menu.md` (shared menu shape, detection rule, fallback).
 - `agents/generator.md`.

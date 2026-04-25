@@ -79,27 +79,77 @@ The Validator drafts `.yoke/acceptance-contract.md` matching
 
 ### 5. Review (Trigger 3 — binding)
 
-The skill displays the draft and prints the binding statement verbatim,
-then asks the explicit Trigger-3 prompt:
+The skill displays the draft and **prints the binding statement verbatim**
+from the contract — this text is doctrinally distinct from the menu and
+must be rendered as-is, before the menu, every time. The binding
+statement defines what the user is ratifying; the menu is the choice of
+how to act on it. Embedding the binding statement inside an option label
+would dilute both.
 
-> **Trigger 3 — Acceptance Contract ratification (BINDING).** Approving
-> this contract operationally defines "done" as "passes every criterion
-> below". Changes during runtime require a fresh ratification round.
-> Decision required: `ratify` / `revise <feedback>` / `back to Tech Spec`.
+After the binding statement, the skill renders the **shared approval
+menu** defined in `templates/approval-menu.md`. The menu is the surface
+for **Trigger 3 — Acceptance Contract ratification (BINDING)**, which
+blocks Phase 4.
 
-The skill does not return until the user responds explicitly.
-`back to Tech Spec` aborts the skill and instructs the user to re-run
-`/yoke:tech-spec`.
+Inputs passed to the menu:
+
+- `artifact_path`: `.yoke/acceptance-contract.md`
+- `artifact_label`: `Acceptance Contract`
+- `next_skill`: `/yoke:implement`
+- `language`: the language detected for the dialogue
+- `binding_statement`: the verbatim binding-statement block that the
+  skill just printed (passed so the template's rendering order can place
+  it at position 1, ahead of the open-questions block).
+
+The menu renders, every time, in this order: (a) the binding statement
+verbatim, (b) the open-questions detection block (scans the Acceptance
+Contract body for inline `TODO:` / `TBD` / `FIXME:` / `<placeholder>`
+markers per the template's deterministic rule —
+`templates/acceptance-contract.md` does not carry an `## Open questions`
+section today, so detection relies on inline markers), then (c) the
+4-option prompt mapping to internal verbs `approve_and_continue` /
+`approve` / `reject` / `revise`. These verbs map 1:1 to today's schema:
+`approve` (and `approve_and_continue`) replaces `ratify`; `back to Tech
+Spec` is replaced by `reject` plus the template's secondary confirmation
+(which on `yes` discards the draft and instructs the user to re-run
+`/yoke:tech-spec`); `revise` ↔ option 4.
+
+The skill does not return until the user replies. `revise` loops back to
+the Validator with the multi-line feedback. `reject` prompts for the
+secondary confirmation; on `yes`, the skill aborts and instructs the
+user to re-run `/yoke:tech-spec`. `approve` records ratification and
+stops. `approve_and_continue` records ratification and chains into
+`/yoke:implement` via the `Skill` tool in the same turn — **but** if the
+open-questions detection returned at least one match, the template
+requires a `yes` / `no` warning confirmation before chaining; on `no`,
+the skill records ratification and stops (collapses to `approve`).
+
+The binding semantics are preserved verbatim: ratifying the Contract
+operationally defines "done" as "passes every criterion below". Changes
+during runtime require a fresh ratification round.
 
 ### 6. Output
 
-On `ratify`:
+On `approve` or `approve_and_continue`:
 
 - `.yoke/acceptance-contract.md` written with `Status: ratified`,
   `Ratified by`, `Ratified at` headers.
-- Print: "Acceptance Contract ratified. Run `/yoke:implement` to advance
-  to Phase 4 (note: basic loop only in v0.4.0; full hard bounds + Model C
-  ship in v0.6.0+)."
+- On `approve_and_continue` (after the open-questions warning, when
+  applicable, returns `yes`): the skill invokes `/yoke:implement` via
+  the `Skill` tool in the same turn. No manual paste is required from
+  the user.
+- **Fallback when `Skill` tool is unavailable.** Some runtimes do not
+  expose the `Skill` tool to a running skill body. The skill MUST detect
+  availability before rendering the menu and, when unavailable, render
+  option 1 with the suffix `(manual: run /yoke:implement after this
+  step)`. On selection of option 1 in fallback mode, the skill records
+  ratification, prints "Acceptance Contract ratified. Run
+  `/yoke:implement` to advance to Phase 4 (note: basic loop only in
+  v0.4.0; full hard bounds + Model C ship in v0.6.0+).", and exits
+  cleanly.
+
+On `reject` (after secondary confirmation): the artifact is marked
+rejected (no `Status: ratified` is written) and the skill exits cleanly.
 
 ## Pre-conditions
 
@@ -131,6 +181,8 @@ On `ratify`:
 - `.vibeflow/patterns/acceptance-contract.md`.
 - `.vibeflow/patterns/sensors.md`.
 - `.vibeflow/patterns/human-triggers.md` (Trigger 3).
+- `templates/approval-menu.md` (shared menu shape, detection rule, fallback;
+  binding statement is rendered before the menu, not inside it).
 - `agents/validator.md`.
 - `lib/sensors/discover-from-claude-md.sh`.
 - `hooks/verify-acceptance.sh`.
