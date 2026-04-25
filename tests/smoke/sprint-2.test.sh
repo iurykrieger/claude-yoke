@@ -102,65 +102,46 @@ for skill in discover tech-spec; do
   fi
 done
 
-# 8. /yoke:ask is the thin canonical-memory query skill (calls query.sh
-#    directly per v1.1 — DoD #3 of runtime-only-agents-part-2).
+# 8. /yoke:ask is the canonical-memory adaptive read skill
+#    (Part 3 of the bedrock canonical-memory port retired direct query.sh
+#    invocation — the skill now resolves the memory via Part 1's
+#    resolve-memory.sh and reads the filesystem directly).
 ask="skills/ask/SKILL.md"
 ask_allowed=$(awk '/^allowed-tools:/{print; exit}' "$ask" || true)
 if echo "$ask_allowed" | grep -qw "Task"; then
-  err "/yoke:ask allowed-tools includes Task (should be thin direct-call skill)"
+  err "/yoke:ask allowed-tools includes Task (should not spawn subagents)"
 else
-  pass "/yoke:ask allowed-tools excludes Task (thin skill)"
+  pass "/yoke:ask allowed-tools excludes Task"
 fi
-grep -q "lib/canonical-memory/query.sh" "$ask" \
-  && pass "/yoke:ask invokes query.sh directly" \
-  || err "/yoke:ask does not invoke query.sh"
+grep -q "resolve-memory.sh" "$ask" \
+  && pass "/yoke:ask resolves the active memory via Part 1's lib" \
+  || err "/yoke:ask does not reference resolve-memory.sh"
 grep -qE 'query-traces/<slug>\.md|wm_query_trace_path' "$ask" \
   && pass "/yoke:ask writes to versioned .yoke/query-traces/<slug>.md" \
   || err "/yoke:ask does not write query trace"
+grep -qiE 'never.*(clone|pull|fetch)' "$ask" \
+  && pass "/yoke:ask declares the no-clone invariant (Part 3 DoD-1)" \
+  || err "/yoke:ask missing no-clone invariant"
 
-# 9. query.sh runs against an empty test directory (returns empty-state)
+# 9. Memory resolution lib + scaffold helper from Part 1 are present
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
-if out=$(bash lib/canonical-memory/query.sh "anything" "$tmpdir" 2>&1); then
-  if echo "$out" | grep -qi "no entries yet"; then
-    pass "query.sh empty-state UX correct"
-  else
-    err "query.sh did not emit empty-state message: $out"
-  fi
-else
-  err "query.sh failed against empty dir: $out"
-fi
+[ -x lib/canonical-memory/registry.sh ] || [ -f lib/canonical-memory/registry.sh ] \
+  && pass "lib/canonical-memory/registry.sh present" \
+  || err "registry.sh missing"
+[ -x lib/canonical-memory/resolve-memory.sh ] || [ -f lib/canonical-memory/resolve-memory.sh ] \
+  && pass "lib/canonical-memory/resolve-memory.sh present" \
+  || err "resolve-memory.sh missing"
 
-# 10. query.sh finds matches in a populated test directory
-mkdir -p "$tmpdir/policies"
-cat > "$tmpdir/policies/example.md" <<'EOF'
----
-ratified_at: 2026-01-01
-impact_level: low
----
-# Example policy
-This is a test entry.
-EOF
-if out=$(bash lib/canonical-memory/query.sh "test entry" "$tmpdir" 2>&1); then
-  if echo "$out" | grep -q "policies/example.md"; then
-    pass "query.sh finds matches in populated repo"
-  else
-    err "query.sh did not find expected match: $out"
-  fi
-else
-  err "query.sh failed against populated dir: $out"
-fi
+# 10. /yoke:ask declares the no-fabrication rule
+grep -qiE 'never fabricate|do not fabricate|never invent' "$ask" \
+  && pass "/yoke:ask declares no-fabrication rule" \
+  || err "/yoke:ask missing no-fabrication declaration"
 
-# 11. query.sh returns "no matches" with a specific count for missing terms
-if out=$(bash lib/canonical-memory/query.sh "absent-term-xyz" "$tmpdir" 2>&1); then
-  if echo "$out" | grep -qi "no matches"; then
-    pass "query.sh no-matches UX correct"
-  else
-    err "query.sh did not emit no-matches message: $out"
-  fi
-else
-  err "query.sh failed for missing term: $out"
-fi
+# 11. /yoke:ask caps entity reads at 15 (progressive disclosure)
+grep -qE '15 entit|cap.*15|≤[[:space:]]*15' "$ask" \
+  && pass "/yoke:ask caps entity reads at 15 (progressive disclosure)" \
+  || err "/yoke:ask missing 15-entity cap"
 
 # 12. v1.1 anti-scope: spec-phase Generator/Validator subagent files MUST
 #     NOT exist in agents/ (they were eliminated). agents/ contains only

@@ -154,17 +154,18 @@ input `mode=canonize`:
   and the loop's termination reason
   (`merge-ready` | `divergence` | `contract-conflict` |
   `hard-bound` | `infeasibility`).
-- Orchestrator (in canonize mode) invokes
+- Orchestrator (in canonize mode) invokes `/yoke:preserve` via the
+  Skill tool, passing the active task's `.yoke/<task-slug>/` path
+  and `--from-orchestrator`. `/yoke:preserve` invokes
   `lib/canonical-memory/canonization-criteria.sh` to apply the
-  five-criterion cascade, classifies impact per Model C, and calls
-  `lib/canonical-memory/propose-write.sh` for each candidate that
-  passes 1–4 and is non-contradicting (5).
+  five-criterion cascade, reads each candidate's `impact_level`,
+  and opens PRs per Model C.
 - Per Model C: low-impact PRs auto-merge after CI; medium PRs open
   with veto window; high-impact and regulatory PRs surface for
   synchronous human review without blocking the skill's exit.
 - This is the **only** canonical-memory write path during the loop.
   Mid-loop Orchestrator invocations (consult / monitor mode) never
-  invoke `propose-write.sh`.
+  invoke `/yoke:preserve`.
 
 Exit with the loop's termination reason and a one-line summary of
 PRs opened (count + URLs).
@@ -172,8 +173,10 @@ PRs opened (count + URLs).
 ### 4. Termination paths
 
 - **All criteria pass** → loop returns MERGE-READY; canonize handoff
-  fires. Print: "Merge-ready. Canonization summary: <count> PRs
-  opened." Pointer to `/yoke:canonize` only as a re-run escape hatch.
+  fires (Orchestrator invokes `/yoke:preserve` via the Skill tool).
+  Print: "Merge-ready. Canonization summary: <count> PRs opened."
+  `/yoke:preserve` can also be invoked manually for re-canonization
+  (e.g. after a model upgrade or to re-evaluate stale working memory).
 - **Sprint contract contradicts Acceptance Contract** → invoke
   `lib/ralph-loop/escalate.sh --reason contract-conflict`; emits
   Trigger-4 packet; canonize handoff still fires (with termination
@@ -213,7 +216,8 @@ see `.vibeflow/patterns/human-triggers.md`.
 - Do NOT let the subagents share context. Each Task call passes only
   the explicit inputs listed in step 2; communication is via
   working-memory files.
-- Do NOT invoke `lib/canonical-memory/propose-write.sh` mid-loop.
+- Do NOT invoke `/yoke:preserve` mid-loop. Canonization fires only
+  at termination via the Orchestrator's canonize-mode handoff.
   Canonical-memory writes happen only in the termination handoff
   (step 3).
 - Do NOT skip `hooks/verify-acceptance.sh` between cycles — sensor
@@ -236,8 +240,11 @@ see `.vibeflow/patterns/human-triggers.md`.
   `agents/orchestrator.md`.
 - `lib/ralph-loop/orchestrate.sh`,
   `lib/ralph-loop/escalate.sh`,
-  `lib/canonical-memory/query.sh`,
-  `lib/canonical-memory/canonization-criteria.sh`,
-  `lib/canonical-memory/propose-write.sh`.
+  `lib/canonical-memory/canonization-criteria.sh` (invoked from
+  inside `/yoke:preserve`).
+- `skills/ask/SKILL.md` (canonical-memory reads — Part 3 of the
+  bedrock canonical-memory port retired `query.sh`).
+- `skills/preserve/SKILL.md` (canonical-memory writes — Part 4
+  retired `propose-write.sh`).
 - `hooks/pre-implementation.sh`, `hooks/post-iteration.sh`,
   `hooks/verify-acceptance.sh`, `hooks/check-hard-bounds.sh`.

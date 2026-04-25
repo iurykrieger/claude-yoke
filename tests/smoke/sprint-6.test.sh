@@ -153,7 +153,7 @@ trigger_schemas=$(mktemp)
   echo "T2: $(grep -oE 'Trigger 2[^\.]*' skills/tech-spec/SKILL.md | head -1)"
   echo "T3: $(grep -oE 'Trigger 3[^\.]*' skills/acceptance-contract/SKILL.md | head -1)"
   echo "T4: $(grep -oE 'Trigger-4 packet|trigger: 4' lib/ralph-loop/escalate.sh | head -1)"
-  echo "T5: $(grep -oE 'yoke-proposal' lib/canonical-memory/propose-write.sh | head -1)"
+  echo "T5: $(grep -oE 'yoke-proposal' skills/preserve/SKILL.md | head -1)"
 } > "$trigger_schemas"
 
 distinct_count=$(sort -u "$trigger_schemas" | wc -l | tr -d ' ')
@@ -175,93 +175,40 @@ grep -qF "ratify" skills/acceptance-contract/SKILL.md && grep -qF "back to Tech 
   || err "Trigger-3 schema incomplete"
 
 # ------------------------------------------------------------------
-# 4. Medium-impact veto window (DoD #4)
+# 4. Medium / 5. High / regulatory routing (DoD #4-5)
+#
+# Part 4 of the bedrock canonical-memory port retired
+# `lib/canonical-memory/propose-write.sh`. Impact-class routing now
+# lives inside `skills/preserve/SKILL.md` Phase 3. The original
+# behavioral tests (running propose-write.sh with synthetic
+# candidates) are deleted and replaced with documentation checks
+# against the new SKILL.md.
 # ------------------------------------------------------------------
-cat > "$tmpdir/medium-candidate.yaml" <<'EOF'
-- id: cMed
-  impact: medium
-  content_path: "templates/foo.md"
-  reason: "template refinement"
-  content_excerpt: "test medium"
-EOF
+pre="skills/preserve/SKILL.md"
 
-# Default 24h
-out=$(bash lib/canonical-memory/propose-write.sh --candidate "$tmpdir/medium-candidate.yaml" --repo-url "https://github.com/test/canonical" --dry-run 2>&1) || true
-echo "$out" | grep -q "impact-medium" \
-  && pass "propose-write.sh applies impact-medium label for medium impact" \
-  || err "propose-write.sh missing impact-medium label: $out"
-echo "$out" | grep -qE "veto window 24h" \
-  && pass "propose-write.sh medium-impact uses default 24h veto window" \
-  || err "propose-write.sh medium veto window not 24h: $out"
-echo "$out" | grep -qE "would post veto-window comment" \
-  && pass "propose-write.sh medium-impact posts veto-window comment" \
-  || err "propose-write.sh missing veto-window comment: $out"
+grep -qE 'impact.*medium|`medium`' "$pre" \
+  && pass "$pre documents medium-impact class" \
+  || err "$pre missing medium-impact documentation"
+grep -qE 'veto window' "$pre" \
+  && pass "$pre documents the veto-window flow for medium-impact" \
+  || err "$pre missing veto-window documentation"
+grep -qE 'veto_window_hours' "$pre" \
+  && pass "$pre references the veto_window_hours config override" \
+  || err "$pre missing veto_window_hours reference"
 
-# Override veto window via config
-cat > "$tmpdir/.yoke/config.yaml" <<'EOF'
-yoke_version: 0.6.0
-canonical_memory:
-  url: "https://github.com/test/canonical"
-overrides:
-  model_c:
-    veto_window_hours: 48
-EOF
-pushd "$tmpdir" > /dev/null
-out=$(bash "$PLUGIN_ROOT/lib/canonical-memory/propose-write.sh" --candidate "$tmpdir/medium-candidate.yaml" --dry-run 2>&1) || true
-popd > /dev/null
-echo "$out" | grep -qE "veto window 48h" \
-  && pass "propose-write.sh medium-impact honors veto_window_hours override (48h)" \
-  || err "propose-write.sh did not honor veto-window override: $out"
+grep -qE 'impact.*high|`high`' "$pre" \
+  && pass "$pre documents high-impact class" \
+  || err "$pre missing high-impact documentation"
+grep -qE 'no-auto-merge|auto-merge: never|never auto-merge' "$pre" \
+  && pass "$pre documents no-auto-merge for high/regulatory" \
+  || err "$pre missing no-auto-merge documentation"
 
-# ------------------------------------------------------------------
-# 5. High-impact and regulatory paths (DoD #5)
-# ------------------------------------------------------------------
-cat > "$tmpdir/high-candidate.yaml" <<'EOF'
-- id: cHigh
-  impact: high
-  content_path: "policies/foo.md"
-  reason: "new MUST policy"
-  content_excerpt: "test high"
-EOF
-
-out=$(bash lib/canonical-memory/propose-write.sh --candidate "$tmpdir/high-candidate.yaml" --repo-url "https://github.com/test/canonical" --dry-run 2>&1) || true
-echo "$out" | grep -q "impact-high" \
-  && pass "propose-write.sh applies impact-high label for high impact" \
-  || err "propose-write.sh missing impact-high label"
-echo "$out" | grep -qE "auto-merge: never" \
-  && pass "propose-write.sh high-impact uses auto-merge: never" \
-  || err "propose-write.sh high impact missing auto-merge: never: $out"
-
-cat > "$tmpdir/regulatory-candidate.yaml" <<'EOF'
-- id: cReg
-  impact: regulatory
-  content_path: "policies/regulatory/lgpd-art-46.md"
-  reason: "LGPD compliance"
-  content_excerpt: "test regulatory"
-EOF
-out=$(bash lib/canonical-memory/propose-write.sh --candidate "$tmpdir/regulatory-candidate.yaml" --repo-url "https://github.com/test/canonical" --dry-run 2>&1) || true
-echo "$out" | grep -q "impact-regulatory" \
-  && pass "propose-write.sh applies impact-regulatory label" \
-  || err "propose-write.sh missing impact-regulatory label"
-echo "$out" | grep -qE "Compliance.*CODEOWNERS|CODEOWNERS.*Compliance" \
-  && pass "propose-write.sh regulatory-impact mentions CODEOWNERS routing" \
-  || err "propose-write.sh missing CODEOWNERS note: $out"
-
-# Unknown impact still rejected (exit 4)
-cat > "$tmpdir/bad-candidate.yaml" <<'EOF'
-- id: cBad
-  impact: weird
-  content_path: "x.md"
-  reason: "test"
-  content_excerpt: "x"
-EOF
-set +e
-bash lib/canonical-memory/propose-write.sh --candidate "$tmpdir/bad-candidate.yaml" --dry-run > /dev/null 2>&1
-rc=$?
-set -e
-[ "$rc" -eq 4 ] \
-  && pass "propose-write.sh exits 4 on unknown impact value" \
-  || err "propose-write.sh did not reject unknown impact (got $rc)"
+grep -qE 'regulatory' "$pre" \
+  && pass "$pre documents regulatory-impact class" \
+  || err "$pre missing regulatory-impact documentation"
+grep -qE 'CODEOWNERS' "$pre" \
+  && pass "$pre routes regulatory writes via CODEOWNERS" \
+  || err "$pre missing CODEOWNERS routing documentation"
 
 # ------------------------------------------------------------------
 # 6. Progressive disclosure subgraph (DoD #6)
@@ -323,38 +270,12 @@ echo "$out" | grep -q "policies/d.md" \
   && err "graph.sh subgraph included d.md (should be unrelated)" \
   || pass "graph.sh subgraph correctly excludes unrelated d.md"
 
-# 6c. query.sh --subgraph-depth N produces subgraph output.
-# Use a query term unique to a.md so the seed-from-first-match is predictable.
-echo "unique-seed-token-XYZ-a-only" >> "$canon_repo/policies/a.md"
-out=$(bash lib/canonical-memory/query.sh --subgraph-depth 2 "unique-seed-token-XYZ-a-only" "$canon_repo" 2>&1) || true
-# Subgraph from a.md (depth 2): a → b → c
-if echo "$out" | grep -q "policies/a.md" && echo "$out" | grep -q "policies/b.md" && echo "$out" | grep -q "policies/c.md"; then
-  pass "query.sh --subgraph-depth returns subgraph from seed (a, b, c reached)"
-else
-  err "query.sh subgraph mode did not return expected subgraph: $out"
-fi
-
-# 6d. Performance — synthesize 100-entry repo and verify subgraph query <2s
-big_repo="$tmpdir/big-canon"
-mkdir -p "$big_repo/policies"
-for i in $(seq 1 100); do
-  cat > "$big_repo/policies/entry${i}.md" <<EOF
----
-ratified_at: 2026-01-01
-impact_level: low
-depends_on: []
----
-# Entry ${i}
-test content with token-${i}
-EOF
-done
-start=$(date +%s)
-bash lib/canonical-memory/query.sh --subgraph-depth 2 "token-50" "$big_repo" > /dev/null 2>&1
-end=$(date +%s)
-elapsed=$((end - start))
-[ "$elapsed" -lt 2 ] \
-  && pass "query.sh --subgraph-depth completes in ${elapsed}s on 100 entries (target <2s on 1000)" \
-  || err "query.sh subgraph too slow on 100 entries: ${elapsed}s"
+# 6c-6d. Subgraph integration tests (query.sh --subgraph-depth) were
+# retired by Part 3 of the bedrock canonical-memory port — query.sh
+# itself was deleted. The graph.sh primitive remains and its own
+# subgraph traversal is exercised in tests 6a-6b above. Subgraph
+# integration with the read skill returns when a graphify pipeline
+# is added (deferred sprint).
 
 # ------------------------------------------------------------------
 # 7. Orchestrator skill declares impact-classification rules (DoD #7 craftsmanship)
@@ -386,10 +307,12 @@ grep -qF "CODEOWNERS" docs/canonical-memory-setup.md \
 # 8. Anti-scope: status still placeholder. drift-sense advanced in
 # Sprint 7, so it is dropped here per deferred-anti-scope rule.
 # ------------------------------------------------------------------
-if grep -q "placeholder" skills/status/SKILL.md; then
-  pass "skills/status/SKILL.md still placeholder (Sprint 8 territory)"
+# Part 6 of the bedrock canonical-memory port (2026-04-25) extended
+# /yoke:status with bedrock's healthcheck surface.
+if grep -qE 'Read-only|read-only contract' skills/status/SKILL.md; then
+  pass "skills/status/SKILL.md declares read-only contract (Part 6 extension)"
 else
-  err "skills/status/SKILL.md was modified — anti-scope violation"
+  err "skills/status/SKILL.md missing read-only declaration"
 fi
 
 # ------------------------------------------------------------------
