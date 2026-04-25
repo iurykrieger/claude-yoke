@@ -39,6 +39,14 @@ Fork dates:
     rather than reading directly.
   - Added explicit Trigger-1 prompt with `approve` / `revise <feedback>`
     / `restart` options.
+  - **Persona rebalance (2026-04-25):** renamed the inline persona
+    from the umbrella "Generator persona: senior product engineer" to
+    a literal "Product Manager persona" (CPO-style); dialogue questions
+    tightened to product-only framing (problem / audience / success /
+    scope / anti-scope). Implementation-shape language was removed —
+    that deliberation belongs to `/yoke:tech-spec`. See
+    `.vibeflow/decisions.md` 2026-04-25 "Discover persona = Product
+    Manager".
 
 ### `skills/tech-spec/SKILL.md`
 
@@ -51,6 +59,19 @@ Fork dates:
   - Aborts on missing/unapproved PRD (Yoke-specific binding-spec rule).
   - Wired the Generator subagent.
   - Trigger-2 prompt with `approve` / `revise <feedback>` / `back to PRD`.
+  - **Persona rebalance (2026-04-25):** renamed the inline persona
+    from the umbrella "Generator persona: senior product engineer" to
+    a literal "Senior Engineer persona" (CTO-style); replaced the
+    clarity-evaluation block in step 3 with three engineering checks
+    (stack fit against `.vibeflow/index.md`, framework / library
+    choices named with trade-offs, sprint partitionability with binary
+    acceptance criterion per task), replacing the prior product-shaped
+    trio (use-cases / constraints / sprint-partition). Step 4's sprint
+    + use-case-task + binary-acceptance-criterion mandate is preserved;
+    the binary-acceptance-criterion bullet was hoisted to the top of
+    the bullet list as the load-bearing requirement. See
+    `.vibeflow/decisions.md` 2026-04-25 "Tech-spec persona = Senior
+    Engineer / CTO".
 
 ### `lib/canonical-memory/query.sh`
 
@@ -124,6 +145,37 @@ Fork dates:
   `/yoke:discover`, `/yoke:tech-spec`, `/yoke:acceptance-contract`.
   See `.vibeflow/decisions.md` "Three runtime subagents only"
   (2026-04-25, supersedes 2026-04-24 "Five subagents").
+
+### `agents/generator.md` — Senior Developer persona import (2026-04-25)
+
+- **Source:** `vibeflow:implement` (upstream version 1.10.0),
+  specifically the `## Role: Coding Agent` block.
+- **What was ported:** The Senior Developer / Coding-Agent persona —
+  role definition (receives the approved PRD, Tech Spec, and binding
+  Acceptance Contract; executes against them; does not redesign the
+  system) plus the must-do / must-not / stop-and-surface discipline
+  rules (follow patterns exactly, follow conventions, minimum change,
+  treat upstream artifacts as constraints, no architectural decisions,
+  no questioning of upstream artifacts at runtime, no scope creep, no
+  while-I'm-here refactors, new dependencies require justification,
+  and on ambiguity write the diagnosis to `.yoke/runtime/progress.md`
+  for Orchestrator-detected Trigger 4 escalation). Materialized as a
+  rewritten `## Persona` section plus a new `## Discipline` subsection
+  inserted between `## Persona` and `## Behaviors`.
+- **What was deliberately NOT ported:** Vibeflow's 7-phase
+  orchestration (find spec → extract guardrails → load patterns →
+  plan → implement → test → self-verify). Yoke's ralph loop in
+  `skills/implement/SKILL.md` already owns cycle orchestration
+  deterministically; importing the 7-phase shape would create two
+  competing orchestration models inside the same cycle (an
+  anti-pattern in `patterns/roles.md` and `patterns/ralph-loop.md`).
+  Also not ported: vibeflow's budget enforcement, test-runner
+  detection heuristics, and audit-suggestion footer — those belong
+  to a single-agent pipeline; Yoke's equivalents are
+  `hooks/check-hard-bounds.sh` plus the Acceptance Contract
+  sensors invoked by `hooks/verify-acceptance.sh`.
+- See `.vibeflow/decisions.md` 2026-04-25 "Generator subagent
+  persona = Senior Developer (Coding-Agent discipline)".
 
 ### `skills/drift-sense/SKILL.md`, `lib/canonical-memory/staleness-check.sh`, `lib/canonical-memory/trace-analyzer.sh`
 
