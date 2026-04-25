@@ -95,11 +95,36 @@ From `yoke-implementation-plan.md` (2026-04-24) — concrete artifacts per trigg
 
 | Trigger | Surface | Artifact |
 | :--- | :--- | :--- |
-| 1 — PRD approval | `/yoke:discover` end-of-skill prompt | trigger-1 schema |
-| 2 — Tech Spec approval | `/yoke:tech-spec` end-of-skill prompt | trigger-2 schema |
-| 3 — Acceptance Contract ratification | `/yoke:acceptance-contract` end-of-skill prompt | trigger-3 schema with binding statement |
+| 1 — PRD approval | `/yoke:discover` end-of-skill prompt rendered via `templates/approval-menu.md` | trigger-1 schema (4-option shape; verbs `approve_and_continue` / `approve` / `reject` / `revise`) |
+| 2 — Tech Spec approval | `/yoke:tech-spec` end-of-skill prompt rendered via `templates/approval-menu.md` (chains into `/yoke:acceptance-contract` on option 1) | trigger-2 schema (4-option shape; same verbs) |
+| 3 — Acceptance Contract ratification | `/yoke:acceptance-contract` end-of-skill prompt rendered via `templates/approval-menu.md`, with the **binding statement preserved verbatim before the menu** (chains into `/yoke:implement` on option 1) | trigger-3 schema with binding statement + 4-option shape |
 | 4 — Divergence arbitration | `lib/ralph-loop/escalate.sh` | trigger-4 packet: `progress.md` + `contracts.md` + unresolved sprint contract + divergence category |
 | 5 — Canonization ratification | PR opened by `lib/canonical-memory/propose-write.sh` (Model C controls auto-merge) | trigger-5 PR with `yoke-proposal` + impact label |
 
 Each trigger has a distinct schema — they are not coalescable into a single
 "approval" event. Sprint-6 formalizes the per-trigger schemas.
+
+### Shared menu shape — Triggers 1, 2, 3 only
+
+Triggers 1, 2, and 3 share the rendered shape defined in
+`templates/approval-menu.md` (4-option prompt with stable internal verbs).
+The shape is shared; the **decision spaces, audit logs, and surfaces remain
+distinct** per trigger. This honors the "no coalescing" rule: only the
+prompt-and-parse surface is unified, not the trigger semantics.
+
+The shared shape includes:
+
+- A deterministic open-questions detection rule (section scan + inline
+  `TODO:` / `TBD` / `FIXME:` / `<placeholder>` markers).
+- A warning confirmation on option 1 (`approve_and_continue`) when the
+  detection rule returns at least one match — the user must reply `yes`
+  to chain into the next-phase skill, or `no` to collapse to plain
+  `approve`.
+- A fallback for runtimes where the `Skill` tool is unavailable: option 1
+  prints today's manual-paste instruction and exits cleanly.
+
+**Triggers 4 and 5 explicitly do NOT use this template.** Trigger 4's
+4-way arbitration (reformulate Contract / reformulate Tech Spec / accept
+trade-off / abort) and Trigger 5's Model C contextual authority do not
+fit the 4-option shape. Coalescing them is the anti-pattern called out
+above.

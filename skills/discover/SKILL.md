@@ -153,15 +153,38 @@ cloning the substrate repo). All reads go through `/yoke:ask`.
 
 ### 7. Trigger 1 — PRD approval
 
-Display the draft to the user and ask the explicit Trigger-1 prompt:
+Display the draft to the user and render the **shared approval menu**
+defined in `templates/approval-menu.md`. The menu is the surface for
+**Trigger 1 — PRD approval**, which blocks Phase 2.
 
-> **Trigger 1 — PRD approval.** This blocks Phase 2. Decision required:
-> `approve` / `revise <feedback>` / `restart`.
+Inputs passed to the menu:
 
-The skill does not return until the user responds explicitly. `revise`
-loops back through another round of dialogue on the same file.
-`restart` discards the draft (delete the PRD file, clear `.current` via
-`wm_clear_active`) and re-runs from step 2 — a fresh slug is proposed.
+- `artifact_path`: `wm_prd_path "$slug"` (resolves to
+  `.yoke/prds/<slug>.md`)
+- `artifact_label`: `PRD`
+- `next_skill`: `/yoke:tech-spec`
+- `language`: the language detected for the dialogue
+- `binding_statement`: empty (Trigger 1 is not a binding gate)
+
+The menu renders, every time, in this order: (a) the open-questions
+detection block (scans the PRD body for the `## Open questions` section
+and inline `TODO:` / `TBD` / `FIXME:` / `<placeholder>` markers per the
+template's deterministic rule), then (b) the 4-option prompt mapping to
+the internal verbs `approve_and_continue` / `approve` / `reject` /
+`revise`. These verbs map 1:1 to today's schema: `approve` covers
+options 1 and 2; `restart` ↔ `reject`; `revise` ↔ option 4.
+
+The skill does not return until the user replies. `revise` loops back
+through another round of dialogue on the same file with the multi-line
+feedback. `reject` prompts for a single secondary confirmation before
+discarding the draft; on `yes`, the skill deletes the PRD file, clears
+`.current` via `wm_clear_active`, and re-runs from step 2 (a fresh slug
+is proposed). `approve` records approval and stops.
+`approve_and_continue` records approval and chains into
+`/yoke:tech-spec` via the `Skill` tool in the same turn — **but** if
+the open-questions detection returned at least one match, the template
+requires a `yes` / `no` warning confirmation before chaining; on `no`,
+the skill records approval and stops (collapses to `approve`).
 
 ### 8. Re-invocation semantics
 
@@ -174,13 +197,27 @@ remain on disk untouched. Different git worktrees get independent
 
 ### 9. Output
 
-On `approve`:
-- The versioned PRD (`wm_prd_path`) carries `Status: approved`,
+On `approve` or `approve_and_continue`:
+- The versioned PRD (`wm_prd_path "$slug"`) carries `Status: approved`,
   `Approved by`, `Approved at` in its frontmatter.
 - `.yoke/.current` contains exactly `<slug>`.
 - `.yoke/runtime/` exists and is empty.
 - No flat working-memory files at the legacy paths exist.
-- Print: "PRD approved. Run `/yoke:tech-spec` to advance to Phase 2."
+- On `approve_and_continue` (after the open-questions warning, when
+  applicable, returns `yes`): the skill invokes `/yoke:tech-spec` via
+  the `Skill` tool in the same turn. No manual paste is required from
+  the user.
+- **Fallback when `Skill` tool is unavailable.** Some runtimes do not
+  expose the `Skill` tool to a running skill body. The skill MUST
+  detect availability before rendering the menu and, when unavailable,
+  render option 1 with the suffix `(manual: run /yoke:tech-spec after
+  this step)`. On selection of option 1 in fallback mode, the skill
+  records approval, prints "PRD approved. Run `/yoke:tech-spec` to
+  advance to Phase 2.", and exits cleanly.
+
+On `reject` (after secondary confirmation): the PRD file is deleted,
+`.current` is cleared via `wm_clear_active`, and the skill exits
+cleanly.
 
 ## Pre-conditions
 
@@ -215,3 +252,4 @@ On `approve`:
 - `.vibeflow/patterns/roles.md` (Generator persona).
 - `.vibeflow/patterns/human-triggers.md` (Trigger 1).
 - `templates/prd.md`.
+- `templates/approval-menu.md` (shared menu shape, detection rule, fallback).

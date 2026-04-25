@@ -95,23 +95,63 @@ that delivers value. Push speculative work to "Anti-scope" or
 
 ### 5. Trigger 2 — Tech Spec approval
 
-Display the draft and ask the explicit Trigger-2 prompt:
+Display the draft and render the **shared approval menu** defined in
+`templates/approval-menu.md`. The menu is the surface for **Trigger 2 —
+Tech Spec approval**, which blocks Phase 3.
 
-> **Trigger 2 — Tech Spec approval.** This blocks Phase 3. Decision
-> required: `approve` / `revise <feedback>` / `back to PRD`.
+Inputs passed to the menu:
 
-`back to PRD` aborts the skill and instructs the user to re-run
-`/yoke:discover` (which would create a *new* task with a new slug;
-the current task stays archived as PRD-only). The skill does not
-return until the user responds explicitly.
+- `artifact_path`: `wm_tech_spec_path "$slug"` (resolves to
+  `.yoke/tech-specs/<slug>.md`)
+- `artifact_label`: `Tech Spec`
+- `next_skill`: `/yoke:acceptance-contract`
+- `language`: the language detected for the dialogue
+- `binding_statement`: empty (Trigger 2 is not a binding gate)
+
+The menu renders, every time, in this order: (a) the open-questions
+detection block (scans the Tech Spec body for inline `TODO:` / `TBD` /
+`FIXME:` / `<placeholder>` markers per the template's deterministic
+rule — `templates/tech-spec.md` does not carry an `## Open questions`
+section today, so detection relies on inline markers), then (b) the
+4-option prompt mapping to internal verbs `approve_and_continue` /
+`approve` / `reject` / `revise`. These verbs map 1:1 to today's
+schema: `approve` covers options 1 and 2; `back to PRD` is replaced by
+`reject` plus the template's secondary confirmation (which on `yes`
+aborts the skill and instructs the user to re-run `/yoke:discover` —
+which creates a *new* task with a new slug; the current task stays
+archived as PRD-only); `revise` ↔ option 4.
+
+The skill does not return until the user replies. `revise` loops back
+through another draft round with the multi-line feedback. `reject`
+prompts for the secondary confirmation; on `yes`, the skill aborts and
+instructs the user to re-run `/yoke:discover`. `approve` records
+approval and stops. `approve_and_continue` records approval and chains
+into `/yoke:acceptance-contract` via the `Skill` tool in the same turn
+— **but** if the open-questions detection returned at least one match,
+the template requires a `yes` / `no` warning confirmation before
+chaining; on `no`, the skill records approval and stops (collapses to
+`approve`).
 
 ### 6. Output
 
-On `approve`:
+On `approve` or `approve_and_continue`:
 - `wm_tech_spec_path "$slug"` written with `Status: approved`,
   `Approved by`, `Approved at` headers.
-- Print: "Tech Spec approved. Run `/yoke:acceptance-contract` to
-  advance to Phase 3."
+- On `approve_and_continue` (after the open-questions warning, when
+  applicable, returns `yes`): the skill invokes
+  `/yoke:acceptance-contract` via the `Skill` tool in the same turn.
+  No manual paste is required from the user.
+- **Fallback when `Skill` tool is unavailable.** Some runtimes do not
+  expose the `Skill` tool to a running skill body. The skill MUST
+  detect availability before rendering the menu and, when unavailable,
+  render option 1 with the suffix `(manual: run
+  /yoke:acceptance-contract after this step)`. On selection of option
+  1 in fallback mode, the skill records approval, prints "Tech Spec
+  approved. Run `/yoke:acceptance-contract` to advance to Phase 3.",
+  and exits cleanly.
+
+On `reject` (after secondary confirmation): the artifact is marked
+rejected (no `Status: approved` is written) and the skill exits cleanly.
 
 ## Pre-conditions
 
@@ -142,3 +182,4 @@ On `approve`:
 - `.vibeflow/patterns/roles.md` (Generator persona).
 - `.vibeflow/patterns/human-triggers.md` (Trigger 2).
 - `templates/tech-spec.md`.
+- `templates/approval-menu.md` (shared menu shape, detection rule, fallback).
