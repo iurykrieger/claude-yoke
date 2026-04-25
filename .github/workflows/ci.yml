@@ -1,0 +1,81 @@
+name: CI
+
+# Runs every sprint smoke test on every PR and on push to main.
+# Sprint-8 DoD #4: any sprint smoke failure blocks merge.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: All sprint smokes
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Verify shell is bash 4+
+        run: |
+          bash --version
+          ver=$(bash -c 'echo $BASH_VERSION' | cut -d. -f1)
+          if [ "$ver" -lt 4 ]; then
+            echo "::error::bash 4+ required, got $ver"
+            exit 1
+          fi
+
+      - name: Validate JSON manifests
+        run: |
+          python3 -c "import json; json.load(open('.claude-plugin/plugin.json'))"
+          python3 -c "import json; json.load(open('.claude-plugin/marketplace.json'))"
+
+      - name: Verify all SKILL.md frontmatters
+        run: |
+          fail=0
+          for f in skills/*/SKILL.md; do
+            awk 'BEGIN{c=0; n=0; d=0} /^---$/{c++; next} c==1 && /^name:/{n=1} c==1 && /^description:/{d=1} END{exit (n && d) ? 0 : 1}' "$f" \
+              || { echo "::error file=$f::missing name or description in frontmatter"; fail=1; }
+          done
+          exit $fail
+
+      - name: Parse all shell scripts
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            bash -n "$f" || { echo "::error file=$f::bash parse error"; fail=1; }
+          done < <(find . -name '*.sh' -not -path './.git/*' -not -path './.vibeflow/*')
+          exit $fail
+
+      - name: Run Sprint-1 placeholder tests
+        run: |
+          bash tests/plugin-install.test.sh
+          bash tests/skills-format.test.sh
+
+      - name: Run Sprint-2 smoke
+        run: timeout 600 bash tests/smoke/sprint-2.test.sh
+
+      - name: Run Sprint-3 smoke
+        run: timeout 600 bash tests/smoke/sprint-3.test.sh
+
+      - name: Run Sprint-4 smoke
+        # Pre-Sprint-6 ralph-loop hardening means external timeout is
+        # mandatory here per the spec.
+        run: timeout 600 bash tests/smoke/sprint-4.test.sh
+
+      - name: Run Sprint-5 smoke
+        run: timeout 600 bash tests/smoke/sprint-5.test.sh
+
+      - name: Run Sprint-6 smoke
+        run: timeout 600 bash tests/smoke/sprint-6.test.sh
+
+      - name: Run Sprint-7 smoke
+        run: timeout 600 bash tests/smoke/sprint-7.test.sh
+
+      - name: Run Sprint-8 smoke
+        run: timeout 600 bash tests/smoke/sprint-8.test.sh
