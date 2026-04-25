@@ -1,126 +1,126 @@
 ---
 name: canonize
 description: >
-  Phase 5 — Canonization. Orchestrator skill in canonizer mode. Reads
-  working memory after a successful task, applies the five canonization
-  criteria, and proposes writes to canonical memory via PRs (Model C).
-  v0.5.0 ships only the low-impact path (auto-merge after CI checks);
-  medium/high-impact paths ship in Sprint 6.
+  Manual canonization escape hatch. Primary canonization happens
+  automatically at `/yoke:implement` loop termination via the
+  Orchestrator subagent. This skill exists to **re-run** canonization
+  on an existing `.yoke/` directory — useful after a failed auto-canonize,
+  after a model upgrade (rippability), or to re-evaluate stale working
+  memory. Spawns `agents/orchestrator.md` with `mode=canonize`. Never
+  auto-runs.
 argument-hint: ""
-allowed-tools: Read, Write, Edit, Grep, Glob, Bash
+allowed-tools: Read, Write, Bash, Task
 ---
 
-# /yoke:canonize — Phase 5 (Canonization, low-impact)
+# /yoke:canonize — manual canonization escape hatch (v1.1.0)
 
-Take a completed task's working memory and propose canonical-memory
-writes that pass the five-criterion cascade.
+Re-run canonization on an existing task's working memory. Spawns the
+**Orchestrator subagent** in canonize mode against the host project's
+`.yoke/`.
 
-> **Lineage.** The canonical-memory operations under
-> `lib/canonical-memory/` are forked one-time at the start of Sprint 5
-> from [iurykrieger/claude-bedrock](https://github.com/iurykrieger/claude-bedrock).
-> Yoke layers the five-criteria filter and Model C impact classes on
-> top of Bedrock's read/write/graph primitives. The Orchestrator skill
-> itself is Yoke-native (not in upstream Bedrock). Per-script lineage
-> recorded in `docs/lineage.md` at Sprint 8.
+> **v1.1.0 architectural note.** Earlier versions positioned this skill
+> as the primary Phase-5 canonization entry point and ran
+> canonization-criteria.sh / propose-write.sh directly. With Orchestrator
+> promoted to a runtime subagent, the **automatic** canonization
+> handoff happens inside `/yoke:implement` at loop termination. This
+> skill is now the **manual escape hatch** — it spawns the same
+> Orchestrator subagent in canonize mode against an existing `.yoke/`,
+> which is useful when:
+>
+> - The auto-canonize at `/yoke:implement` termination failed.
+> - The user wants to re-evaluate canonization after a model upgrade
+>   (rippability — Decision 2026-04-24).
+> - The user wants to re-run canonization on stale working memory.
+>
+> Never auto-runs. Always invoked explicitly by the user.
+
+## Pre-conditions
+
+- `.yoke/config.yaml` exists with a populated `canonical_memory.url`.
+- `.yoke/.current` exists and points at a valid slug (resolved via
+  `lib/working-memory/paths.sh`'s `wm_active_slug`).
+- The runtime progress at `wm_progress_path`
+  (`.yoke/runtime/progress.md`) exists.
+- The most recent `verify-acceptance.sh` snapshot
+  (`$(wm_snapshots_dir)/cycle-<latest>.yaml`) shows every criterion at
+  `status: pass`. Abort otherwise: "Task not complete; run
+  `/yoke:implement` to convergence first, or use `--force` to
+  re-canonize an incomplete task (advanced)."
+- `gh` CLI authenticated.
 
 ## Process
 
 ### 1. Pre-flight
 
-- Source `lib/working-memory/paths.sh`. Resolve the active task:
-  `slug="$(wm_active_slug)"`. Abort with "no active task" if `.current` is
-  missing.
-- Verify `.yoke/config.yaml` exists with a populated
-  `canonical_memory.url`.
-- Verify the task is complete: `wm_progress_path` exists AND the most
-  recent verify-acceptance snapshot
-  (`$(wm_snapshots_dir)/cycle-<latest>.yaml`) shows every criterion at
-  `status: pass`. Abort otherwise: "Task not complete; run
-  `/yoke:implement` to convergence first."
-- Print Orchestrator mode declaration:
-  `[orchestrator:canonizer] candidates=…`.
+- Source `lib/working-memory/paths.sh`. Resolve the active task: `slug="$(wm_active_slug)"`.
+- Verify the pre-conditions above.
+- Verify that `agents/orchestrator.md` is present in the plugin
+  (smoke check; should always be true).
 
-### 2. Apply canonization criteria
+### 2. Spawn the Orchestrator subagent in canonize mode
 
-Invoke `lib/canonical-memory/canonization-criteria.sh` with the
-versioned input paths for the active task:
+Issue a single Task call spawning `agents/orchestrator.md` with input:
 
-- `--progress "$(wm_progress_path)"` — runtime progress (`.yoke/runtime/progress.md`)
-- `--contracts "$(wm_contracts_path "$slug")"` — sprint contracts (`.yoke/contracts/<slug>.md`)
-- `--query-trace "$(wm_query_trace_path "$slug")"` — query trace (`.yoke/query-traces/<slug>.md`)
-- Reads thresholds from `.yoke/config.yaml`:
-  - `canonization.repeatability_min` (default 3)
-  - `canonization.generality_min` (default 2)
-  - `canonization.stability_min_days` (default 14)
-- Emits a structured YAML candidate list (criterion 5 — non-contradiction
-  — already filtered out).
+- `mode=canonize`
+- `trigger=manual` (distinguishes from automatic termination handoff)
+- `slug=<active slug>` (so the Orchestrator can resolve archive paths)
+- Read-only references resolved via the path helper:
+  - `wm_progress_path` — `.yoke/runtime/progress.md`
+  - `wm_contracts_path "$slug"` — `.yoke/contracts/<slug>.md`
+  - `wm_query_trace_path "$slug"` — `.yoke/query-traces/<slug>.md`
+- All `$(wm_snapshots_dir)/cycle-*.yaml`
+- Optional flags from the user: `--dry-run`, `--candidates-only`,
+  `--impact-filter <low|medium|high|regulatory>`.
 
-### 3. Filter to low-impact
+The Orchestrator subagent applies the five-criteria cascade per
+`lib/canonical-memory/canonization-criteria.sh`, classifies impact
+per Model C, and calls `lib/canonical-memory/propose-write.sh` for
+each candidate that passes 1–4 and is non-contradicting (5).
 
-In v0.5.0, only candidates with `impact: low` are eligible for
-auto-application. Medium / high / regulatory candidates are listed in
-the output but **not** opened as PRs (Sprint 6 ships those paths).
-Print:
+### 3. Output
 
-> "v0.5.0 ships only the low-impact path. <count> medium/high candidates
-> deferred to Sprint 6."
-
-### 4. Open PRs
-
-For each low-impact candidate, invoke
-`lib/canonical-memory/propose-write.sh --candidate <yaml-fragment-file>`:
-
-- Creates a new branch on the canonical-memory repo (slug derived from
-  candidate `id`).
-- Writes the entry to `<content_path>` with the mandatory frontmatter
-  (`ratified_at`, `model_calibrated_against`, `last_validated`,
-  `traceability`, `impact_level`).
-- Opens a PR with labels `yoke-proposal` and `impact-low`.
-- Configures auto-merge after CI checks (does NOT force-merge).
-- Returns the PR URL.
-
-### 5. Output
-
-Print one line per candidate processed:
+The Orchestrator subagent returns a structured summary; print it
+verbatim:
 
 ```
 [low]   c1 → PR <url>          (auto-merge after CI)
 [low]   c2 → SKIP (failed criterion 5 — contradicted Acceptance Contract)
-[med]   c3 → DEFERRED (Sprint 6)
-[high]  c4 → DEFERRED (Sprint 6)
+[med]   c3 → PR <url>          (veto window: 24h)
+[high]  c4 → PR <url>          (synchronous approval required)
+[reg]   c5 → PR <url>          (Compliance reviewers)
 ```
 
 If no candidates: "No candidates passed the canonization criteria.
 Working memory traces preserved for future sprints."
 
-## Pre-conditions
-
-- `.yoke/config.yaml` exists with `canonical_memory.url` set.
-- Task is complete: every Acceptance Contract criterion passes in the
-  latest snapshot.
-- `gh` CLI authenticated (verified by `propose-write.sh`).
-
 ## Output contract
 
-- Exit 0 with PR URLs for any low-impact candidates that were opened.
-- Exit non-zero on missing pre-conditions, `gh` failure, or critical
-  errors in the criteria script.
+- Exit 0 with PR URLs for any candidates the Orchestrator subagent
+  successfully proposed.
+- Exit non-zero on missing pre-conditions, `gh` failure, or
+  Orchestrator subagent abort.
 
 ## Anti-patterns
 
-- Do NOT skip the canonization criteria — every candidate must pass
-  1–4 and be non-contradicting (5).
-- Do NOT auto-apply medium/high/regulatory candidates in v0.5.0.
-- Do NOT canonize against the production canonical-memory repo in tests
-  — use a test substrate or `--dry-run`.
-- Do NOT canonize without traceability — every candidate cites at
-  least one working-memory file.
+- Do NOT bypass the Orchestrator subagent and call
+  `propose-write.sh` directly from this skill — Model C governance
+  must flow through the Orchestrator (sole writer of canonical
+  memory).
+- Do NOT auto-invoke this skill from another skill or agent —
+  manual-only by design.
+- Do NOT canonize against the production canonical-memory repo in
+  tests — use a test substrate or `--dry-run`.
+- Do NOT canonize without traceability — the Orchestrator subagent
+  enforces this; don't override.
 
 ## See also
 
-- `.vibeflow/patterns/model-c-governance.md` — low-impact path.
+- `.vibeflow/patterns/model-c-governance.md` — impact classes + PR
+  protocol.
 - `.vibeflow/patterns/memory-model.md` — canonical-memory frontmatter.
-- `skills/orchestrator/SKILL.md` — canonizer mode declaration.
-- `lib/canonical-memory/canonization-criteria.sh`.
-- `lib/canonical-memory/propose-write.sh`.
+- `agents/orchestrator.md` — canonize mode (Mode C).
+- `skills/implement/SKILL.md` — automatic canonize handoff at loop
+  termination.
+- `lib/canonical-memory/canonization-criteria.sh`,
+  `lib/canonical-memory/propose-write.sh`.
 - `templates/canonical-entry-frontmatter.yaml`.

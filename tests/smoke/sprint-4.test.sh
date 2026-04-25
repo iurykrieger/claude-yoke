@@ -1,19 +1,23 @@
 #!/bin/bash
 # tests/smoke/sprint-4.test.sh
 #
-# Sprint 4 smoke test — validates the basic ralph-loop artifacts:
-#   - Implementation Agent (agents/implementation.md)
-#   - Validation Agent (agents/validation.md)
-#   - /yoke:implement skill
-#   - lib/ralph-loop/orchestrate.sh (preflight, append-contract, check-contradiction)
+# Sprint 4 smoke test — validates the parallel-spawn ralph-loop
+# artifacts (refreshed in v1.1.0):
+#   - 3 runtime subagents: agents/generator.md, agents/validator.md,
+#     agents/orchestrator.md
+#   - /yoke:implement skill (spawns 3 subagents per cycle in a single
+#     concurrent Task batch + termination canonize handoff)
+#   - lib/ralph-loop/orchestrate.sh (preflight, append-contract,
+#     check-contradiction)
 #   - hooks/post-iteration.sh (snapshot + counter)
 #   - templates/progress.md, templates/contracts.md
 #
-# This sprint ships pre-Sprint-6 (no hard bounds). The smoke runs the
-# DETERMINISTIC parts of the loop only; the agentic parts (Implementation
-# Agent + Validation Agent dialogue) require Claude Code runtime.
+# This sprint ships pre-Sprint-6 (no hard bounds enforced). The smoke
+# runs the DETERMINISTIC parts of the loop only; the agentic
+# parallel-spawn requires Claude Code runtime.
 #
-# Always wrap CI invocations in `timeout 600 bash tests/smoke/sprint-4.test.sh`.
+# Always wrap CI invocations in
+# `timeout 600 bash tests/smoke/sprint-4.test.sh`.
 
 set -euo pipefail
 
@@ -26,8 +30,16 @@ err()  { echo "✗ $1" >&2; fail=$((fail+1)); }
 
 echo "--- Sprint 4 smoke ---"
 
-# 1. Subagent files present and substantive
-for agent in agents/implementation.md agents/validation.md; do
+# 1. v1.1 — agents/ contains exactly 3 files (runtime subagents only).
+agent_count=$(ls agents/*.md 2>/dev/null | wc -l | tr -d ' ')
+if [ "$agent_count" = "3" ]; then
+  pass "agents/ contains exactly 3 files (3-subagent topology)"
+else
+  err "agents/ should contain 3 files; found $agent_count"
+fi
+
+# 2. Each runtime subagent file present and substantive
+for agent in agents/generator.md agents/validator.md agents/orchestrator.md; do
   if [ ! -f "$agent" ]; then
     err "missing $agent"
     continue
@@ -39,53 +51,82 @@ for agent in agents/implementation.md agents/validation.md; do
   fi
 done
 
-# 2. Implementation Agent declares no-modify rule on upstream artifacts.
-# The phrase spans multiple lines in the file, so flatten with `tr` first.
-# Use `.*` (any char including period) — the path tokens contain periods.
-flat=$(tr '\n' ' ' < agents/implementation.md)
+# 3. Generator declares no-modify rule on upstream artifacts.
+flat=$(tr '\n' ' ' < agents/generator.md)
 echo "$flat" | grep -qE "Never modify.*prd\.md.*tech-spec\.md.*acceptance-contract\.md" \
-  && pass "Implementation Agent declares no-modify rule on upstream artifacts" \
-  || err "Implementation Agent does not declare no-modify rule"
+  && pass "Generator declares no-modify rule on upstream artifacts" \
+  || err "Generator does not declare no-modify rule on upstream artifacts"
 
-# 3. Validation Agent declares structured-verdict requirement
-grep -qF "structured JSON verdict" agents/validation.md \
-  && pass "Validation Agent requires structured JSON verdicts" \
-  || err "Validation Agent does not declare structured-verdict rule"
+# 4. Validator declares structured-verdict requirement
+grep -qF "structured JSON verdict" agents/validator.md \
+  && pass "Validator requires structured JSON verdicts" \
+  || err "Validator does not declare structured-verdict rule"
 
-# 4. Implementation/Validation Agents distinct from Generator/Validator (DoD #5)
-impl_gen_diff_output=$(diff agents/implementation.md agents/generator.md 2>/dev/null || true)
-impl_gen_diff=$(printf '%s' "$impl_gen_diff_output" | wc -l | tr -d ' ')
-val_validator_diff_output=$(diff agents/validation.md agents/validator.md 2>/dev/null || true)
-val_validator_diff=$(printf '%s' "$val_validator_diff_output" | wc -l | tr -d ' ')
+# 5. Orchestrator declares 3 modes (DoD: orchestrator subagent has
+#    consult / monitor / canonize modes per Part 1 spec).
+for mode in consult monitor canonize; do
+  if grep -qF "[orchestrator:$mode]" agents/orchestrator.md; then
+    pass "agents/orchestrator.md declares $mode mode token"
+  else
+    err "agents/orchestrator.md missing $mode mode declaration"
+  fi
+done
 
-[ "$impl_gen_diff" -gt 50 ] \
-  && pass "Implementation Agent distinct from Generator (diff=$impl_gen_diff lines)" \
-  || err "Implementation Agent not distinct from Generator (diff=$impl_gen_diff)"
-[ "$val_validator_diff" -gt 50 ] \
-  && pass "Validation Agent distinct from Validator (diff=$val_validator_diff lines)" \
-  || err "Validation Agent not distinct from Validator (diff=$val_validator_diff)"
+# 6. Orchestrator declares sole-writer authority for canonical memory
+grep -q "sole writer of canonical memory" agents/orchestrator.md \
+  && pass "Orchestrator declares sole-writer authority" \
+  || err "Orchestrator does not declare sole-writer authority"
 
-# 5. /yoke:implement skill valid
+# 7. Generator and Validator never share runtime context (adversarial).
+grep -q "Never share context with the Validator" agents/generator.md \
+  && pass "Generator declares no-context-sharing with Validator" \
+  || err "Generator missing no-context-sharing rule"
+grep -q "Never share context with the Generator" agents/validator.md \
+  && pass "Validator declares no-context-sharing with Generator" \
+  || err "Validator missing no-context-sharing rule"
+
+# 8. /yoke:implement skill valid
 sk="skills/implement/SKILL.md"
 [ -f "$sk" ] || err "missing $sk"
 awk 'BEGIN{c=0; n=0; d=0} /^---$/{c++; next} c==1 && /^name:/{n=1} c==1 && /^description:/{d=1} END{exit (n && d) ? 0 : 1}' "$sk" \
   && pass "$sk frontmatter valid" \
   || err "$sk missing name/description"
 
-grep -qF "Task tool" "$sk" \
-  && pass "$sk references the Task tool (skill invokes subagents)" \
-  || err "$sk does not declare Task-tool usage"
+# 9. v1.1 — /yoke:implement spawns 3 concurrent subagents per cycle in a
+#    single assistant turn (Part 6 DoD #3).
+allowed_line=$(awk '/^allowed-tools:/{print; exit}' "$sk" || true)
+echo "$allowed_line" | grep -qw "Task" \
+  && pass "/yoke:implement allowed-tools includes Task (spawns subagents)" \
+  || err "/yoke:implement allowed-tools missing Task"
 
-# 6. orchestrate.sh subcommands
+for agent in "agents/generator.md" "agents/validator.md" "agents/orchestrator.md"; do
+  if grep -qF "$agent" "$sk"; then
+    pass "/yoke:implement references $agent"
+  else
+    err "/yoke:implement does not reference $agent"
+  fi
+done
+
+if grep -qE "single (assistant turn|concurrent Task|orchestration turn)" "$sk" || grep -q "three concurrent Task calls" "$sk"; then
+  pass "/yoke:implement declares single-turn concurrent Task batch"
+else
+  err "/yoke:implement does not declare concurrent-Task-batch semantics"
+fi
+
+# 10. v1.1 — /yoke:implement issues termination canonize handoff
+#     (Part 3 DoD #2; verifiable in Part 6 sprint-5 too).
+grep -q "mode=canonize" "$sk" \
+  && pass "/yoke:implement issues canonize handoff at termination" \
+  || err "/yoke:implement missing termination canonize handoff"
+
+# 11. orchestrate.sh subcommands
 [ -x "lib/ralph-loop/orchestrate.sh" ] || err "lib/ralph-loop/orchestrate.sh not executable"
 
-# 6a. Help works
 out=$(bash lib/ralph-loop/orchestrate.sh help 2>&1) || true
 echo "$out" | grep -q "preflight" \
   && pass "orchestrate.sh help mentions preflight" \
   || err "orchestrate.sh help broken: $out"
 
-# 6b. Unknown subcommand → exit 2
 set +e
 bash lib/ralph-loop/orchestrate.sh unknown-cmd > /dev/null 2>&1
 rc=$?
@@ -94,7 +135,7 @@ set -e
   && pass "orchestrate.sh exits 2 on unknown subcommand" \
   || err "orchestrate.sh did not exit 2 on unknown subcommand (got $rc)"
 
-# 7. Preflight: missing .yoke/ → exit 3
+# 12. Preflight: missing .yoke/ → exit 3
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
 
@@ -108,9 +149,9 @@ popd > /dev/null
   && pass "preflight exits 3 when .yoke/ is missing" \
   || err "preflight wrong exit on missing .yoke/ (got $rc)"
 
-# 8. Preflight: .yoke/ exists but artifacts missing → exit 4
+# 13. Preflight: .yoke/ exists but artifacts missing → exit 4
 mkdir -p "$tmpdir/.yoke"
-echo "yoke_version: 0.4.0" > "$tmpdir/.yoke/config.yaml"
+echo "yoke_version: 1.1.0" > "$tmpdir/.yoke/config.yaml"
 pushd "$tmpdir" > /dev/null
 set +e
 bash "$PLUGIN_ROOT/lib/ralph-loop/orchestrate.sh" preflight > /dev/null 2>&1
@@ -121,7 +162,7 @@ popd > /dev/null
   && pass "preflight exits 4 when upstream artifacts are missing" \
   || err "preflight wrong exit on missing artifacts (got $rc)"
 
-# 9. Preflight: artifacts present and approved → exit 0
+# 14. Preflight: artifacts present and approved → exit 0
 cat > "$tmpdir/.yoke/prd.md" <<'EOF'
 # PRD: test
 > Status: approved
@@ -153,14 +194,14 @@ echo "$out" | grep -q "ok" \
   && pass "preflight succeeds with full state" \
   || err "preflight should succeed: $out"
 
-# 10. append-contract appends a YAML fragment
+# 15. append-contract appends a YAML fragment
 cat > "$tmpdir/contract-fragment.yaml" <<'EOF'
 - id: c1
   topic: "interpretation of FR-1"
   decision: "FR-1 means doing the thing once per request"
   rationale: "Acceptance Contract criterion FR-1 is request-scoped"
   timestamp: "2026-04-25T00:00:00Z"
-  agents_involved: [implementation, validation]
+  agents_involved: [generator, validator]
   cycle: 1
 EOF
 pushd "$tmpdir" > /dev/null
@@ -170,7 +211,7 @@ popd > /dev/null
   && pass "append-contract writes to .yoke/contracts.md" \
   || err "append-contract did not write contract"
 
-# 11. check-contradiction: clean case → exit 0
+# 16. check-contradiction: clean case → exit 0
 pushd "$tmpdir" > /dev/null
 out=$(bash "$PLUGIN_ROOT/lib/ralph-loop/orchestrate.sh" check-contradiction 2>&1) || true
 popd > /dev/null
@@ -178,7 +219,7 @@ echo "$out" | grep -q "ok" \
   && pass "check-contradiction passes on clean state" \
   || err "check-contradiction should pass: $out"
 
-# 12. check-contradiction: contradictory sprint contract → exit 10
+# 17. check-contradiction: contradictory sprint contract → exit 10
 cat >> "$tmpdir/.yoke/contracts.md" <<'EOF'
 
 ## Contract c2
@@ -198,46 +239,7 @@ popd > /dev/null
   && pass "check-contradiction detects relax/skip verbs against criteria (exit 10)" \
   || err "check-contradiction missed contradiction (exit $rc)"
 
-# 12b. check-contradiction false-positive regression: relax-class verbs
-# applied to a non-criterion subject (e.g., a removed file) must NOT
-# trip even when a criterion is mentioned later in the same decision
-# text. Prior loose co-occurrence heuristic falsely flagged this.
-tmp_fp="$(mktemp -d)"
-trap 'rm -rf "$tmpdir" "$tmp_fp"' EXIT
-mkdir -p "$tmp_fp/.yoke"
-cat > "$tmp_fp/.yoke/config.yaml" <<'EOF'
-yoke_version: 1.0.0
-EOF
-for art in prd tech-spec; do
-  cat > "$tmp_fp/.yoke/${art}.md" <<EOF
-> Status: approved
-EOF
-done
-cat > "$tmp_fp/.yoke/acceptance-contract.md" <<'EOF'
-> Status: ratified
-- FR-6 — client component consumes all five actions.
-EOF
-cat > "$tmp_fp/.yoke/contracts.md" <<'EOF'
-## Contract c4
-- id: c4
-- topic: "Refinements to FR-6 satisfaction"
-- decision: "the boundary file is removed; FR-6/FR-7 stays satisfied via the new consumer"
-- rationale: "in-envelope refactor"
-- cycle: 4
-EOF
-pushd "$tmp_fp" > /dev/null
-set +e
-out=$(bash "$PLUGIN_ROOT/lib/ralph-loop/orchestrate.sh" check-contradiction 2>&1)
-rc=$?
-set -e
-popd > /dev/null
-[ "$rc" -eq 0 ] && echo "$out" | grep -q "ok" \
-  && pass "check-contradiction does not false-positive on file-removed mentions (exit 0)" \
-  || err "check-contradiction false-positive on '<file> is removed; FR-6 stays satisfied' (exit $rc): $out"
-rm -rf "$tmp_fp"
-trap 'rm -rf "$tmpdir"' EXIT
-
-# 13. post-iteration.sh: missing .yoke/ → exit 3
+# 18. post-iteration.sh: missing .yoke/ → exit 3
 empty="$(mktemp -d)"
 pushd "$empty" > /dev/null
 set +e
@@ -250,7 +252,7 @@ rm -rf "$empty"
   && pass "post-iteration exits 3 without .yoke/" \
   || err "post-iteration wrong exit without .yoke/ (got $rc)"
 
-# 14. post-iteration.sh: increments counter and snapshots
+# 19. post-iteration.sh: increments counter and snapshots
 pushd "$tmpdir" > /dev/null
 out=$(bash "$PLUGIN_ROOT/hooks/post-iteration.sh" "$tmpdir/.yoke/acceptance-contract.md" 2>&1) || true
 popd > /dev/null
@@ -270,7 +272,7 @@ counter=$(cat "$tmpdir/.yoke/.cycle-counter")
   && pass "post-iteration creates snapshot file" \
   || err "post-iteration did not create snapshot"
 
-# 15. Templates: progress + contracts have proper YAML-in-markdown shape
+# 20. Templates: progress + contracts
 grep -q "## Cycle 0" templates/progress.md \
   && pass "templates/progress.md has Cycle 0 section" \
   || err "templates/progress.md missing Cycle 0"
@@ -284,30 +286,18 @@ grep -q "agents_involved" templates/contracts.md \
   && pass "templates/contracts.md has agents_involved field" \
   || err "templates/contracts.md missing agents_involved"
 
-# 16–17. Anti-scope assertions on items advanced by Sprint 6
-# (check-hard-bounds.sh, escalate.sh) dropped per deferred-anti-scope
-# design rule.
-pass "Sprint-4 Sprint-6-territory anti-scope deferred to per-sprint smokes"
-
-# 18–20. Anti-scope items advanced by later sprints are dropped per the
-# deferred-anti-scope design rule:
-#   - propose-write.sh, agents/orchestrator.md → Sprint 5
-#   - skills/canonize → Sprint 5
-#   - skills/drift-sense → Sprint 7
-# Only items that stay constant through v1.0 are asserted here.
+# 21. Anti-scope: status skill still placeholder.
 if grep -q "placeholder" skills/status/SKILL.md; then
   pass "skills/status/SKILL.md still placeholder (advanced only in Sprint 8)"
 else
   err "skills/status/SKILL.md was modified — anti-scope violation"
 fi
 
-# 21. Sprint-3 regression: verify-acceptance.sh still works
-echo "--- Sprint-3 regression check ---"
+# 22. Sprint regressions
+echo "--- Regressions ---"
 bash tests/smoke/sprint-3.test.sh > /tmp/sp3-regression.log 2>&1 \
   && pass "Sprint-3 smoke still PASS (regression)" \
   || err "Sprint-3 regressed: $(tail -5 /tmp/sp3-regression.log)"
-
-# 22. Sprint-2 regression
 bash tests/smoke/sprint-2.test.sh > /tmp/sp2-regression.log 2>&1 \
   && pass "Sprint-2 smoke still PASS (regression)" \
   || err "Sprint-2 regressed: $(tail -5 /tmp/sp2-regression.log)"

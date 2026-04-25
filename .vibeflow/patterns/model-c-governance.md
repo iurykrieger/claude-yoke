@@ -26,11 +26,10 @@ ratification is the merge itself.
 
 | Entity | May propose | May write canonical memory | May ratify |
 | :--- | :--- | :--- | :--- |
-| Implementation Agent | — | No | — |
-| Validation Agent | — | No | — |
-| Generator (spec phase) | — | No | — |
-| Validator (spec phase) | — | No | — |
-| Orchestrator | Yes | Yes (with Model C threshold) | — |
+| Generator (runtime subagent) | — | No | — |
+| Validator (runtime subagent) | — | No | — |
+| Spec-phase skills (Generator/Validator persona inline) | — | No | — |
+| Orchestrator (runtime subagent) | Yes | Yes (canonize mode only, with Model C threshold) | — |
 | Individual engineer | Yes (via PR) | No direct | Local policies |
 | Harness engineer | Yes | Yes | Everything except global policies |
 | Platform / DevEx | — | — | Global policies, new templates |

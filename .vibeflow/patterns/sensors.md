@@ -8,17 +8,18 @@ confidence: validated
 
 <!-- vibeflow:auto:start -->
 ## What
-Sensors are the mechanism by which the Validator (and the Validation Agent at
-runtime) judge conformance against determinable signals. Yoke distinguishes
-**computational sensors** (deterministic checks) and **inferential sensors**
-(LLM-based semantic judgment), all required to emit **structured output for
-agent consumption** — never plain prose.
+Sensors are the mechanism by which the Validator (a runtime subagent in
+Phase 4, and a persona inline in `/yoke:acceptance-contract` at spec
+phase) judges conformance against determinable signals. Yoke
+distinguishes **computational sensors** (deterministic checks) and
+**inferential sensors** (LLM-based semantic judgment), all required to
+emit **structured output for agent consumption** — never plain prose.
 
 ## Where
-Declared in the Acceptance Contract per scope. Computational sensors run on
-every Implementation Agent iteration (shift-feedback-left). Inferential
-sensors run when computational sensors cannot decide — they are calibrated
-for the specific Contract's scope.
+Declared in the Acceptance Contract per scope. Computational sensors run
+every cycle in Phase 4 alongside the Generator's code changes
+(shift-feedback-left). Inferential sensors run when computational sensors
+cannot decide — they are calibrated for the specific Contract's scope.
 
 ## The Pattern
 
@@ -119,7 +120,7 @@ above a threshold triggers Orchestrator-mediated review of the sensor.
 - Running sensors only at merge time — defeats shift-feedback-left, makes Phase 4 slow and expensive.
 - Letting inferential sensors live without calibration metadata — invisible obsolescence the moment the model changes.
 - Treating sensor verbosity as noise — the verbosity is the contract; silencing it removes the back-pressure mechanism.
-- A failing sensor that the Validation Agent ignores ("flaky") — either the sensor is wrong (fix it) or the implementation is wrong (fix it). There is no third option.
+- A failing sensor that the Validator ignores ("flaky") — either the sensor is wrong (fix it) or the implementation is wrong (fix it). There is no third option.
 
 ## Implementation Mapping
 

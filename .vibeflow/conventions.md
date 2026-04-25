@@ -72,11 +72,12 @@ The human role inside Yoke is not to write code — it is to design the environm
 
 ### Working memory — canonical files
 Every task that enters runtime materializes this minimum tree of ephemeral files:
-- `prd.md` — Generator writes; everyone reads (Phase 1 artifact)
-- `tech-spec.md` — Generator writes; everyone reads (Phase 2 artifact)
-- `acceptance-contract.md` — Validator writes; everyone reads (Phase 3 artifact, binding)
-- `progress.md` — Implementation Agent writes; Validation Agent + Orchestrator read
-- `contracts.md` — both Agents co-write; both + Orchestrator read (sprint contracts)
+- `prd.md` — `/yoke:discover` skill writes (Generator persona inline); everyone reads (Phase 1 artifact)
+- `tech-spec.md` — `/yoke:tech-spec` skill writes (Generator persona inline); everyone reads (Phase 2 artifact)
+- `acceptance-contract.md` — `/yoke:acceptance-contract` skill writes (Validator persona inline); everyone reads (Phase 3 artifact, binding)
+- `progress.md` — Generator (runtime subagent) writes; Validator + Orchestrator read
+- `contracts.md` — Generator + Validator co-write on consensus; both + Orchestrator read (sprint contracts)
+- `query-trace.md` — `/yoke:ask` skill + Orchestrator (consult mode) write; all read (mediated canonical-memory queries)
 
 ### Canonical memory — per-item format
 - Body in markdown

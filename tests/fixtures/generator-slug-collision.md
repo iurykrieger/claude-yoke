@@ -1,11 +1,18 @@
 # Generator slug collision fixture
 
-> Used to document the expected Generator behavior when `/yoke:discover`
-> reports a slug collision. The fixture is reference material for
-> reviewers and for any future automated test that exercises the
-> Generator agent's slug-regeneration loop.
+> Used to document the expected behavior of the inline Generator persona
+> in `/yoke:discover` when a slug collision is detected. The fixture is
+> reference material for reviewers and for any future automated test
+> that exercises the slug-regeneration loop.
+>
+> **v1.1.0 architectural note.** The Generator persona is now inline
+> inside `skills/discover/SKILL.md` (no spec-phase subagent spawn). The
+> `agents/generator.md` runtime subagent is a different role
+> (Phase-4 code writer) and is not involved in slug naming. Slug
+> regeneration logic lives in `skills/discover/SKILL.md` step 4
+> ("Slug proposal and collision resolution").
 
-## Input prompt to the Generator
+## Input scenario for the inline persona
 
 ```
 You are drafting a PRD titled "User authentication flow refactor".
@@ -36,8 +43,8 @@ rules from the "Slug collision protocol" block in `agents/generator.md`:
 
 ## Acceptable example responses
 
-Any one of the following is correct (non-exhaustive — the Generator
-may produce other semantically equivalent rewrites):
+Any one of the following is correct (non-exhaustive — the inline
+Generator persona may produce other semantically equivalent rewrites):
 
 - `2026-05-01-signin-handler`
 - `2026-05-01-credential-exchange`
@@ -61,17 +68,16 @@ Any response that violates one or more of the four rules. Examples:
 
 ## Five-attempt fallback
 
-If the Generator's first five attempts all collide with the
+If the inline persona's first five attempts all collide with the
 `colliding_slugs` list (an unusual but possible scenario when many
 similar features have already been built), it must surface the failure
 to the user with its candidate list and request an explicit choice.
-The Generator MUST NOT invent a numeric suffix as a fallback — the
-user decides.
+It MUST NOT invent a numeric suffix as a fallback — the user decides.
 
 ## See also
 
-- `agents/generator.md` — the binding "Slug collision protocol" block
-  that this fixture documents.
+- `skills/discover/SKILL.md` — step 4 ("Slug proposal and collision
+  resolution") — the binding logic this fixture documents.
 - `lib/working-memory/paths.sh` — the slug regex and `wm_slug_in_use`
   collision detector.
 - `.vibeflow/specs/yoke-working-memory-folders.md` — Tech Spec

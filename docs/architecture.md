@@ -1,36 +1,47 @@
 # Yoke architecture — 1-page summary
 
-> This is a working summary for plugin contributors. The authoritative source
-> is `yoke.md` (the manifesto). When in doubt, read the manifesto.
+> This is a working summary for plugin contributors. The authoritative
+> source is `yoke.md` (the manifesto). When in doubt, read the manifesto.
+>
+> **Refreshed for v1.1.0** — runtime-only-agents refactor (decision
+> 2026-04-25 in `.vibeflow/decisions.md`). Spec phases are skill-only;
+> runtime spawns three subagents in parallel.
 
 ## Three pillars
 
-1. **Binding spec.** Three sequential artifacts (PRD, Tech Spec, Acceptance Contract) produced by separate agents (Generator and Validator). The Acceptance Contract is binding: once ratified, "done" is operationally "passes every Contract criterion".
+1. **Binding spec.** Three sequential artifacts (PRD, Tech Spec, Acceptance Contract) produced by **skills** with embedded persona prompts (Generator persona in `/yoke:discover` and `/yoke:tech-spec`; Validator persona in `/yoke:acceptance-contract`). The Acceptance Contract is binding: once ratified at Trigger 3, "done" is operationally "passes every Contract criterion".
 
-2. **Adversarial loop.** Implementation Agent and Validation Agent iterate with disjoint prompts and contexts. Hard bounds (N cycles, timeout, budget) guarantee termination — no infinite loops.
+2. **Adversarial loop.** Three runtime subagents — **Generator**, **Validator**, **Orchestrator** — spawned by `/yoke:implement` in a **single concurrent Task batch per cycle**. Generator and Validator are functionally adversarial; Orchestrator consults canonical memory live and owns the canonization handoff at termination. Hard bounds (N cycles, timeout, budget) guarantee termination — no infinite loops.
 
-3. **Governed memory.** Two tiers. Working memory in `.yoke/` per project; canonical memory in a separate git repo. Only the Orchestrator writes canonical memory, under Model C (contextual authority by impact class) via PRs on the substrate repo.
+3. **Governed memory.** Two tiers. Working memory in `.yoke/` per project; canonical memory in a separate git repo. Only the Orchestrator subagent writes canonical memory, and only in **canonize mode at loop termination**, under Model C (contextual authority by impact class) via PRs on the substrate repo.
 
-## Five subagents (four after the v0 amendment)
+## Three runtime subagents (v1.1)
 
-- **Generator** (`agents/generator.md`) — produces PRD and Tech Spec.
-- **Validator** (`agents/validator.md`) — produces Acceptance Contract.
-- **Implementation Agent** (`agents/implementation.md`) — runtime instance, iterates over Tech Spec, writes `progress.md`.
-- **Validation Agent** (`agents/validation.md`) — runtime instance, runs sensors, emits structured verdicts, co-writes `contracts.md`.
-- **Orchestrator** — *originally a fifth subagent; v0 amendment makes it a skill (`skills/orchestrator/`) that invokes the four subagents via the Task tool. Lands in Sprint 5.*
+- **Generator** (`agents/generator.md`) — runtime subagent. Iterates over the Tech Spec, writes code targeting the next failing Acceptance Contract criterion, persists `.yoke/progress.md` every cycle.
+- **Validator** (`agents/validator.md`) — runtime subagent. Runs `hooks/verify-acceptance.sh`, emits structured JSON verdicts per criterion, co-writes `.yoke/contracts.md` on consensus events.
+- **Orchestrator** (`agents/orchestrator.md`) — runtime subagent and **sole writer of canonical memory** under Model C. Three modes:
+  - **Consult** (per cycle) — read canonical memory live; surface relevant subgraph entries to `.yoke/query-trace.md`.
+  - **Monitor** (per cycle) — detect Generator↔Validator divergence; escalate via `lib/ralph-loop/escalate.sh` (Trigger 4).
+  - **Canonize** (at loop termination) — apply five-criteria filter; classify Model C impact; propose writes via `lib/canonical-memory/propose-write.sh`.
+
+Spec-phase work is performed by skills with embedded persona — no
+spec-phase Generator/Validator subagents exist (eliminated in v1.1).
+*Skills deliberate; subagents adapt.*
 
 ## Six phases
 
-| Phase | Skill | What it does |
+| Phase | Driver | What it does |
 | :--- | :--- | :--- |
-| 1 — Discovery | `/yoke:discover` | idea → `prd.md` |
-| 2 — Tech Spec | `/yoke:tech-spec` | PRD → `tech-spec.md` |
-| 3 — Acceptance Contract | `/yoke:acceptance-contract` | PRD + Tech Spec → binding contract |
-| 4 — Runtime | `/yoke:implement` | spawns Implementation + Validation Agents |
-| 5 — Canonization | `/yoke:canonize` | working memory → canonical-memory PRs |
-| 6 — Drift sensing | `/yoke:drift-sense` | continuous (out of lifecycle) |
+| 1 — Discovery | `/yoke:discover` skill (Generator persona inline) | idea → `prd.md` |
+| 2 — Tech Spec | `/yoke:tech-spec` skill (Generator persona inline) | PRD → `tech-spec.md` |
+| 3 — Acceptance Contract | `/yoke:acceptance-contract` skill (Validator persona inline) | PRD + Tech Spec → binding contract |
+| 4 — Runtime | `/yoke:implement` skill (spawns 3 subagents in parallel each cycle) | parallel ralph loop with hard bounds |
+| 5 — Canonization (auto) | Orchestrator subagent in canonize mode (final Task call from `/yoke:implement` termination) | working memory → canonical-memory PRs |
+| 5 — Canonization (manual escape hatch) | `/yoke:canonize` skill (spawns Orchestrator subagent in canonize mode) | re-runs canonization on existing `.yoke/` |
+| 6 — Drift sensing | `/yoke:drift-sense` skill | continuous (out of lifecycle) |
 
-Plus `/yoke:bootstrap`, `/yoke:ask`, `/yoke:status` as support skills.
+Plus support skills: `/yoke:bootstrap`, `/yoke:ask`
+(thin canonical-memory query, calls `query.sh` directly), `/yoke:status`.
 
 ## Five human triggers
 
@@ -40,11 +51,73 @@ Plus `/yoke:bootstrap`, `/yoke:ask`, `/yoke:status` as support skills.
 4. Divergence arbitration (Phase 4, only on irreconcilable conflict or hard bound)
 5. Canonization ratification (Phase 5, Model C — auto-merge / veto window / sync ratify)
 
+## Topology diagram
+
+```
+                    ┌────────────┐
+                    │   user     │
+                    └─────┬──────┘
+                          │  Triggers 1/2/3 (binding)
+            ┌─────────────┼─────────────┬─────────────┐
+            ▼             ▼             ▼             │
+      ┌──────────┐ ┌──────────┐ ┌────────────────┐    │
+      │/discover │ │/tech-spec│ │/acceptance-    │    │
+      │          │ │          │ │ contract       │    │
+      │(Generator│ │(Generator│ │(Validator      │    │
+      │ persona  │ │ persona  │ │  persona       │    │
+      │ inline)  │ │ inline)  │ │  inline)       │    │
+      └────┬─────┘ └────┬─────┘ └────────┬───────┘    │
+           │            │                │            │
+           └────────────┼────────────────┘            │
+                        │                             │
+                       prd.md ── tech-spec.md ── acceptance-contract.md
+                        │                             │
+                        ▼                             │ Trigger 4 (only on divergence)
+              ┌──────────────────────────────────────────────────────┐
+              │  /yoke:implement   (skill, deterministic coordinator)│
+              │  ─────────────────────────────────────────────────── │
+              │  Per cycle, single concurrent Task batch:            │
+              │                                                      │
+              │   ┌──────────┐  ┌──────────┐  ┌──────────────────┐  │
+              │   │Generator │  │Validator │  │Orchestrator      │  │
+              │   │(runtime  │  │(runtime  │  │(consult+monitor) │  │
+              │   │ subagent)│  │ subagent)│  │                  │  │
+              │   └────┬─────┘  └────┬─────┘  └────────┬─────────┘  │
+              │        │             │                 │            │
+              │        ▼             ▼                 ▼            │
+              │   progress.md   contracts.md     query-trace.md     │
+              │                                                      │
+              │   ── deterministic ──> verify-acceptance.sh          │
+              │   ── deterministic ──> check-contradiction           │
+              │   ── deterministic ──> post-iteration.sh (snapshot)  │
+              │   ── deterministic ──> check-hard-bounds.sh          │
+              │                                                      │
+              │   Loop until criteria pass | divergence | hard bound │
+              │                                                      │
+              │   ── At termination ──> single Orchestrator call     │
+              │                          (mode=canonize)             │
+              └────────────────────────┬─────────────────────────────┘
+                                       │
+                                       ▼
+                                ┌────────────────┐
+                                │ Orchestrator   │
+                                │ (canonize mode)│
+                                │                │
+                                │ apply 5 criteria│
+                                │ classify Model C│
+                                │ propose writes │
+                                └────────┬───────┘
+                                         │
+                                         ▼
+                              canonical-memory PRs
+                              (auto-merge / veto / sync / Compliance)
+```
+
 ## Model C — write authority by impact class
 
 Every canonical-memory write goes through a PR on the substrate repo,
-classified by impact. The Orchestrator skill (Canonizer mode) classifies
-each candidate keyword-heuristically before invoking
+classified by impact. The Orchestrator subagent (canonize mode)
+classifies each candidate keyword-heuristically before invoking
 `lib/canonical-memory/propose-write.sh`.
 
 | Impact | Trigger keywords | PR behavior | Decision |
@@ -54,32 +127,34 @@ each candidate keyword-heuristically before invoking
 | `medium` | template / convention / naming | Veto window (default 24 h); auto-merge after window closes | Notify-and-apply |
 | `low` | (default — no higher-class keyword) | Auto-merge after CI checks | Auto-applied |
 
-Hard bounds + Trigger-4 escalation, full Model C, and progressive
-disclosure all ship in v0.6.0. See `patterns/model-c-governance.md`,
-`patterns/human-triggers.md`, and `patterns/ralph-loop.md` for the
-authoritative contracts.
+Mid-loop canonical-memory writes are forbidden — only the
+termination handoff invokes `propose-write.sh`.
+
+See `patterns/model-c-governance.md`, `patterns/human-triggers.md`,
+and `patterns/ralph-loop.md` for the authoritative contracts.
 
 ## Where things live
 
 ```
 yoke/                              # this plugin repo
-├── .claude-plugin/                # plugin manifest
+├── .claude-plugin/                # plugin manifest (v1.1.0)
 ├── skills/                        # /yoke:* slash commands
-├── agents/                        # subagent definitions
+├── agents/                        # 3 runtime subagents (generator, validator, orchestrator)
 ├── hooks/                         # deterministic checkpoints
 ├── templates/                     # artifact templates
 ├── lib/                           # internal scripts (canonical-memory, ralph-loop, sensors)
 └── docs/                          # what you're reading
 
 <host project>/.yoke/              # working memory, per project
-└── (prd.md, tech-spec.md, acceptance-contract.md, progress.md, contracts.md, query-trace.md)
+└── (prd.md, tech-spec.md, acceptance-contract.md, progress.md,
+     contracts.md, query-trace.md, .snapshots/cycle-N.yaml)
 
 <canonical-memory repo>/           # external substrate, organization-wide
-└── (markdown + frontmatter, queryable via MCP)
+└── (markdown + frontmatter, queryable via MCP, write-only by Orchestrator)
 ```
 
 ## Lineage
 
-- **Vibeflow** (<https://github.com/pe-menezes/vibeflow>) — Generator skills (PRD / Tech Spec drafting), forked one-time.
-- **Bedrock** (<https://github.com/iurykrieger/claude-bedrock>) — Orchestrator's canonical-memory primitives (read, write, graph), forked one-time.
+- **Vibeflow** (<https://github.com/pe-menezes/vibeflow>) — structural source for `/yoke:discover`, `/yoke:tech-spec` skill prompts (forked Sprint 2; refreshed v1.1 to drive dialogue inline).
+- **Bedrock** (<https://github.com/iurykrieger/claude-bedrock>) — canonical-memory primitives (read, write, graph), forked Sprint 5. The Orchestrator subagent is Yoke-native.
 - Both evolve autonomously inside Yoke from the time of fork. No continuous port.

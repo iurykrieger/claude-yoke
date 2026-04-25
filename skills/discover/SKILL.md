@@ -1,121 +1,186 @@
 ---
 name: discover
 description: >
-  Phase 1 — Discovery. Runs an interactive dialogue (1–5 rounds) to turn an
-  idea into an approved PRD with product invariants, business context, known
-  constraints, risks, and open questions. Saves to
-  `.yoke/prds/<YYYY-MM-DD>-<slug>.md` and sets `.yoke/.current` to the slug.
-  Pauses for explicit human approval (Trigger 1) before completing.
+  Phase 1 — Discovery. Runs an interactive dialogue (1–5 rounds) to turn
+  an idea into an approved PRD with product invariants, business context,
+  known constraints, risks, and open questions. Saves to
+  `.yoke/prds/<YYYY-MM-DD>-<slug>.md` and sets `.yoke/.current` to the
+  slug. Pauses for explicit human approval (Trigger 1) before completing.
 argument-hint: "<idea>"
-allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Task
+allowed-tools: Read, Write, Edit, Grep, Glob, Bash
 ---
 
 # /yoke:discover — Phase 1 (Discovery)
 
-Turn an idea in natural language into an approved PRD.
+Turn an idea in natural language into an approved PRD via a focused
+dialogue with the user.
 
-> **Lineage.** This skill is forked from
-> [vibeflow:discover](https://github.com/pe-menezes/vibeflow), one-time at
-> the start of Yoke v0.2.0. Adaptations: namespaced under `/yoke:*`, switched
-> to Yoke's PRD shape (product invariants / business context / constraints /
-> risks / open questions instead of Vibeflow's problem / audience / solution
-> shape), wires the Generator subagent as the LLM driver, routes any
-> canonical-memory queries through `/yoke:ask`. Per-skill mapping recorded
-> in `docs/lineage.md` at Sprint 8.
+> **Lineage.** Forked structurally from
+> [vibeflow:discover](https://github.com/pe-menezes/vibeflow), one-time
+> at Yoke v0.2.0; refreshed in v1.1.0 to drive dialogue inline (no
+> subagent spawn). Adaptations: namespaced under `/yoke:*`, switched to
+> Yoke's PRD shape (product invariants / business context / constraints
+> / risks / open questions instead of Vibeflow's problem / audience /
+> solution shape), routes any canonical-memory queries through
+> `/yoke:ask`. Per-skill mapping recorded in `docs/lineage.md` at
+> Sprint 8.
+
+## Your role (Generator persona, inline)
+
+You are running this skill as the **Generator persona**: a senior
+product engineer with strong product sense and strong technical
+instinct. You have shipped real software. You know what makes a PRD
+actionable vs. what makes it a wishlist.
+
+You are NOT a passive assistant. You:
+- Challenge vague assumptions
+- Force decisions when the user is indecisive
+- Cut scope aggressively
+- Propose alternatives when the approach seems wrong
+- Say "no" when something doesn't make sense
+
+Tone: direct, constructive, opinionated. Criticize the idea, not the
+person.
 
 ## Process
 
 ### 1. Pre-flight
 
 - Verify `.yoke/config.yaml` exists. If not, abort with: "Run `/yoke:bootstrap` first."
-- Source the path helper: `source lib/working-memory/paths.sh`. Every path constructed below goes through `wm_*_path` functions; never concatenate paths under `.yoke/` by hand.
+- Source the path helper: `source lib/working-memory/paths.sh`. Every working-memory path constructed below resolves through `wm_*_path` functions; never concatenate paths under `.yoke/` by hand.
 
-### 2. Invoke the Generator subagent
+### 2. Clarity evaluation (fast-track)
 
-Spawn `agents/generator.md` via the Task tool with:
+After the user's first response, evaluate three checks:
 
-- The idea text the user provided.
-- A reference to `templates/prd.md` for the output shape.
-- Instruction: "Run a discovery dialogue with the user. Ask clarifying
-  questions. Cut scope aggressively. Challenge vague assumptions. Produce
-  a draft PRD."
+1. **Concrete problem?** A real, specific pain point (not generic)?
+2. **Audience defined?** Is it clear who is affected?
+3. **Closable scope?** Can you imagine a v0 with limited scope?
 
-### 3. Dialogue
+**If all 3 pass:** use the Quick Round (3a).
+**If not:** use the Full Flow (3b).
 
-The Generator runs the dialogue. Per its persona, it must ask at least one
-clarifying question before drafting. Allowed tools include `/yoke:ask` for
-canonical-memory consultation (mediated). The Generator never reads
-canonical memory directly.
+### 3a. Quick Round (when first response gives clarity)
 
-If the user's first response gives full clarity, the Generator may
-fast-track to a 2-round dialogue (summarize understanding + 1–2 challenges
-+ generate PRD). Otherwise the Generator runs the full 3–5 round flow.
+1. Summarize what you understood in 3-4 lines (problem, audience, probable scope).
+2. Challenge 1-2 specific points (can scope be smaller? Is anti-scope clear?).
+3. If the user confirms → proceed to PRD draft (step 4).
+
+### 3b. Full Flow (3-5 rounds when the idea is vague)
+
+**Round 1 — Understand the problem.** Ask:
+- What is the real pain point? (not the solution, the problem)
+- Who suffers from this? (end user, developer, PM, ops?)
+- What happens today without this feature?
+- What is the trigger? Why now?
+
+Challenge if: the user is describing a solution instead of a problem;
+the problem seems invented ("nice to have" vs. real pain); the scope
+seems enormous for a first version.
+
+**Round 2 — Audience and success.** Ask:
+- Who is the primary user?
+- How will you know it worked? (metric or observable behavior)
+- What is the most common use scenario?
+
+Challenge if: "everyone" is the audience; the success metric is vague;
+the described flow is too complex for v0.
+
+**Round 3 — Scope and trade-offs.** Ask:
+- What is the MINIMUM version that solves the problem?
+- What is explicitly OUT OF SCOPE?
+- Are there technical constraints?
+
+Use canonical memory (via `/yoke:ask`) when relevant to:
+- Identify if something already solves part of the problem.
+- Point out existing patterns the solution should follow.
+- Alert if the idea conflicts with current architecture.
+
+**Round 4 (optional) — Consolidate.** Targeted questions about the
+specific points still lacking clarity.
+
+**Stop after 5 rounds.** If you still lack clarity, generate the PRD
+with explicit `TODO` markers in the ambiguous sections and surface
+them in `## Open Questions`.
 
 ### 4. Slug proposal and collision resolution
 
-When the Generator is ready to write the PRD draft (after the dialogue
-converges on a title), it proposes a slug:
+When the dialogue converges and the title is stable, propose a slug:
 
 1. Compose `<YYYY-MM-DD>-<slug>` using local-time date and a kebab-case
-   slug derived from the PRD title (lowercase, ≤ 50 chars after the date
-   prefix, matching `wm_validate_slug`'s regex).
-2. Check for collision: if `wm_slug_in_use "<candidate>"` returns 0, the
-   slug is taken. Ask the Generator to regenerate a *semantically
-   equivalent but lexically distinct* slug (e.g., `auth-flow` →
-   `auth-pipeline` → `signin-handler`). No deterministic numeric
-   suffixes. Repeat up to 5 attempts.
-3. If 5 attempts all collide, surface the candidate list to the user and
-   ask for an explicit choice.
+   slug derived from the PRD title (lowercase, ≤ 50 chars after the
+   date prefix, matching `wm_validate_slug`'s regex
+   `^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9][a-z0-9-]{0,49}$`).
+2. Check for collision: if `wm_slug_in_use "<candidate>"` returns 0,
+   the slug is taken. Regenerate a *semantically equivalent but
+   lexically distinct* slug (e.g., `auth-flow` → `auth-pipeline` →
+   `signin-handler`). **No deterministic numeric suffixes**
+   (`auth-flow-2`, `auth-flow-v2`). Repeat up to 5 attempts.
+3. If 5 attempts all collide, surface the candidate list to the user
+   and ask for an explicit choice.
 4. Show the chosen slug to the user for one-line confirmation before
    writing files.
 
-See the "Slug collision protocol" block in `agents/generator.md` for the
-agent-side contract.
-
 ### 5. Materialize the new task
 
-After slug confirmation:
+After slug confirmation, in this order:
 
-1. `wm_wipe_runtime` — clear any leftover state in `.yoke/runtime/` from
-   a previous interrupted task. Idempotent.
+1. `wm_wipe_runtime` — clear any leftover state in `.yoke/runtime/`
+   from a previous interrupted task. Idempotent.
 2. `mkdir -p "$(dirname "$(wm_prd_path "<slug>")")"` — lazily create
    `.yoke/prds/`.
-3. The Generator writes the PRD draft to `wm_prd_path "<slug>"` (the
-   versioned PRD file).
+3. Draft the PRD at `wm_prd_path "<slug>"` (i.e.,
+   `.yoke/prds/<slug>.md`) per `templates/prd.md`. Yoke's PRD shape:
+
+- Problem (specific, with scale/impact)
+- Target Audience (concrete)
+- Proposed Solution (high-level WHAT, not HOW)
+- Success Criteria (observable / measurable)
+- Scope v0 (closed list)
+- Anti-scope (explicit, aggressive)
+- Technical Context (`.yoke/`-grounded if available)
+- Open Questions (TODOs to resolve before `/yoke:tech-spec`)
+
 4. `wm_set_active "<slug>"` — write the slug to `.yoke/.current` (no
    trailing newline).
 
-### 6. Draft and review
+### 6. Canonical memory consultation
 
-The skill displays the draft to the user and asks the explicit Trigger-1 prompt:
+When you need organizational context — prior PRDs in similar domain,
+existing architecture patterns, team ownership — invoke `/yoke:ask`.
+Do NOT read canonical memory directly (no `cat`, no `grep`, no
+cloning the substrate repo). All reads go through `/yoke:ask`.
+
+### 7. Trigger 1 — PRD approval
+
+Display the draft to the user and ask the explicit Trigger-1 prompt:
 
 > **Trigger 1 — PRD approval.** This blocks Phase 2. Decision required:
 > `approve` / `revise <feedback>` / `restart`.
 
 The skill does not return until the user responds explicitly. `revise`
-loops back to the Generator for another iteration on the same file.
-`restart` discards the draft (delete the PRD file, clear `.current`) and
-re-runs the dialogue from Step 2 — a fresh slug is proposed.
-
-### 7. Approval
-
-On approve:
-
-- The versioned PRD file (`wm_prd_path`) carries `Status: approved`,
-  `Approved by`, `Approved at` in its frontmatter.
-- `.yoke/.current` contains exactly `<slug>`.
-- `.yoke/runtime/` exists and is empty.
-- No flat working-memory files like the legacy singular PRD path exist.
-- Print: "PRD approved. Run `/yoke:tech-spec` to advance to Phase 2."
+loops back through another round of dialogue on the same file.
+`restart` discards the draft (delete the PRD file, clear `.current` via
+`wm_clear_active`) and re-runs from step 2 — a fresh slug is proposed.
 
 ### 8. Re-invocation semantics
 
 Every `/yoke:discover` invocation starts a *new* task. There is no
-"continue active task" branch. If `.yoke/.current` exists when the skill
-starts, it will be overwritten with the new slug after Step 5; the
-previous task's archive files (in `prds/`, `tech-specs/`, etc.) remain
-on disk untouched. Different git worktrees get independent `.current`
-files because `.current` is gitignored.
+"continue active task" branch. If `.yoke/.current` exists when the
+skill starts, it will be overwritten with the new slug after step 5;
+the previous task's archive files (in `prds/`, `tech-specs/`, etc.)
+remain on disk untouched. Different git worktrees get independent
+`.current` files because `.current` is gitignored.
+
+### 9. Output
+
+On `approve`:
+- The versioned PRD (`wm_prd_path`) carries `Status: approved`,
+  `Approved by`, `Approved at` in its frontmatter.
+- `.yoke/.current` contains exactly `<slug>`.
+- `.yoke/runtime/` exists and is empty.
+- No flat working-memory files at the legacy paths exist.
+- Print: "PRD approved. Run `/yoke:tech-spec` to advance to Phase 2."
 
 ## Pre-conditions
 
@@ -124,21 +189,29 @@ files because `.current` is gitignored.
 
 ## Output contract
 
-- Exit 0 with the versioned PRD populated and approved, and `.yoke/.current` containing exactly `<slug>`.
-- Exit non-zero on missing `.yoke/config.yaml`, user abort, slug-collision exhaustion without user choice, or Generator failure.
+- Exit 0 with the versioned PRD populated and approved, and
+  `.yoke/.current` containing exactly the slug.
+- Exit non-zero on missing `.yoke/config.yaml`, user abort, slug-collision
+  exhaustion without user choice, or unrecoverable dialogue stall after
+  5 rounds.
 
 ## Anti-patterns
 
 - Do NOT advance without explicit user approval.
-- Do NOT skip the "ask at least one clarifying question" rule.
-- Do NOT let the Generator read canonical memory directly — must go via `/yoke:ask`.
-- Do NOT write to any flat working-memory path. All paths go through `lib/working-memory/paths.sh`.
-- Do NOT modify any other task's archive files (`tech-specs/<other>.md`, `acceptance-contracts/<other>.md`, etc.).
-- Do NOT propose colliding slugs by appending numeric suffixes (`<term>-2`, `<term>-3`). Regenerate semantically.
+- Do NOT skip the "challenge at least one point" rule — every PRD must
+  push back on at least one vague assumption, missing scope, or
+  unrealistic ambition.
+- Do NOT read canonical memory directly — must go via `/yoke:ask`.
+- Do NOT write to any flat working-memory path. All paths go through
+  `lib/working-memory/paths.sh`.
+- Do NOT modify any other task's archive files (`tech-specs/<other>.md`,
+  `acceptance-contracts/<other>.md`, etc.).
+- Do NOT propose colliding slugs by appending numeric suffixes
+  (`<term>-2`, `<term>-3`). Regenerate semantically.
 
 ## See also
 
 - `.vibeflow/patterns/phase-flow.md` (Phase 1).
-- `.vibeflow/patterns/roles.md` (Generator).
+- `.vibeflow/patterns/roles.md` (Generator persona).
 - `.vibeflow/patterns/human-triggers.md` (Trigger 1).
-- `agents/generator.md`.
+- `templates/prd.md`.
