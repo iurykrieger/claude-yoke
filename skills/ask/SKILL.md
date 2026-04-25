@@ -3,7 +3,7 @@ name: ask
 description: >
   Read-only canonical-memory query. Calls lib/canonical-memory/query.sh
   directly and writes the query, result count, and invoker to
-  .yoke/query-trace.md for audit and bypass detection. Returns matching
+  .yoke/query-traces/<slug>.md for audit and bypass detection. Returns matching
   entries (text grep in v0.5.0; subgraph traversal in Sprint 6).
   Spec-phase skills (`/yoke:discover`, `/yoke:tech-spec`,
   `/yoke:acceptance-contract`) and the runtime Orchestrator subagent
@@ -27,13 +27,14 @@ this skill — never read the canonical-memory repo directly.**
 ## Pre-conditions
 
 - `.yoke/config.yaml` exists with a populated `canonical_memory.url`.
+- `.yoke/.current` exists and points at a valid slug. If absent, abort: "no active task; run `/yoke:discover` first."
 - The canonical-memory repo exists at the URL.
 
 ## Process
 
 ### 1. Trace mode declaration
 
-Print on stdout (also written to `.yoke/query-trace.md`):
+Print on stdout (also written to `.yoke/query-traces/<slug>.md`):
 
 ```
 [ask] query="<term>" subgraph_depth=1
@@ -52,18 +53,29 @@ text grep only). Sprint 6 makes this configurable.
 
 ### 3. Run text grep with deterministic trace writing
 
-Invoke
-`lib/canonical-memory/query.sh --trace .yoke/query-trace.md --invoker "<calling-skill-or-agent>" "<term>"`.
+Resolve the trace path via the helper:
+
+```bash
+source lib/working-memory/paths.sh
+trace_path="$(wm_query_trace_path)"          # uses active slug
+mkdir -p "$(dirname "$trace_path")"           # lazily create .yoke/query-traces/
+```
+
+Then invoke
+`lib/canonical-memory/query.sh --trace "$trace_path" --invoker "<calling-skill-or-agent>" "<term>"`.
 
 The script:
 
 - Performs the text grep over the canonical repo (≤ 20 matches).
-- Writes a YAML trace entry to `.yoke/query-trace.md` capturing
-  timestamp, mode, query, match count, capping flag, and invoker.
+- Writes a YAML trace entry to the resolved versioned path
+  (`.yoke/query-traces/<slug>.md`) capturing timestamp, mode, query,
+  match count, capping flag, and invoker.
 - Returns matches as `<file>:<line>:<excerpt>`.
 
-If `.yoke/query-trace.md` doesn't exist, the script initializes it
-with a `# Query trace` header.
+If the trace file doesn't exist, the script initializes it with a
+`# Query trace` header. The trace file is **versioned** — the host
+project commits per-task query traces alongside other archive
+categories (PRDs, tech specs, ACs, contracts).
 
 ### 4. Empty-state UX
 
@@ -85,7 +97,7 @@ with a `# Query trace` header.
 ## Detecting bypass attempts
 
 Every legitimate canonical-memory read writes a trace entry to
-`.yoke/query-trace.md`. Absence of a trace entry for a claimed read
+`.yoke/query-traces/<slug>.md`. Absence of a trace entry for a claimed read
 is the bypass signal:
 
 - If a spec-phase skill or the Orchestrator subagent claims to have

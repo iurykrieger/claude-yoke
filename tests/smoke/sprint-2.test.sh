@@ -114,8 +114,8 @@ fi
 grep -q "lib/canonical-memory/query.sh" "$ask" \
   && pass "/yoke:ask invokes query.sh directly" \
   || err "/yoke:ask does not invoke query.sh"
-grep -q "query-trace.md" "$ask" \
-  && pass "/yoke:ask writes to .yoke/query-trace.md" \
+grep -qE 'query-traces/<slug>\.md|wm_query_trace_path' "$ask" \
+  && pass "/yoke:ask writes to versioned .yoke/query-traces/<slug>.md" \
   || err "/yoke:ask does not write query trace"
 
 # 9. query.sh runs against an empty test directory (returns empty-state)

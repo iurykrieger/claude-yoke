@@ -2,9 +2,9 @@
 # check-hard-bounds.sh — enforce hard bounds on the ralph loop after each cycle.
 #
 # Verifies (in this order):
-#   - Cycle count vs cycles_max  (read from .yoke/.cycle-counter and .yoke/config.yaml)
-#   - Elapsed time vs timeout_seconds  (read from .yoke/.loop-start)
-#   - Token usage vs token_budget  (read from .yoke/.token-budget-used)
+#   - Cycle count vs cycles_max  (read from .yoke/runtime/.cycle-counter and .yoke/config.yaml)
+#   - Elapsed time vs timeout_seconds  (read from .yoke/runtime/.loop-start)
+#   - Token usage vs token_budget  (read from .yoke/runtime/.token-budget-used)
 #
 # When any bound is reached, this script does NOT abort the task. It invokes
 # `lib/ralph-loop/escalate.sh` to emit a structured Trigger-4 packet, then
@@ -28,6 +28,11 @@
 #   10  hard bound reached (escalate.sh has been invoked; loop should pause)
 
 set -euo pipefail
+
+# Locate paths helper relative to this hook (so cwd doesn't matter).
+hook_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/working-memory/paths.sh
+source "${hook_dir}/../lib/working-memory/paths.sh"
 
 config=".yoke/config.yaml"
 
@@ -85,14 +90,14 @@ timeout_seconds=$(read_override "timeout_seconds" "14400")
 token_budget=$(read_override "token_budget" "200000")
 
 # Cycle counter
-counter_file=".yoke/.cycle-counter"
+counter_file="$(wm_cycle_counter_path)"
 cycles=0
 if [ -f "$counter_file" ]; then
   cycles=$(cat "$counter_file")
 fi
 
-# Elapsed time (loop start timestamp at .yoke/.loop-start, unix epoch seconds)
-start_file=".yoke/.loop-start"
+# Elapsed time (loop start timestamp under runtime/, unix epoch seconds)
+start_file="$(wm_runtime_dir)/.loop-start"
 elapsed=0
 if [ -f "$start_file" ]; then
   start_ts=$(cat "$start_file")
@@ -101,7 +106,7 @@ if [ -f "$start_file" ]; then
 fi
 
 # Token budget used (best-effort; populated by post-iteration if tracked)
-budget_file=".yoke/.token-budget-used"
+budget_file="$(wm_runtime_dir)/.token-budget-used"
 tokens=0
 if [ -f "$budget_file" ]; then
   tokens=$(cat "$budget_file")

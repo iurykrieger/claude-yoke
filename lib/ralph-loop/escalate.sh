@@ -2,7 +2,7 @@
 # escalate.sh — emits the Trigger-4 arbitration packet on divergence,
 # contract conflict, or hard-bound hit.
 #
-# The packet is structured YAML written to .yoke/.trigger4-packet.yaml AND
+# The packet is structured YAML written to .yoke/runtime/.trigger4-packet.yaml AND
 # echoed on stdout. It contains:
 #   - reason: divergence | contract-conflict | hard-bound | infeasibility
 #   - category: <subcategory of reason>
@@ -33,6 +33,11 @@
 #   3   .yoke/ missing
 
 set -euo pipefail
+
+# Locate paths helper relative to this script (so cwd doesn't matter).
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../working-memory/paths.sh
+source "${script_dir}/../working-memory/paths.sh"
 
 reason=""
 category=""
@@ -113,12 +118,24 @@ esac
 
 # Locate latest snapshot
 latest_snapshot=""
-if [ -d ".yoke/.snapshots" ]; then
-  latest_snapshot=$(ls -1 .yoke/.snapshots/cycle-*.yaml 2>/dev/null | sort -V | tail -1 || true)
+snapshots_dir="$(wm_snapshots_dir)"
+if [ -d "$snapshots_dir" ]; then
+  latest_snapshot=$(ls -1 "$snapshots_dir"/cycle-*.yaml 2>/dev/null | sort -V | tail -1 || true)
 fi
 
-packet=".yoke/.trigger4-packet.yaml"
+packet="$(wm_trigger4_packet_path)"
+mkdir -p "$(dirname "$packet")"
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+# Resolve runtime + archive paths for the state block. Active slug may be
+# absent when escalating during pre-flight; tolerate that with placeholders.
+progress_path="$(wm_progress_path)"
+contracts_path=""
+if contracts_path="$(wm_contracts_path 2>/dev/null)"; then
+  :
+else
+  contracts_path="<no-active-task>"
+fi
 
 # Build YAML packet
 {
@@ -128,8 +145,8 @@ ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   printf 'reason: %s\n' "$reason"
   printf 'divergence_category: %s\n' "$divergence_category"
   printf 'state:\n'
-  printf '  progress_md_path: ".yoke/progress.md"\n'
-  printf '  contracts_md_path: ".yoke/contracts.md"\n'
+  printf '  progress_md_path: "%s"\n' "$progress_path"
+  printf '  contracts_md_path: "%s"\n' "$contracts_path"
   if [ -n "$latest_snapshot" ]; then
     printf '  latest_snapshot_path: "%s"\n' "$latest_snapshot"
   else

@@ -13,7 +13,9 @@
 #   --repo            (resolved from .yoke/config.yaml canonical_memory.url)
 #   --config          .yoke/config.yaml
 #   --current-model   $YOKE_MODEL_ID  (default: claude-opus-4-7)
-#   --query-trace     .yoke/query-trace.md
+#   --query-trace     (empty; caller passes a versioned path resolved via
+#                      lib/working-memory/paths.sh::wm_query_trace_path,
+#                      or a glob expanded by drift-sense across all tasks)
 #   --max-days        30  (or .yoke/config.yaml overrides.drift_sense.staleness_max_days)
 #
 # Three findings kinds:
@@ -40,7 +42,7 @@ set -euo pipefail
 repo=""
 config=".yoke/config.yaml"
 current_model="${YOKE_MODEL_ID:-claude-opus-4-7}"
-query_trace=".yoke/query-trace.md"
+query_trace=""
 max_days=""
 
 while [ $# -gt 0 ]; do

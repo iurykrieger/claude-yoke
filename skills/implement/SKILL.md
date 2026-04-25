@@ -5,7 +5,8 @@ description: >
   Orchestrator subagents concurrently each cycle (single Task batch) and
   iterates against the binding Acceptance Contract until every criterion
   passes or the loop pauses for human arbitration. Sprint contracts on
-  consensus persist to `.yoke/contracts.md`. At loop termination, issues
+  consensus persist to `.yoke/contracts/<slug>.md`; runtime state under
+  `.yoke/runtime/`. At loop termination, issues
   one final Orchestrator call with `mode=canonize` to apply the
   five-criteria filter and propose Model C writes to canonical memory.
 argument-hint: ""
@@ -32,19 +33,25 @@ termination.
 
 ### 1. Pre-flight (deterministic)
 
+- Source `lib/working-memory/paths.sh`. All paths below resolve through
+  `wm_*_path` helpers; the active task slug comes from `.yoke/.current`
+  via `wm_active_slug`.
 - Run `lib/ralph-loop/orchestrate.sh preflight`. The script verifies:
   - `.yoke/config.yaml` exists.
-  - `.yoke/prd.md`, `.yoke/tech-spec.md`,
-    `.yoke/acceptance-contract.md` all exist and carry
-    `Status: approved` (PRD/Tech Spec) or `Status: ratified`
-    (Contract).
+  - `.yoke/.current` exists and points at a valid slug.
+  - `wm_prd_path "$slug"`, `wm_tech_spec_path "$slug"`, and
+    `wm_acceptance_contract_path "$slug"` all exist and carry
+    `Status: approved` (PRD/Tech Spec) or `Status: ratified` (Contract).
   - On any missing pre-condition, the script aborts with a clear
     message (exit codes 3 or 4).
 - Run `hooks/pre-implementation.sh`.
-- Initialize `.yoke/progress.md`, `.yoke/contracts.md`, and
-  `.yoke/query-trace.md` from `templates/progress.md`,
-  `templates/contracts.md`, and an empty `# Query trace` header
-  respectively if they don't exist (cycle 0 entries).
+- Ensure `.yoke/runtime/` and `.yoke/contracts/` exist (`mkdir -p`).
+  Initialize `wm_progress_path` (`.yoke/runtime/progress.md`),
+  `wm_contracts_path "$slug"` (`.yoke/contracts/<slug>.md`), and
+  `wm_query_trace_path "$slug"` (`.yoke/query-traces/<slug>.md`) from
+  `templates/progress.md`, `templates/contracts.md`, and an empty
+  `# Query trace` header respectively if they don't exist (cycle 0
+  entries).
 
 ### 2. Cycle loop
 
@@ -58,52 +65,54 @@ For each cycle (numbered starting at 1):
    spawn time.
 
    - **Generator (`agents/generator.md`)** — input:
-     - Approved upstream artifacts (read-only).
-     - Current `.yoke/progress.md` (last cycle's state).
-     - Current `.yoke/contracts.md`.
-     - Current `.yoke/query-trace.md` (Orchestrator's prior consult
-       output for this loop).
+     - Approved upstream artifacts at `wm_prd_path`,
+       `wm_tech_spec_path`, `wm_acceptance_contract_path` (read-only).
+     - Current runtime progress at `wm_progress_path` (last cycle's
+       state).
+     - Current sprint contracts at `wm_contracts_path "$slug"`.
+     - Current query trace at `wm_query_trace_path "$slug"`
+       (Orchestrator's prior consult output for this loop).
      - Last `verify-acceptance.sh` snapshot from
-       `.yoke/.snapshots/cycle-<N-1>.yaml` (if any).
+       `$(wm_snapshots_dir)/cycle-<N-1>.yaml` (if any).
 
      Writes code targeting the next failing Acceptance Contract
-     criterion; persists `.yoke/progress.md` at end of turn.
+     criterion; persists `wm_progress_path` at end of turn.
 
    - **Validator (`agents/validator.md`)** — input:
-     - Approved Acceptance Contract.
+     - Approved Acceptance Contract at `wm_acceptance_contract_path`.
      - Last `verify-acceptance.sh` snapshot from
-       `.yoke/.snapshots/cycle-<N-1>.yaml`.
-     - Current `.yoke/contracts.md` and `.yoke/progress.md`
-       (read-only).
-     - Current `.yoke/query-trace.md`.
+       `$(wm_snapshots_dir)/cycle-<N-1>.yaml`.
+     - Current sprint contracts at `wm_contracts_path` and runtime
+       progress at `wm_progress_path` (read-only).
+     - Current query trace at `wm_query_trace_path`.
 
      Emits structured JSON verdicts per criterion against the
      freshest snapshot's sensor output; appends sprint contracts to
-     `.yoke/contracts.md` only on consensus events (post-Validator
+     `wm_contracts_path` only on consensus events (post-Validator
      verdict, never concurrent with Generator's writes).
 
    - **Orchestrator (`agents/orchestrator.md`)** — input:
-     - `mode=consult+monitor`, `cycle=<N>`.
-     - Current `.yoke/progress.md`, `.yoke/contracts.md`,
-       `.yoke/query-trace.md`.
+     - `mode=consult+monitor`, `cycle=<N>`, `slug=<active slug>`.
+     - Current `wm_progress_path`, `wm_contracts_path`,
+       `wm_query_trace_path`.
      - Last `verify-acceptance.sh` snapshot.
 
      Consults canonical memory via
      `lib/canonical-memory/query.sh` for patterns relevant to the
-     next failing criterion; appends to `.yoke/query-trace.md`.
+     next failing criterion; appends to `wm_query_trace_path`.
      Monitors for Generator↔Validator divergence; on divergence
      invokes `lib/ralph-loop/escalate.sh` to emit the Trigger-4
-     packet.
+     packet (written to `wm_trigger4_packet_path`).
 
    Issue the three Task calls in a **single assistant turn** so
    they execute concurrently. Per-agent file-write contracts (in
    `agents/*.md`) prevent within-batch collisions: Generator owns
-   `progress.md`, Orchestrator owns `query-trace.md`, and
-   `contracts.md` is appended only on consensus events post-batch.
+   the progress file, Orchestrator owns the query trace, and the
+   contracts file is appended only on consensus events post-batch.
 
 2. **Sensor execution (deterministic).** Run
-   `hooks/verify-acceptance.sh` against
-   `.yoke/acceptance-contract.md` to capture cycle N's
+   `hooks/verify-acceptance.sh` (default arg resolves to
+   `wm_acceptance_contract_path`) to capture cycle N's
    post-Generator sensor state. Capture the structured YAML output.
 
 3. **Contradiction check (deterministic).** Run
@@ -116,9 +125,10 @@ For each cycle (numbered starting at 1):
 
 4. **Persist (deterministic).** Run `hooks/post-iteration.sh`. The
    hook:
-   - Increments the cycle counter at `.yoke/.cycle-counter`.
+   - Increments the cycle counter at `wm_cycle_counter_path`
+     (`.yoke/runtime/.cycle-counter`).
    - Snapshots `verify-acceptance.sh` output to
-     `.yoke/.snapshots/cycle-<N>.yaml`.
+     `$(wm_snapshots_dir)/cycle-<N>.yaml`.
 
 5. **Hard-bound check (deterministic).** Run
    `hooks/check-hard-bounds.sh`. If cycles, timeout, or token
@@ -139,8 +149,8 @@ loop converged (MERGE-READY) or paused (Trigger-4 / hard-bound /
 infeasibility). Issue a **single Orchestrator-only Task call** with
 input `mode=canonize`:
 
-- Input includes `.yoke/progress.md`, `.yoke/contracts.md`,
-  `.yoke/query-trace.md`, all `.yoke/.snapshots/cycle-*.yaml`,
+- Input includes `wm_progress_path`, `wm_contracts_path`,
+  `wm_query_trace_path`, all `$(wm_snapshots_dir)/cycle-*.yaml`,
   and the loop's termination reason
   (`merge-ready` | `divergence` | `contract-conflict` |
   `hard-bound` | `infeasibility`).
@@ -182,9 +192,10 @@ see `.vibeflow/patterns/human-triggers.md`.
 
 ## Pre-conditions
 
-- `.yoke/config.yaml`, `.yoke/prd.md` (approved),
-  `.yoke/tech-spec.md` (approved), `.yoke/acceptance-contract.md`
-  (ratified).
+- `.yoke/config.yaml` exists.
+- `.yoke/.current` exists and points at a valid slug.
+- `.yoke/prds/<slug>.md` (approved), `.yoke/tech-specs/<slug>.md`
+  (approved), `.yoke/acceptance-contracts/<slug>.md` (ratified).
 
 ## Output contract
 

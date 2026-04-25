@@ -3,8 +3,9 @@ name: discover
 description: >
   Phase 1 — Discovery. Runs an interactive dialogue (1–5 rounds) to turn
   an idea into an approved PRD with product invariants, business context,
-  known constraints, risks, and open questions. Saves to `.yoke/prd.md`.
-  Pauses for explicit human approval (Trigger 1) before completing.
+  known constraints, risks, and open questions. Saves to
+  `.yoke/prds/<YYYY-MM-DD>-<slug>.md` and sets `.yoke/.current` to the
+  slug. Pauses for explicit human approval (Trigger 1) before completing.
 argument-hint: "<idea>"
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash
 ---
@@ -46,7 +47,7 @@ person.
 ### 1. Pre-flight
 
 - Verify `.yoke/config.yaml` exists. If not, abort with: "Run `/yoke:bootstrap` first."
-- If `.yoke/prd.md` already exists: ask the user — overwrite, save as `prd-v2.md`, or abort.
+- Source the path helper: `source lib/working-memory/paths.sh`. Every working-memory path constructed below resolves through `wm_*_path` functions; never concatenate paths under `.yoke/` by hand.
 
 ### 2. Clarity evaluation (fast-track)
 
@@ -102,10 +103,34 @@ specific points still lacking clarity.
 with explicit `TODO` markers in the ambiguous sections and surface
 them in `## Open Questions`.
 
-### 4. PRD draft
+### 4. Slug proposal and collision resolution
 
-Read `templates/prd.md` for the artifact shape. Draft `.yoke/prd.md`
-matching it. Yoke's PRD shape:
+When the dialogue converges and the title is stable, propose a slug:
+
+1. Compose `<YYYY-MM-DD>-<slug>` using local-time date and a kebab-case
+   slug derived from the PRD title (lowercase, ≤ 50 chars after the
+   date prefix, matching `wm_validate_slug`'s regex
+   `^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9][a-z0-9-]{0,49}$`).
+2. Check for collision: if `wm_slug_in_use "<candidate>"` returns 0,
+   the slug is taken. Regenerate a *semantically equivalent but
+   lexically distinct* slug (e.g., `auth-flow` → `auth-pipeline` →
+   `signin-handler`). **No deterministic numeric suffixes**
+   (`auth-flow-2`, `auth-flow-v2`). Repeat up to 5 attempts.
+3. If 5 attempts all collide, surface the candidate list to the user
+   and ask for an explicit choice.
+4. Show the chosen slug to the user for one-line confirmation before
+   writing files.
+
+### 5. Materialize the new task
+
+After slug confirmation, in this order:
+
+1. `wm_wipe_runtime` — clear any leftover state in `.yoke/runtime/`
+   from a previous interrupted task. Idempotent.
+2. `mkdir -p "$(dirname "$(wm_prd_path "<slug>")")"` — lazily create
+   `.yoke/prds/`.
+3. Draft the PRD at `wm_prd_path "<slug>"` (i.e.,
+   `.yoke/prds/<slug>.md`) per `templates/prd.md`. Yoke's PRD shape:
 
 - Problem (specific, with scale/impact)
 - Target Audience (concrete)
@@ -116,14 +141,17 @@ matching it. Yoke's PRD shape:
 - Technical Context (`.yoke/`-grounded if available)
 - Open Questions (TODOs to resolve before `/yoke:tech-spec`)
 
-### 5. Canonical memory consultation
+4. `wm_set_active "<slug>"` — write the slug to `.yoke/.current` (no
+   trailing newline).
+
+### 6. Canonical memory consultation
 
 When you need organizational context — prior PRDs in similar domain,
 existing architecture patterns, team ownership — invoke `/yoke:ask`.
 Do NOT read canonical memory directly (no `cat`, no `grep`, no
 cloning the substrate repo). All reads go through `/yoke:ask`.
 
-### 6. Trigger 1 — PRD approval
+### 7. Trigger 1 — PRD approval
 
 Display the draft to the user and render the **shared approval menu**
 defined in `templates/approval-menu.md`. The menu is the surface for
@@ -131,7 +159,8 @@ defined in `templates/approval-menu.md`. The menu is the surface for
 
 Inputs passed to the menu:
 
-- `artifact_path`: `.yoke/prd.md`
+- `artifact_path`: `wm_prd_path "$slug"` (resolves to
+  `.yoke/prds/<slug>.md`)
 - `artifact_label`: `PRD`
 - `next_skill`: `/yoke:tech-spec`
 - `language`: the language detected for the dialogue
@@ -146,27 +175,34 @@ the internal verbs `approve_and_continue` / `approve` / `reject` /
 options 1 and 2; `restart` ↔ `reject`; `revise` ↔ option 4.
 
 The skill does not return until the user replies. `revise` loops back
-through another round of dialogue with the multi-line feedback.
-`reject` prompts for a single secondary confirmation before discarding
-the draft (on `yes`, the skill restarts from step 2). `approve` records
-approval and stops. `approve_and_continue` records approval and chains
-into `/yoke:tech-spec` via the `Skill` tool in the same turn — **but**
-if the open-questions detection returned at least one match, the
-template requires a `yes` / `no` warning confirmation before chaining;
-on `no`, the skill records approval and stops (collapses to `approve`).
+through another round of dialogue on the same file with the multi-line
+feedback. `reject` prompts for a single secondary confirmation before
+discarding the draft; on `yes`, the skill deletes the PRD file, clears
+`.current` via `wm_clear_active`, and re-runs from step 2 (a fresh slug
+is proposed). `approve` records approval and stops.
+`approve_and_continue` records approval and chains into
+`/yoke:tech-spec` via the `Skill` tool in the same turn — **but** if
+the open-questions detection returned at least one match, the template
+requires a `yes` / `no` warning confirmation before chaining; on `no`,
+the skill records approval and stops (collapses to `approve`).
 
-### 7. Idempotency
+### 8. Re-invocation semantics
 
-If `.yoke/prd.md` already existed when the skill started:
-- "overwrite": replace `.yoke/prd.md` after approval.
-- "save as v2": write `.yoke/prd-v2.md`.
-- "abort": exit 0 without changes.
+Every `/yoke:discover` invocation starts a *new* task. There is no
+"continue active task" branch. If `.yoke/.current` exists when the
+skill starts, it will be overwritten with the new slug after step 5;
+the previous task's archive files (in `prds/`, `tech-specs/`, etc.)
+remain on disk untouched. Different git worktrees get independent
+`.current` files because `.current` is gitignored.
 
-### 8. Output
+### 9. Output
 
 On `approve` or `approve_and_continue`:
-- `.yoke/prd.md` written with `Status: approved`, `Approved by`,
-  `Approved at` headers.
+- The versioned PRD (`wm_prd_path "$slug"`) carries `Status: approved`,
+  `Approved by`, `Approved at` in its frontmatter.
+- `.yoke/.current` contains exactly `<slug>`.
+- `.yoke/runtime/` exists and is empty.
+- No flat working-memory files at the legacy paths exist.
 - On `approve_and_continue` (after the open-questions warning, when
   applicable, returns `yes`): the skill invokes `/yoke:tech-spec` via
   the `Skill` tool in the same turn. No manual paste is required from
@@ -179,8 +215,9 @@ On `approve` or `approve_and_continue`:
   records approval, prints "PRD approved. Run `/yoke:tech-spec` to
   advance to Phase 2.", and exits cleanly.
 
-On `reject` (after secondary confirmation): the artifact is marked
-rejected (no `Status: approved` is written) and the skill exits cleanly.
+On `reject` (after secondary confirmation): the PRD file is deleted,
+`.current` is cleared via `wm_clear_active`, and the skill exits
+cleanly.
 
 ## Pre-conditions
 
@@ -189,9 +226,11 @@ rejected (no `Status: approved` is written) and the skill exits cleanly.
 
 ## Output contract
 
-- Exit 0 with `.yoke/prd.md` populated and approved.
-- Exit non-zero on missing `.yoke/`, user abort, or unrecoverable
-  dialogue stall after 5 rounds.
+- Exit 0 with the versioned PRD populated and approved, and
+  `.yoke/.current` containing exactly the slug.
+- Exit non-zero on missing `.yoke/config.yaml`, user abort, slug-collision
+  exhaustion without user choice, or unrecoverable dialogue stall after
+  5 rounds.
 
 ## Anti-patterns
 
@@ -200,8 +239,12 @@ rejected (no `Status: approved` is written) and the skill exits cleanly.
   push back on at least one vague assumption, missing scope, or
   unrealistic ambition.
 - Do NOT read canonical memory directly — must go via `/yoke:ask`.
-- Do NOT modify `.yoke/tech-spec.md` (Phase 2's artifact) or
-  `.yoke/acceptance-contract.md` (Phase 3's).
+- Do NOT write to any flat working-memory path. All paths go through
+  `lib/working-memory/paths.sh`.
+- Do NOT modify any other task's archive files (`tech-specs/<other>.md`,
+  `acceptance-contracts/<other>.md`, etc.).
+- Do NOT propose colliding slugs by appending numeric suffixes
+  (`<term>-2`, `<term>-3`). Regenerate semantically.
 
 ## See also
 

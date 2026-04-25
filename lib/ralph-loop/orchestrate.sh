@@ -4,10 +4,12 @@
 # Subcommands:
 #   preflight                        verify Phase-4 pre-conditions
 #   append-contract <yaml-file>      append a sprint contract YAML fragment
-#                                     to .yoke/contracts.md
+#                                     to the active task's
+#                                     .yoke/contracts/<slug>.md
 #   check-contradiction              detect textual contradictions between
-#                                     .yoke/contracts.md and
-#                                     .yoke/acceptance-contract.md
+#                                     the active task's contracts and
+#                                     acceptance contract (resolved via
+#                                     lib/working-memory/paths.sh)
 #   help | -h | --help               print this help
 #
 # v0.4.0: basic implementation. Sprint 6 adds hard-bound enforcement
@@ -22,6 +24,11 @@
 #   10  contradiction detected (check-contradiction only)
 
 set -euo pipefail
+
+# Locate paths helper relative to this script (so cwd doesn't matter).
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../working-memory/paths.sh
+source "${script_dir}/../working-memory/paths.sh"
 
 usage() {
   cat <<'EOF'
@@ -56,22 +63,26 @@ case "$cmd" in
       echo "Error: .yoke/config.yaml not found. Run /yoke:bootstrap first." >&2
       exit 3
     fi
-    for f in .yoke/prd.md .yoke/tech-spec.md .yoke/acceptance-contract.md; do
+    slug="$(wm_active_slug)" || exit 3
+    prd="$(wm_prd_path "$slug")"
+    tech="$(wm_tech_spec_path "$slug")"
+    ac="$(wm_acceptance_contract_path "$slug")"
+    for f in "$prd" "$tech" "$ac"; do
       if [ ! -f "$f" ]; then
         echo "Error: $f not found. Run the upstream phase first." >&2
         exit 4
       fi
     done
-    if ! grep -qE "^> Status:[[:space:]]*(approved|ratified)" .yoke/prd.md; then
-      echo "Error: .yoke/prd.md is not approved. Run /yoke:discover and approve." >&2
+    if ! grep -qE "^> Status:[[:space:]]*(approved|ratified)" "$prd"; then
+      echo "Error: $prd is not approved. Run /yoke:discover and approve." >&2
       exit 4
     fi
-    if ! grep -qE "^> Status:[[:space:]]*(approved|ratified)" .yoke/tech-spec.md; then
-      echo "Error: .yoke/tech-spec.md is not approved. Run /yoke:tech-spec and approve." >&2
+    if ! grep -qE "^> Status:[[:space:]]*(approved|ratified)" "$tech"; then
+      echo "Error: $tech is not approved. Run /yoke:tech-spec and approve." >&2
       exit 4
     fi
-    if ! grep -qE "^> Status:[[:space:]]*ratified" .yoke/acceptance-contract.md; then
-      echo "Error: .yoke/acceptance-contract.md is not ratified. Run /yoke:acceptance-contract and ratify." >&2
+    if ! grep -qE "^> Status:[[:space:]]*ratified" "$ac"; then
+      echo "Error: $ac is not ratified. Run /yoke:acceptance-contract and ratify." >&2
       exit 4
     fi
     echo "ok"
@@ -85,26 +96,28 @@ case "$cmd" in
       usage
       exit 2
     fi
-    if [ ! -f ".yoke/contracts.md" ]; then
+    contracts_file="$(wm_contracts_path)" || exit 3
+    mkdir -p "$(dirname "$contracts_file")"
+    if [ ! -f "$contracts_file" ]; then
       # Initialize from template if available; otherwise minimal header.
       if [ -f "templates/contracts.md" ]; then
-        cp templates/contracts.md .yoke/contracts.md
+        cp templates/contracts.md "$contracts_file"
       else
-        printf '# Sprint contracts\n' > .yoke/contracts.md
+        printf '# Sprint contracts\n' > "$contracts_file"
       fi
     fi
     {
       echo ""
       echo "## Contract"
       cat "$yaml_file"
-    } >> .yoke/contracts.md
+    } >> "$contracts_file"
     echo "appended"
     exit 0
     ;;
 
   check-contradiction)
-    contract=".yoke/acceptance-contract.md"
-    sprint_contracts=".yoke/contracts.md"
+    contract="$(wm_acceptance_contract_path)" || exit 3
+    sprint_contracts="$(wm_contracts_path)" || exit 3
     if [ ! -f "$contract" ] || [ ! -f "$sprint_contracts" ]; then
       echo "ok"
       exit 0

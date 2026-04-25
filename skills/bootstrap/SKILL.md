@@ -63,7 +63,14 @@ Create:
   - `canonical_memory.url` (from Step 3)
   - `created_at` (today's date, ISO 8601)
   - `yoke_version` (from this plugin's `plugin.json`)
-- `.yoke/.gitignore` with one line: `*` (working memory is ephemeral; the host project does not track it in git).
+- `.yoke/.gitignore` with exactly two lines:
+  ```
+  .current
+  runtime/
+  ```
+  Rationale: archive categories (`prds/`, `tech-specs/`, `acceptance-contracts/`, `contracts/`, `query-traces/`) are versioned by the host project as a permanent record of past tasks. Only the per-worktree active-task pointer (`.current`) and the runtime working directory (`runtime/`) are ephemeral. See `lib/working-memory/paths.sh` for the canonical layout.
+
+Do **not** pre-create any of the archive category folders or any flat working-memory files (`prd.md`, `tech-spec.md`, etc.) — those are created lazily by `/yoke:discover` and downstream skills when they need them. After bootstrap completes, `.yoke/` contains exactly `config.yaml` and `.gitignore`.
 
 ### Step 5 — host `CLAUDE.md`
 
