@@ -1,0 +1,21 @@
+{
+  "name": "yoke",
+  "version": "1.0.0",
+  "description": "Governed adversarial development for AI agents. Couples Implementation and Validation agents inside a binding human contract, with canonical memory governed by contextual write authority. Manifesto: yoke.md.",
+  "author": {
+    "name": "Iury Krieger",
+    "url": "https://github.com/iurykrieger"
+  },
+  "repository": "https://github.com/iurykrieger/yoke",
+  "license": "MIT",
+  "category": "ai-development",
+  "keywords": [
+    "harness-engineering",
+    "adversarial-loop",
+    "binding-spec",
+    "canonical-memory",
+    "ralph-loop",
+    "human-in-the-loop",
+    "spec-driven"
+  ]
+}
