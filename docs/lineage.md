@@ -58,7 +58,8 @@ Fork dates:
 - **Adaptations:**
   - Added `--trace <path> --invoker <name>` flags for deterministic
     audit-trail writing to `.yoke/query-trace.md` (Yoke-specific
-    Mediator-mode requirement; see `skills/orchestrator/SKILL.md`).
+    requirement; called by `skills/ask/SKILL.md` at spec phase and
+    by the Orchestrator subagent's consult mode at runtime).
   - Added `--subgraph-depth N` flag for progressive disclosure (Sprint
     6); delegates to `lib/canonical-memory/graph.sh` for traversal.
   - Bounded output (cap at 20 flat matches / 10 subgraph entries).
@@ -82,15 +83,18 @@ Fork dates:
   implements Model C from the manifesto (§10). Bedrock's upstream lacks
   this governance layer.
 
-### `skills/orchestrator/SKILL.md`
+### `agents/orchestrator.md` (v1.1)
 
 - **Source:** Yoke-native (no upstream). The Orchestrator role is one
   of Yoke's distinctive contributions — see manifesto §13 and §19.5
   contribution #3 ("Orchestrator as multi-function role with Model C
   governance").
-- **Note:** the PRD's v0 amendment makes Orchestrator a **skill** rather
-  than a subagent (sidesteps Risk R1, Claude Code subagent depth). See
-  `decisions.md` for the rationale.
+- **Note (v1.1):** Orchestrator is a **runtime subagent** with three
+  modes (consult / monitor / canonize). The earlier
+  Orchestrator-as-skill amendment is reversed — `/yoke:implement` is a
+  *skill* that spawns three subagents in one turn, so the original
+  Risk R1 (Claude Code subagent depth) does not apply. See
+  `.vibeflow/decisions.md` 2026-04-25 entries for the rationale.
 
 ### `skills/canonize/SKILL.md`
 
@@ -109,14 +113,17 @@ Fork dates:
   inspired by Anthropic's sprint-contracts pattern but extended with
   hard bounds + Model C escalation.
 
-### `agents/generator.md`, `agents/validator.md`, `agents/implementation.md`, `agents/validation.md`
+### `agents/generator.md`, `agents/validator.md`, `agents/orchestrator.md` (v1.1)
 
-- **Source:** Yoke-native subagent definitions. The four-subagent
-  separation (Generator vs Implementation Agent at runtime; Validator
-  vs Validation Agent at runtime) is one of Yoke's distinctive
-  contributions — see `.vibeflow/decisions.md` ("Five subagents as
-  distinct entities" — amended to four after the Orchestrator-as-skill
-  decision).
+- **Source:** Yoke-native subagent definitions. The three runtime
+  subagents materialize Yoke's adversarial Generator/Validator
+  separation at runtime, plus the Orchestrator as sole writer of
+  canonical memory. Spec-phase Generator/Validator subagent
+  instances (which the v1.0 layout had as separate files) are
+  eliminated in v1.1 — their personas live inline in
+  `/yoke:discover`, `/yoke:tech-spec`, `/yoke:acceptance-contract`.
+  See `.vibeflow/decisions.md` "Three runtime subagents only"
+  (2026-04-25, supersedes 2026-04-24 "Five subagents").
 
 ### `skills/drift-sense/SKILL.md`, `lib/canonical-memory/staleness-check.sh`, `lib/canonical-memory/trace-analyzer.sh`
 

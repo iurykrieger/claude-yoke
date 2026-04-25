@@ -4,6 +4,48 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and this
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] — 2026-04-25 — Runtime-only agents
+
+Architectural refactor of the agent topology. v1.0 had five subagent
+files (Generator + Validator at spec phase, Implementation Agent +
+Validation Agent at runtime, Orchestrator demoted to a skill via the
+PRD-v0 amendment). v1.1 collapses this to **three runtime subagents
+only**, embeds spec-phase personas inline in skills, and promotes
+the Orchestrator back to a proper subagent.
+
+> **Clean break.** v1.0 had no active host-project users, so v1.1 is
+> a clean break with no migration path. Already-bootstrapped `.yoke/`
+> directories continue to work — the changes live in the plugin's
+> `agents/` and `skills/`, not in user repos.
+
+### Changed
+
+- **`agents/` reduced from 5 files to 3** (runtime subagents only):
+  - `generator.md` — runtime code generation (renamed from `implementation.md` via `git mv` to preserve history)
+  - `validator.md` — runtime sensor execution + structured JSON verdicts (renamed from `validation.md`)
+  - `orchestrator.md` — promoted back to a subagent; three modes (consult / monitor / canonize)
+- **Spec-phase skills now drive their own dialogue** (no Task spawn):
+  - `/yoke:discover` — Generator persona embedded inline; `allowed-tools` no longer includes `Task`
+  - `/yoke:tech-spec` — Generator persona embedded inline
+  - `/yoke:acceptance-contract` — Validator persona embedded inline; sensor discovery preserved
+- **`/yoke:implement` spawns 3 runtime subagents in parallel per cycle** — single concurrent Task batch in one assistant turn (previously sequential). At loop termination, issues a final Orchestrator-only Task call with `mode=canonize` for the canonization handoff.
+- **`/yoke:ask` is a thin direct-call skill** — invokes `lib/canonical-memory/query.sh` directly and writes its own trace to `.yoke/query-trace.md`. The "Orchestrator skill in mediator mode" concept is retired.
+- **`/yoke:canonize` is repositioned as a manual escape hatch** — primary canonization runs automatically inside `/yoke:implement` at loop termination via the Orchestrator subagent. The skill exists for manual re-runs (after model upgrades, or after a failed auto-canonize).
+- Pattern docs and decision log updated to match: `roles.md`, `ralph-loop.md`, `memory-model.md`, `plugin-structure.md`, `phase-flow.md`, `index.md`, `conventions.md`, `model-c-governance.md`, `sensors.md`, `acceptance-contract.md`. Four new decision entries dated 2026-04-25 in `.vibeflow/decisions.md`.
+- Manifesto (`yoke.md`) §10, §11, §12, §13, §15, §16, §19 updated to reflect the new topology and the *consult live, canonize on termination* canonization stance.
+- `docs/architecture.md` refreshed with the new 3-subagent topology and an updated diagram.
+- All sprint smoke tests (`tests/smoke/sprint-{2,3,4,5}.test.sh`) updated to assert the new topology; sprint-1 and sprints 6-8 untouched.
+
+### Removed
+
+- `skills/orchestrator/SKILL.md` — Orchestrator runtime / canonize / mediator modes moved to `agents/orchestrator.md` (subagent) and `skills/ask/SKILL.md` (thin skill).
+- Spec-phase `agents/generator.md` and `agents/validator.md` (the v1.0 spec-phase variants) — personas now inline in their respective skills.
+
+### Architectural invariants (new in v1.1)
+
+- *Skills deliberate; subagents adapt.* — Skills handle deterministic dialogue; subagents handle runtime adaptation. Codified in `.vibeflow/decisions.md`.
+- *Consult live, canonize on termination.* — Canonical memory is read freely during the runtime loop (Orchestrator consult mode) but written only at loop termination. Mid-loop writes are forbidden.
+
 ## [1.0.0] — 2026-04-25 — First stable release
 
 Sprint 8 of an 8-sprint plan. **Yoke v1.0 is feature-complete and

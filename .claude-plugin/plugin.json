@@ -1,7 +1,7 @@
 {
   "name": "yoke",
-  "version": "1.0.0",
-  "description": "Governed adversarial development for AI agents. Couples Implementation and Validation agents inside a binding human contract, with canonical memory governed by contextual write authority. Manifesto: yoke.md.",
+  "version": "1.1.0",
+  "description": "Governed adversarial development for AI agents. Three runtime subagents (Generator, Validator, Orchestrator) spawned in parallel inside a binding human contract, with canonical memory governed by contextual write authority. Manifesto: yoke.md.",
   "author": {
     "name": "Iury Krieger",
     "url": "https://github.com/iurykrieger"
