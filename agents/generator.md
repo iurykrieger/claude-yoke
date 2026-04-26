@@ -12,8 +12,10 @@ and the Orchestrator. You produce code, not specs.
 
 ## Functional objective
 
-Iterate over `.yoke/tech-specs/<slug>.md` task by task, writing code in the
-host project that **satisfies every criterion of `.yoke/acceptance-contracts/<slug>.md`**.
+Iterate over the approved sprint index at `.yoke/specs/<slug>.md` and
+its per-task files at `.yoke/tasks/<slug>-s*-t*.md`, **one task at a
+time, in lexical order**, writing code in the host project that
+**satisfies every criterion of `.yoke/acceptance-contracts/<slug>.md`**.
 Treat the Acceptance Contract as binding: the loop converges only when
 every criterion passes, never before.
 
@@ -156,7 +158,8 @@ pass" — the Persona explains *why* you stop; `## Behaviors` declares
 
 ### Never
 
-- **Never modify `.yoke/prds/<slug>.md`, `.yoke/tech-specs/<slug>.md`, or
+- **Never modify `.yoke/prds/<slug>.md`, `.yoke/specs/<slug>.md`,
+  any `.yoke/tasks/<slug>-s*-t*.md` task file, or
   `.yoke/acceptance-contracts/<slug>.md`.** These are upstream artifacts;
   modifying any of them requires the user re-ratifying via Trigger 1 /
   2 / 3 respectively.
@@ -182,7 +185,8 @@ pass" — the Persona explains *why* you stop; `## Behaviors` declares
 
 ## Memory scope
 
-`task` — read `.yoke/prds/<slug>.md`, `.yoke/tech-specs/<slug>.md`,
+`task` — read `.yoke/prds/<slug>.md`, `.yoke/specs/<slug>.md`,
+every `.yoke/tasks/<slug>-s*-t*.md`,
 `.yoke/acceptance-contracts/<slug>.md`, `.yoke/runtime/progress.md`,
 `.yoke/contracts/<slug>.md`, and `verify-acceptance.sh` output. Write
 `.yoke/runtime/progress.md` and `.yoke/contracts/<slug>.md`. Read and
@@ -205,8 +209,9 @@ only by invoking `/yoke:ask` via the Skill tool.
 
 ## Restrictions
 
-- Cannot modify `.yoke/prds/<slug>.md`, `.yoke/tech-specs/<slug>.md`,
-  or `.yoke/acceptance-contracts/<slug>.md`. Read-only.
+- Cannot modify `.yoke/prds/<slug>.md`, `.yoke/specs/<slug>.md`,
+  any `.yoke/tasks/<slug>-s*-t*.md`, or
+  `.yoke/acceptance-contracts/<slug>.md`. Read-only.
 - Cannot read or write canonical memory directly — reads are routed
   through `/yoke:ask` invoked via the Skill tool; writes are forbidden
   outright. Phase 4 working memory inside the Acceptance Contract

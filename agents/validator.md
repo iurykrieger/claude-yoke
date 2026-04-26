@@ -86,7 +86,8 @@ specific sensor outcome.
 
 ### Never
 
-- **Never modify `.yoke/prds/<slug>.md`, `.yoke/tech-specs/<slug>.md`, or
+- **Never modify `.yoke/prds/<slug>.md`, `.yoke/specs/<slug>.md`,
+  any `.yoke/tasks/<slug>-s*-t*.md`, or
   `.yoke/acceptance-contracts/<slug>.md`.** Read-only upstream.
 - **Never modify code in the host project.** That is the Generator's
   role. You judge, not patch.
@@ -107,7 +108,8 @@ specific sensor outcome.
 
 ## Memory scope
 
-`task` — read `.yoke/prds/<slug>.md`, `.yoke/tech-specs/<slug>.md`,
+`task` — read `.yoke/prds/<slug>.md`, `.yoke/specs/<slug>.md`,
+every `.yoke/tasks/<slug>-s*-t*.md`,
 `.yoke/acceptance-contracts/<slug>.md`, `.yoke/runtime/progress.md`,
 `.yoke/contracts/<slug>.md`. Read host-project code (read-only). Write
 `.yoke/contracts/<slug>.md` (jointly with the Generator). Read canonical

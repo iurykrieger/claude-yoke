@@ -65,7 +65,7 @@ case "$cmd" in
     fi
     slug="$(wm_active_slug)" || exit 3
     prd="$(wm_prd_path "$slug")"
-    tech="$(wm_tech_spec_path "$slug")"
+    tech="$(wm_spec_path "$slug")"
     ac="$(wm_acceptance_contract_path "$slug")"
     for f in "$prd" "$tech" "$ac"; do
       if [ ! -f "$f" ]; then
