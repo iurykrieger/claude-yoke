@@ -1,36 +1,31 @@
 ---
 name: ask
 description: >
-  Read-only adaptive query against the active canonical memory. Resolves
-  the registered memory via lib/canonical-memory/resolve-memory.sh
-  (--memory flag → CWD detection → default), then reads the local
-  filesystem directly — never `git clone`, never `git pull`. Adaptive
-  vault-first search: classify the question, glob/grep entity files,
-  follow wikilinks one level, sort by recency, compose response.
-  Caps total entity reads at 15. Writes a YAML trace entry to
-  .yoke/query-traces/<slug>.md for bypass detection.
+  Source-agnostic read against the registered canonical memory. Resolves
+  the active memory via lib/canonical-memory/resolve-memory.sh (--memory
+  flag → CWD detection → default), then reads the local filesystem
+  directly — never `git clone`, never `git pull`, never `git fetch`.
+  Classifies the question, globs/greps entity files, follows wikilinks
+  one level, sorts by recency, composes the response. Caps total entity
+  reads at 15. Pure read — writes nothing on disk and does not depend on
+  any active task.
 argument-hint: "[--memory <name>] <question>"
-allowed-tools: Bash, Read, Glob, Grep, Write
+allowed-tools: Bash, Read, Glob, Grep
 ---
 
 # /yoke:ask — Canonical-memory adaptive reader
 
-> **v1.2 refresh (Part 3 of the bedrock canonical-memory port).** Previous
-> versions shelled out to `lib/canonical-memory/query.sh`, which cloned
-> the substrate on every read into `~/.cache/yoke/canonical/<slug>/`. That
-> path is retired. The active memory is now resolved against
-> `<plugin_dir>/memories.json` and read directly from the filesystem.
-> Subgraph traversal returns when a graphify pipeline is added (deferred
-> sprint).
-
 You are a **read-only adaptive context orchestrator**. You do not write,
-edit, or delete files inside the canonical memory. The only write you
-perform is the bypass-detection trace at
-`.yoke/query-traces/<slug>.md`.
+edit, or delete files anywhere — not inside the canonical memory, not in
+the host project's `.yoke/`, not on the plugin. The skill is a pure read.
+
+`/yoke:ask` is callable from any source: the runtime Generator, Validator
+and Orchestrator subagents; the spec-phase skills (`/yoke:discover`,
+`/yoke:tech-spec`, `/yoke:acceptance-contract`); and ad-hoc human queries.
+There is no active-task pre-condition.
 
 If a query reveals outdated or missing information, suggest
-`/yoke:teach <url>` (Part 5) or `/yoke:preserve` (Part 4) — never
-attempt the write yourself.
+`/yoke:teach <url>` or `/yoke:preserve` — never attempt the write yourself.
 
 ## Plugin paths
 
@@ -44,12 +39,12 @@ this skill" provided at invocation to resolve.
 
 ## Pre-conditions
 
-- `.yoke/.current` exists and points at a valid slug (per
-  `lib/working-memory/paths.sh`). If absent, abort:
-  *"no active task; run `/yoke:discover` first."*
 - A canonical memory is registered in `<plugin_dir>/memories.json`. If
   not, abort with:
   *"No memory registered. Run /yoke:memory add <path> or re-run /yoke:bootstrap."*
+
+There is no other pre-condition. The skill is independent of host-project
+working-memory state and is callable from any directory.
 
 ## Phase 0 — Resolve the active memory
 
@@ -202,8 +197,8 @@ After Phase 2, evaluate:
   to Phase 4.
 - **`needs_remote_content`** — relevant entities reference external
   URLs (Confluence, GDoc, GitHub) not yet ingested. Suggest
-  `/yoke:teach <url>` in the response (Phase 5.2). **Do not** invoke
-  `/yoke:teach` automatically in this part — Part 5 wires that.
+  `/yoke:teach <url>` in the response (Phase 5). **Do not** invoke
+  `/yoke:teach` automatically — the v0 skill does not escalate.
 - **`needs_graphify`** — emit a `> [!warning]` callout (graphify is not
   available in v0; graphify pipeline lands in a future sprint).
   Continue with vault-only content.
@@ -225,38 +220,7 @@ When the response involves multiple dated entities, sort descending
 (most recent first). For "what happened lately" / "latest decisions",
 limit to the last 30 days.
 
-## Phase 5 — Compose response + write trace
-
-### 5.1 Trace write
-
-**Always** write a YAML trace entry to `.yoke/query-traces/<slug>.md`,
-where `<slug>` comes from `wm_query_trace_path` in
-`lib/working-memory/paths.sh`:
-
-```bash
-source lib/working-memory/paths.sh
-trace_path="$(wm_query_trace_path)"
-mkdir -p "$(dirname "$trace_path")"
-[ -f "$trace_path" ] || printf '# Query trace\n' > "$trace_path"
-```
-
-Append the entry:
-
-```yaml
-- timestamp: "<iso8601>"
-  mode: ask
-  query: "<the user's question, double-quotes escaped>"
-  memory: "<YOKE_MEMORY_NAME>"
-  entities_read: <count>
-  capped: <true|false>          # true if Phase 2 hit the 15-entity cap
-  invoker: "ask"
-```
-
-The trace is the bypass-detection signal per `.vibeflow/conventions.md`
-("absence of a trace entry is the bypass signal"). Never skip this
-step — even when no entities were read (`entities_read: 0`).
-
-### 5.2 Compose
+## Phase 5 — Compose response
 
 1. **Language:** the memory's configured language (from
    `.yoke-memory/config.json`); technical terms in English are accepted
@@ -290,27 +254,27 @@ step — even when no entities were read (`entities_read: 0`).
 | # | Rule |
 |---|---|
 | 1 | NEVER `git clone`, `git pull`, or `git fetch` against the registered memory. Reads are filesystem-only. |
-| 2 | NEVER write inside the registered memory — `/ask` is read-only. |
-| 3 | NEVER load full canonical memory into context — cap at 15 entities total. |
-| 4 | ALWAYS write the YAML trace entry — bypass detection depends on it. |
+| 2 | NEVER write inside the registered memory — `/ask` is read-only against canonical memory. |
+| 3 | NEVER write anywhere on disk — `/ask` is a pure read; the skill produces only the conversational response. |
+| 4 | NEVER load full canonical memory into context — cap at 15 entities total. |
 | 5 | ALWAYS use bare wikilinks (`[[name]]`, never `[[dir/name]]`). |
-| 6 | ALWAYS resolve `MEMORY_PATH` via Part 1's `resolve-memory.sh` — never assume CWD is the memory. |
+| 6 | ALWAYS resolve `MEMORY_PATH` via `lib/canonical-memory/resolve-memory.sh` — never assume CWD is the memory. |
 | 7 | NEVER fabricate information not found in the memory. |
 | 8 | Fleeting notes ALWAYS carry the `(source: fleeting note — unconsolidated)` disclaimer. |
 | 9 | Self-assessment outcomes route through Phase 5 messaging only — `/teach` and graphify are NOT invoked from this skill in v0. |
+| 10 | NEVER require an active task. The skill is source-agnostic and works regardless of host-project working-memory state. |
 
 ## Anti-patterns
 
-- Cloning or pulling the substrate on read — retired in v1.2.
-- Reading the canonical memory directly without the trace write —
-  bypass.
+- Cloning or pulling the substrate on read.
 - Following more than 1 wikilink hop — context explosion.
 - Returning more than 15 entity reads — context budget violation.
 - Inventing facts to fill gaps — fabrication.
+- Aborting because no active task is set — `/yoke:ask` is source-agnostic.
+- Writing any file as a side-effect of the read — the skill is pure.
 
 ## See also
 
-- `.vibeflow/patterns/memory-model.md` — the read mediator role.
-- `.vibeflow/conventions.md` — bypass-detection rule.
-- `lib/canonical-memory/resolve-memory.sh` — Part 1 resolution.
-- `lib/working-memory/paths.sh` — `wm_query_trace_path`.
+- `.vibeflow/patterns/memory-model.md` — the read-mediator role.
+- `.vibeflow/patterns/roles.md` — the canonical-memory read contract.
+- `lib/canonical-memory/resolve-memory.sh` — memory resolution.

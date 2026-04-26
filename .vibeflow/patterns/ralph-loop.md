@@ -39,14 +39,14 @@ disjoint inputs from the freshest snapshot of working memory:
   `hooks/verify-acceptance.sh` (or reads its prior snapshot); emits
   structured JSON verdicts.
 - **Orchestrator (`agents/orchestrator.md`)** in consult+monitor
-  mode — reads canonical memory via `lib/canonical-memory/query.sh`
-  and appends to `.yoke/query-trace.md`; detects divergence and
-  escalates via `lib/ralph-loop/escalate.sh`.
+  mode — invokes `/yoke:ask` via the Skill tool to read canonical
+  memory and reasons over the response in-conversation; detects
+  divergence and escalates via `lib/ralph-loop/escalate.sh`.
 
 Per-agent file-write contracts (declared in `agents/*.md`) prevent
-within-batch collisions: Generator owns `progress.md`, Orchestrator
-owns `query-trace.md`, and `contracts.md` is appended only on
-consensus events post-batch.
+within-batch collisions: Generator owns `progress.md`; Validator and
+Orchestrator do not write working-memory artifacts in consult/monitor
+mode; `contracts.md` is appended only on consensus events post-batch.
 
 ### Deterministic nodes (no agent decision)
 - Sensor execution: `hooks/verify-acceptance.sh` runs after each
@@ -104,8 +104,7 @@ human attention.
 On any termination path, `/yoke:implement` issues one final
 Orchestrator-only Task call with `mode=canonize`. The Orchestrator:
 
-- Reads `.yoke/progress.md`, `.yoke/contracts.md`,
-  `.yoke/query-trace.md`, and all
+- Reads `.yoke/progress.md`, `.yoke/contracts.md`, and all
   `.yoke/.snapshots/cycle-*.yaml`.
 - Applies the five-criterion cascade via
   `lib/canonical-memory/canonization-criteria.sh`.
@@ -169,7 +168,7 @@ loop:
   parallel_spawn:
     Generator(.yoke/, last_snapshot)        # writes code + progress.md
     Validator(.yoke/, last_snapshot)        # emits structured verdicts
-    Orchestrator(mode="consult+monitor")    # query-trace.md + escalate on divergence
+    Orchestrator(mode="consult+monitor")    # /yoke:ask + escalate on divergence
   # --- deterministic nodes ---
   sensor_output = run_sensors()                                     # verify-acceptance.sh
   if contradicts(latest_contract, acceptance_contract):

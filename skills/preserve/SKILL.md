@@ -123,8 +123,9 @@ When the caller supplies natural text or a path to a `.yoke/` directory
 (the Orchestrator's loop-termination handoff), do this:
 
 1. **If the input is a path to a `.yoke/<task-slug>/` directory:** read
-   `progress.md`, `contracts.md`, and `query-traces/<slug>.md`.
-   Combine into the analysis blob.
+   `progress.md` and `contracts.md`. Combine into the analysis blob.
+   (The `query-traces/<slug>.md` source was retired in
+   ask-source-agnostic-read Part 1.)
 2. **Otherwise:** treat as raw text.
 3. Identify mentioned entities by name, alias, or reference (people:
    "First Last"; actors: service names / repos; teams: squad names;
