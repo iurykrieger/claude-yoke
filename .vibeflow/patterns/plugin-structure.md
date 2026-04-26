@@ -84,11 +84,15 @@ yoke/
 ├── examples/
 │   └── greenfield-payment-service/
 │
-├── tests/
-│   ├── plugin-install.test.sh
-│   ├── skills-format.test.sh
-│   └── smoke/
-│       └── sprint-N.test.sh
+├── tests/                            # one flat file per framework concept
+│   ├── lib/
+│   │   └── harness.sh                # pass / err / PLUGIN_ROOT / harness::summary
+│   ├── run-all.sh                    # local convenience runner; CI uses a matrix
+│   └── <concept>.test.sh             # plugin-distribution, skills-surface, agents-surface,
+│                                     # working-memory, canonical-memory-read,
+│                                     # canonical-memory-write, bootstrap,
+│                                     # acceptance-and-sensors, ralph-loop-bounds,
+│                                     # example-project, docs-and-lineage
 │
 ├── CHANGELOG.md
 ├── CLAUDE.md                         # instructions for Claude Code operating this repo

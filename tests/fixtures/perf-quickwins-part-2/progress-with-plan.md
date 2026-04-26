@@ -2,7 +2,7 @@
 
 > Fixture progress.md exemplifying a Generator cycle that batches two
 > coupled criteria (FR-1 and FR-2) sharing the file
-> `src/api/refund.py`. Used by tests/smoke/perf-quickwins-part-2.test.sh
+> `src/api/refund.py`. Used by tests/perf-quickwins-part-2.test.sh
 > to assert the schema's plan: block parses correctly and the
 > coupling case is expressible.
 

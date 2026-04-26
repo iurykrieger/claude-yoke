@@ -1,5 +1,5 @@
 #!/bin/bash
-# tests/smoke/ack-sensors-inferential.test.sh
+# tests/ack-sensors-inferential.test.sh
 #
 # Part 3 smoke test — reconciled with main's coordinator-runs-once
 # architecture. Original Part 3 had the Validator spawn each inferential
@@ -21,7 +21,7 @@
 
 set -euo pipefail
 
-PLUGIN_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+PLUGIN_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TEMPLATE="${PLUGIN_ROOT}/lib/sensors/templates/semantic-judge.md"
 JUDGE="${PLUGIN_ROOT}/agents/semantic-judge.md"
 VALIDATOR="${PLUGIN_ROOT}/agents/validator.md"
@@ -186,13 +186,13 @@ fi
 # ---------------------------------------------------------------------------
 # Regression — Parts 1 + 2 still pass
 # ---------------------------------------------------------------------------
-if bash "${PLUGIN_ROOT}/tests/smoke/ack-sensors-catalog.test.sh" >/dev/null 2>&1; then
+if bash "${PLUGIN_ROOT}/tests/ack-sensors-catalog.test.sh" >/dev/null 2>&1; then
   pass "Part 1 catalog smoke still passes"
 else
   err "Part 1 catalog smoke regressed!"
 fi
 
-if bash "${PLUGIN_ROOT}/tests/smoke/ack-sensors-parallel.test.sh" >/dev/null 2>&1; then
+if bash "${PLUGIN_ROOT}/tests/ack-sensors-parallel.test.sh" >/dev/null 2>&1; then
   pass "Part 2 parallel smoke still passes"
 else
   err "Part 2 parallel smoke regressed!"

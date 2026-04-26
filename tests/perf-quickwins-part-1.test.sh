@@ -1,5 +1,5 @@
 #!/bin/bash
-# tests/smoke/perf-quickwins-part-1.test.sh
+# tests/perf-quickwins-part-1.test.sh
 #
 # Smoke test for Part 1 of the runtime perf-quickwins:
 #   (a) hooks/verify-acceptance.sh --criterion <id> filters correctly
@@ -18,7 +18,7 @@
 
 set -euo pipefail
 
-PLUGIN_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+PLUGIN_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PLUGIN_ROOT"
 
 fail=0
@@ -245,7 +245,7 @@ baseline:
   fixture_sensors: 3
   fixture_per_sensor_sleep_s: 1
   measured_at: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  recorded_by: tests/smoke/perf-quickwins-part-1.test.sh
+  recorded_by: tests/perf-quickwins-part-1.test.sh
 EOF
 [ -s "$audit_dir/perf-quickwins-baseline.yaml" ] \
   && pass "(audit) baseline archived to $audit_dir/perf-quickwins-baseline.yaml" \

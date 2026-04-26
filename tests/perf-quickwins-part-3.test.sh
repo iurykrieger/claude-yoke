@@ -1,5 +1,5 @@
 #!/bin/bash
-# tests/smoke/perf-quickwins-part-3.test.sh
+# tests/perf-quickwins-part-3.test.sh
 #
 # Smoke test for Part 3 of the runtime perf-quickwins (tiered model
 # pinning). Verifies the *wiring* of per-role model resolution; the
@@ -36,7 +36,7 @@
 
 set -euo pipefail
 
-PLUGIN_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+PLUGIN_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PLUGIN_ROOT"
 
 fail=0

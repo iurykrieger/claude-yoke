@@ -1,5 +1,5 @@
 #!/bin/bash
-# tests/smoke/ack-sensors-discoverers.test.sh
+# tests/ack-sensors-discoverers.test.sh
 #
 # Part 4 smoke test for additional discoverers (package.json, Makefile,
 # pyproject.toml) + unified catalog union/dedup. Validates DoD #1–#7
@@ -12,7 +12,7 @@
 
 set -euo pipefail
 
-PLUGIN_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+PLUGIN_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ACK="${PLUGIN_ROOT}/lib/sensors/ack-sensors.sh"
 D_PKG="${PLUGIN_ROOT}/lib/sensors/discover-from-package-json.sh"
 D_MAKE="${PLUGIN_ROOT}/lib/sensors/discover-from-makefile.sh"
@@ -299,19 +299,19 @@ done
 # ---------------------------------------------------------------------------
 # Regression — Parts 1, 2, 3 still pass
 # ---------------------------------------------------------------------------
-if bash "${PLUGIN_ROOT}/tests/smoke/ack-sensors-catalog.test.sh" >/dev/null 2>&1; then
+if bash "${PLUGIN_ROOT}/tests/ack-sensors-catalog.test.sh" >/dev/null 2>&1; then
   pass "Part 1 catalog smoke still passes"
 else
   err "Part 1 catalog smoke regressed!"
 fi
 
-if bash "${PLUGIN_ROOT}/tests/smoke/ack-sensors-parallel.test.sh" >/dev/null 2>&1; then
+if bash "${PLUGIN_ROOT}/tests/ack-sensors-parallel.test.sh" >/dev/null 2>&1; then
   pass "Part 2 parallel smoke still passes"
 else
   err "Part 2 parallel smoke regressed!"
 fi
 
-if bash "${PLUGIN_ROOT}/tests/smoke/ack-sensors-inferential.test.sh" >/dev/null 2>&1; then
+if bash "${PLUGIN_ROOT}/tests/ack-sensors-inferential.test.sh" >/dev/null 2>&1; then
   pass "Part 3 inferential smoke still passes"
 else
   err "Part 3 inferential smoke regressed!"

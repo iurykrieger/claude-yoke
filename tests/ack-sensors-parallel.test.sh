@@ -1,5 +1,5 @@
 #!/bin/bash
-# tests/smoke/ack-sensors-parallel.test.sh
+# tests/ack-sensors-parallel.test.sh
 #
 # Part 2 smoke test — reconciled with main's coordinator-runs-once
 # architecture. Original Part 2 placed parallel-spawn inside the Validator
@@ -22,7 +22,7 @@
 
 set -euo pipefail
 
-PLUGIN_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+PLUGIN_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HOOK="${PLUGIN_ROOT}/hooks/verify-acceptance.sh"
 ACK="${PLUGIN_ROOT}/lib/sensors/ack-sensors.sh"
 VALIDATOR="${PLUGIN_ROOT}/agents/validator.md"
@@ -173,7 +173,7 @@ fi
 # ---------------------------------------------------------------------------
 # Regression — Part 1 catalog smoke still passes
 # ---------------------------------------------------------------------------
-if bash "${PLUGIN_ROOT}/tests/smoke/ack-sensors-catalog.test.sh" >/dev/null 2>&1; then
+if bash "${PLUGIN_ROOT}/tests/ack-sensors-catalog.test.sh" >/dev/null 2>&1; then
   pass "Part 1 catalog smoke still passes (no regression)"
 else
   err "Part 1 catalog smoke regressed!"

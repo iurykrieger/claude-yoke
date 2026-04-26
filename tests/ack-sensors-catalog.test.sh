@@ -1,5 +1,5 @@
 #!/bin/bash
-# tests/smoke/ack-sensors-catalog.test.sh
+# tests/ack-sensors-catalog.test.sh
 #
 # Part 1 smoke test for /yoke:ack-sensors (catalog + readiness).
 # Validates DoD #1–#6 from .vibeflow/specs/ack-sensors-skill-part-1.md:
@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-PLUGIN_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+PLUGIN_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HELPER="${PLUGIN_ROOT}/lib/sensors/ack-sensors.sh"
 SKILL="${PLUGIN_ROOT}/skills/ack-sensors/SKILL.md"
 

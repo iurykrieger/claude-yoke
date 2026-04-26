@@ -1,5 +1,5 @@
 #!/bin/bash
-# tests/smoke/perf-quickwins-part-2.test.sh
+# tests/perf-quickwins-part-2.test.sh
 #
 # Smoke test for Part 2 of the runtime perf-quickwins:
 #   (a) agents/generator.md mandates plan-first behavior every cycle
@@ -22,7 +22,7 @@
 
 set -euo pipefail
 
-PLUGIN_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+PLUGIN_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PLUGIN_ROOT"
 
 fail=0
