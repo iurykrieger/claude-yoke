@@ -83,7 +83,7 @@ A framework for software development with AI agents. It couples two adversarial 
 
 | Tier | Location | Who writes | Lifetime |
 | :---- | :---- | :---- | :---- |
-| Working memory | host project's `.yoke/` (`prd.md`, `tech-spec.md`, `acceptance-contract.md`, `progress.md`, `contracts.md`, `query-trace.md`) | Generator/Validator/derived agents freely | task/sprint |
+| Working memory | host project's `.yoke/` (`prd.md`, `tech-spec.md`, `acceptance-contract.md`, `progress.md`, `contracts.md`) | Generator/Validator/derived agents freely | task/sprint |
 | Canonical memory | external substrate via MCP (reference: Claude Bedrock; replaceable) | only Orchestrator, under Model C | permanent, versioned |
 
 The separation exists because the blast radius is asymmetric: corrupted working memory affects one task; corrupted canonical memory affects the organization.

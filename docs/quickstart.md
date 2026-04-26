@@ -52,7 +52,7 @@ Once shipped, the remaining commands are:
 Plus support commands:
 
 ```
-/yoke:ask "<term>"           # mediated canonical-memory query
+/yoke:ask "<term>"           # adaptive canonical-memory query
 /yoke:status                 # current task state
 ```
 

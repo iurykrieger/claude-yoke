@@ -83,24 +83,16 @@ grep -qE "Termination|termination|canonize handoff" "$imp" \
   && pass "$imp documents termination canonization handoff" \
   || err "$imp missing termination handoff documentation"
 
-# 5. /yoke:ask — adaptive read against the registered memory (Part 3 of
+# 5. /yoke:ask — adaptive read against the registered memory. Part 3 of
 #    the bedrock canonical-memory port retired the query.sh shell-out;
-#    the skill now resolves via Part 1's resolve-memory.sh and reads
-#    the filesystem directly).
+#    ask-source-agnostic-read Part 1 retired the query-trace write.
+#    Detailed shape assertions for /yoke:ask now live in sprint-2; here
+#    we only verify the Orchestrator's read path (Mode A) is wired to the
+#    Part 1 resolution lib.
 ask="skills/ask/SKILL.md"
-grep -qE 'query-traces|query-trace' "$ask" \
-  && pass "$ask references the query-traces directory" \
-  || err "$ask does not declare query trace"
 grep -q "resolve-memory.sh" "$ask" \
   && pass "$ask resolves the active memory via Part 1's lib" \
   || err "$ask does not reference resolve-memory.sh"
-
-ask_allowed=$(awk '/^allowed-tools:/{print; exit}' "$ask" || true)
-if echo "$ask_allowed" | grep -qw "Task"; then
-  err "$ask allowed-tools includes Task (should not spawn subagents)"
-else
-  pass "$ask does not spawn subagents (no Task)"
-fi
 
 # 6. canonization-criteria.sh against missing contracts.md
 tmpdir="$(mktemp -d)"
@@ -244,22 +236,11 @@ echo "$out" | grep -qi "auto-merge" \
   || err "propose-write.sh missing auto-merge in dry-run output"
 fi  # end-skip block opened earlier (Part 4 retired propose-write.sh)
 
-# 13. /yoke:ask trace contract (Part 3): the SKILL document declares the
-#     YAML trace shape that lands in .yoke/query-traces/<slug>.md. The
-#     standalone query.sh path was retired; runtime trace verification
-#     is exercised by tests/smoke/ask-no-clone.test.sh.
-grep -qE 'mode: ask' "$ask" \
-  && pass "/yoke:ask trace declares 'mode: ask' value" \
-  || err "/yoke:ask trace missing 'mode: ask'"
-grep -q 'entities_read' "$ask" \
-  && pass "/yoke:ask trace records entities_read count" \
-  || err "/yoke:ask trace missing entities_read field"
-grep -q 'capped' "$ask" \
-  && pass "/yoke:ask trace records capping flag" \
-  || err "/yoke:ask trace missing capped flag"
-grep -q 'invoker' "$ask" \
-  && pass "/yoke:ask trace records invoker" \
-  || err "/yoke:ask trace missing invoker"
+# 13. ask-source-agnostic-read Part 1 retired the YAML query-trace
+#     contract. The detailed shape assertions formerly here are now
+#     deleted (the trace no longer exists); /yoke:ask is verified by
+#     sprint-2 (allowed-tools, source-agnostic declaration) and
+#     ask-no-clone (no clone/pull/fetch on resolution).
 
 # 14. Anti-scope: status skill still placeholder.
 # Part 6 of the bedrock canonical-memory port (2026-04-25) extended

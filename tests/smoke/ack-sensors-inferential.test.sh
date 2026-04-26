@@ -1,16 +1,23 @@
 #!/bin/bash
 # tests/smoke/ack-sensors-inferential.test.sh
 #
-# Part 3 smoke test for the inferential semantic-judge subagent +
-# Validator inferential branch. Validates DoD #1–#7 from
-# .vibeflow/specs/ack-sensors-skill-part-3.md:
-#   - calibration frontmatter on the template
-#   - subagent file shape + Read-only tools
-#   - Validator declares Agent spawn with strict subagent_type
-#   - 120s inferential timeout default
-#   - calibration drift writes to .yoke/sensors/ (no canonical writes)
-#   - subagent context isolation (only spawn-time inputs)
-#   - verdict shape parity with computational sensors
+# Part 3 smoke test — reconciled with main's coordinator-runs-once
+# architecture. Original Part 3 had the Validator spawn each inferential
+# sensor via Agent(subagent_type: yoke:semantic-judge); main's runtime
+# restricts the Validator to invoking only /yoke:ask via the Skill tool.
+#
+# Under the post-merge architecture, the semantic-judge subagent and its
+# template are forward-looking artifacts: the calibration metadata, prompt
+# skeleton, and verdict shape stand on their own. Whichever runtime
+# component eventually drives inferential evaluation will spawn this
+# subagent — under main today, that integration is deferred.
+#
+# This smoke test verifies what survives the reconciliation:
+#   - lib/sensors/templates/semantic-judge.md ships with mandatory
+#     calibration frontmatter
+#   - agents/semantic-judge.md has strict Read-only context isolation
+#   - Verdict shape parity (canonical six keys) between Validator and
+#     judge
 
 set -euo pipefail
 
@@ -23,14 +30,14 @@ fail=0
 pass() { echo "✓ $1"; }
 err()  { echo "✗ $1" >&2; fail=$((fail+1)); }
 
-echo "--- ack-sensors Part 3 smoke ---"
+echo "--- ack-sensors Part 3 smoke (reconciled) ---"
 
 [ -f "$TEMPLATE"  ] || { err "missing template: $TEMPLATE"; exit 1; }
 [ -f "$JUDGE"     ] || { err "missing subagent: $JUDGE";    exit 1; }
 [ -f "$VALIDATOR" ] || { err "missing validator: $VALIDATOR"; exit 1; }
 
 # ---------------------------------------------------------------------------
-# DoD #1 — semantic-judge.md template ships with calibration frontmatter
+# DoD #1 — semantic-judge template ships with calibration frontmatter
 # ---------------------------------------------------------------------------
 for field in 'template:' 'class:' 'calibrated_against:' 'calibrated_at:' \
              'known_false_positives:' 'known_false_negatives:' \
@@ -53,7 +60,7 @@ fi
 # default_timeout_seconds must be 120
 default_timeout=$(awk '/^---$/{c++; next} c==1 && /^default_timeout_seconds:/{print $2; exit}' "$TEMPLATE" || true)
 if [ "$default_timeout" = "120" ]; then
-  pass "template default_timeout_seconds = 120 (DoD #4)"
+  pass "template default_timeout_seconds = 120"
 else
   err "template default_timeout_seconds = '$default_timeout' (expected 120)"
 fi
@@ -72,7 +79,6 @@ tools_line=$(awk '/^tools:/{print; exit}' "$JUDGE" || true)
 if [ -z "$tools_line" ]; then
   err "judge frontmatter missing tools: field"
 else
-  # Capture everything after "tools:" and trim whitespace
   tools_val="$(echo "$tools_line" | sed -E 's/^tools:[[:space:]]*//')"
   if [ "$tools_val" = "Read" ]; then
     pass "judge tools = Read only (strict context isolation)"
@@ -126,53 +132,16 @@ for key in 'criterion' 'status' 'location' 'fix_instruction' 'sensor' 'evidence'
   v_has=$(grep -c "\"$key\":" "$VALIDATOR" || echo 0)
   j_has=$(grep -c "\"$key\":" "$JUDGE" || echo 0)
   if [ "$v_has" -gt 0 ] && [ "$j_has" -gt 0 ]; then
-    pass "verdict shape parity (computational ↔ inferential): $key"
+    pass "verdict shape parity (Validator ↔ judge): $key"
   else
     err "verdict shape parity broken for: $key (validator=$v_has, judge=$j_has)"
   fi
 done
 
 # ---------------------------------------------------------------------------
-# DoD #3 — Validator allowed-tools includes Agent (with strict constraint)
-# ---------------------------------------------------------------------------
-v_tools_line=$(awk '/^tools:/{print; exit}' "$VALIDATOR" || true)
-echo "$v_tools_line" | grep -qw 'Agent' \
-  && pass "Validator allowed-tools includes Agent" \
-  || err "Validator allowed-tools missing Agent"
-
-grep -q 'subagent_type: yoke:semantic-judge' "$VALIDATOR" \
-  && pass "Validator pins subagent_type to yoke:semantic-judge" \
-  || err "Validator does not pin subagent_type"
-
-if tr '\n' ' ' < "$VALIDATOR" | grep -qiE 'other subagent types are[[:space:]]+forbidden'; then
-  pass "Validator declares no other subagent types allowed"
-else
-  err "Validator does not forbid other subagent types"
-fi
-
-# Validator declares the inferential branch in Sensor execution protocol
-grep -qE '### Inferential' "$VALIDATOR" \
-  && pass "Validator references ### Inferential contract subsection" \
-  || err "Validator does not reference ### Inferential subsection"
-
-# ---------------------------------------------------------------------------
-# DoD #4 — 120s inferential default + per-sensor override
-# ---------------------------------------------------------------------------
-grep -q '120s' "$VALIDATOR" \
-  && pass "Validator references 120s inferential timeout default" \
-  || err "Validator missing 120s inferential default"
-
-grep -qE 'inferential.*120|120.*inferential' "$VALIDATOR" \
-  && pass "Validator binds 120s default to inferential class" \
-  || err "Validator does not bind 120s to inferential class"
-
-# ---------------------------------------------------------------------------
 # DoD #5 — Calibration drift writes to .yoke/sensors/<name>.md only
+# (template + judge documentation; runtime wiring is post-merge follow-up)
 # ---------------------------------------------------------------------------
-grep -q '\.yoke/sensors/' "$VALIDATOR" \
-  && pass "Validator references .yoke/sensors/ working-memory drift path" \
-  || err "Validator does not reference .yoke/sensors/"
-
 grep -q '\.yoke/sensors/' "$JUDGE" \
   && pass "judge references .yoke/sensors/ as drift target" \
   || err "judge does not reference .yoke/sensors/"
@@ -182,18 +151,12 @@ grep -q '\.yoke/sensors/' "$TEMPLATE" \
   || err "template does not document .yoke/sensors/"
 
 # Promotion path: /yoke:preserve, not automatic
-grep -q '/yoke:preserve' "$VALIDATOR" \
-  && pass "Validator routes promotion through /yoke:preserve" \
-  || err "Validator does not route promotion through /yoke:preserve"
-
 grep -q '/yoke:preserve' "$JUDGE" \
   && pass "judge documents /yoke:preserve promotion path" \
   || err "judge does not document /yoke:preserve"
 
 # ---------------------------------------------------------------------------
 # DoD #5 (no canonical-memory writes from this part)
-# Confirm template/judge/validator do NOT add any propose-write or
-# canonical-memory write call paths.
 # ---------------------------------------------------------------------------
 for f in "$TEMPLATE" "$JUDGE"; do
   if grep -q 'propose-write' "$f"; then
@@ -204,9 +167,7 @@ for f in "$TEMPLATE" "$JUDGE"; do
 done
 
 # ---------------------------------------------------------------------------
-# Subagent context-isolation contract: judge gets exactly three inputs.
-# Accept either the underscore placeholder form ({{calibration_block}}) or
-# the prose form ("calibration block"); both appear in the codebase.
+# Subagent context-isolation contract: judge gets exactly three inputs
 # ---------------------------------------------------------------------------
 for input in 'criterion' 'diff'; do
   if grep -q "$input" "$JUDGE"; then
@@ -240,5 +201,5 @@ fi
 # ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
-echo "--- ack-sensors Part 3 smoke: ${fail} failure(s) ---"
+echo "--- ack-sensors Part 3 smoke (reconciled): ${fail} failure(s) ---"
 exit "$fail"

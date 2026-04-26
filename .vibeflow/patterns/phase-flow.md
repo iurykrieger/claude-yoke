@@ -36,7 +36,7 @@ output) and a typed output artifact.
 | 1 — Discovery | `/yoke:discover` skill (Generator persona inline) | raw idea | `prd.md` | Trigger 1 (PRD approval) |
 | 2 — Tech Spec | `/yoke:tech-spec` skill (Generator persona inline) | approved PRD | `tech-spec.md` | Trigger 2 (Tech Spec approval) |
 | 3 — Acceptance Contract | `/yoke:acceptance-contract` skill (Validator persona inline) | PRD + Tech Spec | `acceptance-contract.md` | Trigger 3 (Contract ratification) |
-| 4 — Runtime | `/yoke:implement` skill (spawns Generator + Validator + Orchestrator subagents in parallel each cycle) | approved Contract | merge-ready code + `progress.md` + `contracts.md` + `query-trace.md` | Trigger 4 (only on divergence or bound) |
+| 4 — Runtime | `/yoke:implement` skill (spawns Generator + Validator + Orchestrator subagents in parallel each cycle) | approved Contract | merge-ready code + `progress.md` + `contracts.md` | Trigger 4 (only on divergence or bound) |
 | 5 — Canonization (auto) | Orchestrator subagent in canonize mode (final Task call from `/yoke:implement`) | full working memory + termination reason | proposed writes to canonical memory (PRs) | Trigger 5 (Model C ratification) |
 | 5 — Canonization (manual escape hatch) | `/yoke:canonize` skill (spawns Orchestrator subagent in canonize mode against existing `.yoke/`) | existing working memory | proposed writes | Trigger 5 |
 

@@ -74,15 +74,68 @@ for section in "## Product invariants" "## Business context" "## Known constrain
   fi
 done
 
-# 5. Tech Spec template has manifesto-shape sections
-ts="templates/tech-spec.md"
-for section in "## Sprints" "Acceptance criterion:" "## Contracts and interfaces" "## Dependencies"; do
-  if grep -q -- "$section" "$ts"; then
-    pass "$ts has '$section'"
+# 5. Spec + Task templates (tech-spec-task-split Part 2):
+#    - templates/tech-spec.md is deleted (superseded by spec.md + task.md)
+#    - templates/spec.md carries the sprint-index sections
+#    - templates/task.md carries the per-task body shape with frontmatter
+[ ! -f "templates/tech-spec.md" ] \
+  && pass "templates/tech-spec.md deleted (superseded by spec.md + task.md)" \
+  || err "templates/tech-spec.md still present (Part 2 should have deleted it)"
+
+spec_tpl="templates/spec.md"
+for section in "## Sprints" "#### Task" "## Contracts and interfaces" "## Dependencies"; do
+  if grep -q -- "$section" "$spec_tpl"; then
+    pass "$spec_tpl has '$section'"
   else
-    err "$ts missing '$section'"
+    err "$spec_tpl missing '$section'"
   fi
 done
+
+task_tpl="templates/task.md"
+for section in "task_id:" "## Story" "## Technical implementation" "## Validation" "## Acceptance criterion"; do
+  if grep -q -- "$section" "$task_tpl"; then
+    pass "$task_tpl has '$section'"
+  else
+    err "$task_tpl missing '$section'"
+  fi
+done
+
+# 5b. /yoke:tech-spec drives the 3-stage blueprint (LLM → bash → LLM-per-task).
+ts_skill="skills/tech-spec/SKILL.md"
+for marker in "Stage 1" "Stage 2" "Stage 3" "scaffold-tasks.sh" "wm_spec_path" "wm_list_task_paths"; do
+  if grep -q -- "$marker" "$ts_skill"; then
+    pass "$ts_skill references '$marker'"
+  else
+    err "$ts_skill missing '$marker'"
+  fi
+done
+
+# 5c. /yoke:tech-spec no longer references wm_tech_spec_path or
+#     templates/tech-spec.md (Part 2 DoD #6 — scoped to this skill).
+if grep -q "wm_tech_spec_path" "$ts_skill"; then
+  err "$ts_skill still references wm_tech_spec_path (Part 2 should have migrated it to wm_spec_path)"
+else
+  pass "$ts_skill migrated off wm_tech_spec_path"
+fi
+if grep -q "templates/tech-spec.md" "$ts_skill"; then
+  err "$ts_skill still references templates/tech-spec.md (deleted in Part 2)"
+else
+  pass "$ts_skill no longer references templates/tech-spec.md"
+fi
+
+# 5d. approval-menu.md carries the Tech-Spec conditional per-task block
+#     (extension, not fork — per .vibeflow/patterns/human-triggers.md).
+am="templates/approval-menu.md"
+if grep -q "Tech-Spec-only block" "$am"; then
+  pass "$am extended with Tech-Spec-only per-task summary block"
+else
+  err "$am missing Tech-Spec-only per-task summary block"
+fi
+if grep -q "task_summary" "$am"; then
+  pass "$am declares task_summary input"
+else
+  err "$am missing task_summary input declaration"
+fi
 
 # 6. Triggers 1 + 2 surface verbatim from the skills (binding prompts).
 grep -q "Trigger 1 — PRD approval" skills/discover/SKILL.md \
@@ -102,10 +155,11 @@ for skill in discover tech-spec; do
   fi
 done
 
-# 8. /yoke:ask is the canonical-memory adaptive read skill
-#    (Part 3 of the bedrock canonical-memory port retired direct query.sh
-#    invocation — the skill now resolves the memory via Part 1's
-#    resolve-memory.sh and reads the filesystem directly).
+# 8. /yoke:ask is the canonical-memory adaptive read skill.
+#    Part 3 of the bedrock canonical-memory port retired the standalone
+#    query.sh shell-out; ask-source-agnostic-read Part 1 retired the
+#    query-trace write and the .yoke/.current pre-condition. The skill
+#    is now a pure source-agnostic read.
 ask="skills/ask/SKILL.md"
 ask_allowed=$(awk '/^allowed-tools:/{print; exit}' "$ask" || true)
 if echo "$ask_allowed" | grep -qw "Task"; then
@@ -113,12 +167,22 @@ if echo "$ask_allowed" | grep -qw "Task"; then
 else
   pass "/yoke:ask allowed-tools excludes Task"
 fi
+if echo "$ask_allowed" | grep -qw "Write"; then
+  err "/yoke:ask allowed-tools includes Write (skill must be pure read)"
+else
+  pass "/yoke:ask allowed-tools excludes Write (pure read)"
+fi
 grep -q "resolve-memory.sh" "$ask" \
   && pass "/yoke:ask resolves the active memory via Part 1's lib" \
   || err "/yoke:ask does not reference resolve-memory.sh"
-grep -qE 'query-traces/<slug>\.md|wm_query_trace_path' "$ask" \
-  && pass "/yoke:ask writes to versioned .yoke/query-traces/<slug>.md" \
-  || err "/yoke:ask does not write query trace"
+if grep -qE 'query-traces|wm_query_trace_path|\.yoke/\.current' "$ask"; then
+  err "/yoke:ask still references retired query-trace / active-task pre-condition"
+else
+  pass "/yoke:ask is source-agnostic (no query-trace, no active-task pre-condition)"
+fi
+grep -qiE 'source-agnostic|callable from any|no active-task' "$ask" \
+  && pass "/yoke:ask declares its source-agnostic contract" \
+  || err "/yoke:ask missing source-agnostic declaration"
 grep -qiE 'never.*(clone|pull|fetch)' "$ask" \
   && pass "/yoke:ask declares the no-clone invariant (Part 3 DoD-1)" \
   || err "/yoke:ask missing no-clone invariant"
@@ -143,12 +207,130 @@ grep -qE '15 entit|cap.*15|≤[[:space:]]*15' "$ask" \
   && pass "/yoke:ask caps entity reads at 15 (progressive disclosure)" \
   || err "/yoke:ask missing 15-entity cap"
 
+# 11b. tech-spec-task-split cleanup invariant: no live code in skills/,
+#      agents/, hooks/, lib/, or templates/ references the deprecated
+#      wm_tech_spec_path helper. The migration helper
+#      (lib/working-memory/migrate-tech-specs.sh) references the legacy
+#      `.yoke/tech-specs/` path as its INPUT, which is acceptable.
+#      Smoke tests intentionally grep for the legacy token to verify
+#      the migration — those are excluded explicitly.
+live_refs=$(grep -rln "wm_tech_spec_path" skills/ agents/ hooks/ lib/ templates/ 2>/dev/null \
+  | grep -v "lib/working-memory/migrate-tech-specs.sh" || true)
+if [ -z "$live_refs" ]; then
+  pass "no live wm_tech_spec_path references (cleanup-part-3 invariant)"
+else
+  err "wm_tech_spec_path still referenced in: $live_refs"
+fi
+
 # 12. v1.1 anti-scope: spec-phase Generator/Validator subagent files MUST
 #     NOT exist in agents/ (they were eliminated). agents/ contains only
 #     runtime subagents — Sprint 4 owns those assertions.
 [ ! -f "agents/implementation.md" ] && [ ! -f "agents/validation.md" ] \
   && pass "spec-phase / pre-rename agent files removed in v1.1" \
   || err "old agent file (implementation.md or validation.md) still present"
+
+# 13. tech-spec-task-split Part 3: /yoke:acceptance-contract migrated to
+#     the new spec + per-task layout.
+ac_skill="skills/acceptance-contract/SKILL.md"
+if grep -q "wm_tech_spec_path" "$ac_skill"; then
+  err "$ac_skill still references wm_tech_spec_path (Part 3 should have migrated it)"
+else
+  pass "$ac_skill migrated off wm_tech_spec_path"
+fi
+for marker in "wm_spec_path" "wm_list_task_paths" "one scenario per task file" "Task: <task-id>"; do
+  if grep -qF "$marker" "$ac_skill"; then
+    pass "$ac_skill references '$marker'"
+  else
+    err "$ac_skill missing '$marker'"
+  fi
+done
+
+ac_tpl="templates/acceptance-contract.md"
+if grep -qF "Task: <slug>-s01-t01" "$ac_tpl"; then
+  pass "$ac_tpl scenario template carries the 'Task:' anchor line"
+else
+  err "$ac_tpl scenario template missing 'Task:' anchor line"
+fi
+if grep -qE "Exactly one scenario per task file|one BDD scenario per task" "$ac_tpl"; then
+  pass "$ac_tpl pins the 1:1 scenario-per-task contract"
+else
+  err "$ac_tpl missing 1:1 scenario-per-task contract"
+fi
+
+# 14. tech-spec-task-split Part 3: migration helper in place, executable,
+#     non-destructive, and exposes the 3-stage pipeline.
+mig="lib/working-memory/migrate-tech-specs.sh"
+if [ -x "$mig" ]; then
+  pass "$mig present and executable"
+else
+  err "$mig missing or not executable"
+fi
+for marker in "Stage 1" "Stage 2" "Stage 3" "scaffold-tasks.sh" "non-destructive" "--scaffold"; do
+  if grep -qF -- "$marker" "$mig"; then
+    pass "$mig references '$marker'"
+  else
+    err "$mig missing '$marker'"
+  fi
+done
+
+# Behavioral check: --scaffold without a prior new spec exits 4.
+# `set -e` is active at this point in the file, so capture exit
+# explicitly via `|| mig_exit=$?` to avoid aborting on the expected
+# non-zero exit.
+mig_tmp="$(mktemp -d)"
+mig_slug="2026-04-25-mig-smoke"
+mkdir -p "$mig_tmp/.yoke/tech-specs"
+echo "# legacy" > "$mig_tmp/.yoke/tech-specs/${mig_slug}.md"
+mig_exit=0
+( cd "$mig_tmp" && bash "$PLUGIN_ROOT/$mig" --scaffold ".yoke/tech-specs/${mig_slug}.md" >/dev/null 2>&1 ) || mig_exit=$?
+if [ "$mig_exit" -eq 4 ]; then
+  pass "$mig --scaffold before Stage 1 exits 4 (precondition guard)"
+else
+  err "$mig --scaffold did not exit 4 (got $mig_exit)"
+fi
+rm -rf "$mig_tmp"
+
+# 15. tech-spec-task-split Part 3: hooks/verify-acceptance.sh tolerates
+#     the new BDD-per-task shape (Task: <id> line is opaque metadata).
+contract_tmp="$(mktemp -d)"
+contract="$contract_tmp/acceptance-contract.md"
+cat > "$contract" <<'CONTRACT'
+# Acceptance Contract — smoke
+
+> Status: ratified
+
+## Use cases (BDD scenarios)
+
+### Scenario 1 — first
+Task: 2026-04-25-foo-s01-t01
+Given a request
+When the user runs it
+Then the result is 0
+Fixture: none
+Sensors: [linter]
+
+### Scenario 2 — second
+Task: 2026-04-25-foo-s01-t02
+Given a request
+When the user runs it
+Then the result is 0
+Fixture: none
+Sensors: [linter]
+
+## Sensors
+
+### Computational
+- linter: `true`
+
+CONTRACT
+out=$(bash hooks/verify-acceptance.sh "$contract" 2>&1) || true
+echo "$out" | grep -q "results:" \
+  && pass "verify-acceptance.sh parses BDD-per-task contract (Task: line opaque)" \
+  || err "verify-acceptance.sh failed to parse BDD-per-task contract: $out"
+echo "$out" | grep -q "linter" \
+  && pass "verify-acceptance.sh ran the declared sensor against new shape" \
+  || err "verify-acceptance.sh did not run linter sensor: $out"
+rm -rf "$contract_tmp"
 
 echo "--- Result ---"
 if [ "$fail" -eq 0 ]; then

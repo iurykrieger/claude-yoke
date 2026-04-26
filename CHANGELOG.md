@@ -4,6 +4,86 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and this
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased] — Source-agnostic /yoke:ask (**Breaking**)
+
+`/yoke:ask` is now a pure source-agnostic read against the registered
+canonical memory. The previous v1.1 contract required `.yoke/.current`
+to point at an active task and emitted a YAML query-trace entry on
+every invocation; both are retired. Any caller — Generator, Validator,
+Orchestrator, spec-phase skills, or ad-hoc human queries — invokes
+`/yoke:ask` directly via the Skill tool when canonical context is
+needed; the skill produces only the conversational response and writes
+nothing on disk.
+
+> **Breaking.** Already-bootstrapped projects must delete the orphaned
+> `.yoke/query-traces/` directory if it exists; otherwise no migration
+> required.
+
+### Removed
+
+- **Query-trace contract end-to-end.** The
+  `.yoke/query-traces/<slug>.md` archive is gone, along with its
+  bypass-detection role.
+  - `lib/working-memory/paths.sh`: `wm_query_trace_path` deleted;
+    `query-traces` removed from `WM_ARCHIVE_CATEGORIES`.
+  - `skills/ask/SKILL.md`: Phase 5.1 trace write removed; the
+    `.yoke/.current` pre-condition removed; `Write` removed from
+    `allowed-tools` (skill is pure read).
+  - `agents/{generator,validator}.md`: cycle-start trace-read removed;
+    "Reads canonical memory: only via `/yoke:ask`" replaces
+    "Consumes Orchestrator-surfaced subgraph via query-trace".
+  - `agents/orchestrator.md`: consult mode invokes `/yoke:ask` and
+    reasons inline; "absence of trace entry is a bypass" rewritten as
+    a declarative bypass-discipline rule with Trigger-4 escalation
+    hint.
+  - `skills/implement/SKILL.md`: cycle-0 query-trace initialization
+    step removed (corrigendum to Part 1).
+  - `skills/drift-sense/SKILL.md`: staleness-source falls back to
+    `last_validated`; `--target traces` mode now scans
+    `.yoke/contracts/*.md` only (corrigendum to Part 1).
+
+### Changed
+
+- **`/yoke:ask` description** rewritten to "Source-agnostic read
+  against the registered canonical memory" — no active-task
+  pre-condition, no on-disk side effects, 15-entity progressive-
+  disclosure cap preserved.
+- **`agents/{generator,validator,orchestrator}.md`** `tools:` envelope
+  adds `Skill` (the only canonical-memory access path); `description`
+  fields rewritten to match the new contract.
+- **Bypass discipline** is declarative: every canonical-memory read
+  by Generator, Validator, or Orchestrator MUST go through
+  `/yoke:ask` invoked via the Skill tool; direct filesystem reads
+  (cat, grep, clone, pull) are prohibited. The Orchestrator may
+  raise a sprint-contract divergence (Trigger-4 candidate) if it
+  observes a bypass.
+- **Doctrine docs** (`.vibeflow/conventions.md`,
+  `.vibeflow/patterns/{memory-model,roles,phase-flow,ralph-loop}.md`,
+  `.vibeflow/index.md`) updated so the Generator/Validator/Orchestrator
+  read path and the working-memory file list reflect the no-trace
+  contract.
+- **Repo + user docs** (`CLAUDE.md`, `docs/architecture.md`,
+  `docs/lineage.md`, `docs/troubleshooting.md`,
+  `docs/quickstart.md`,
+  `examples/greenfield-payment-service/CLAUDE.md`) updated so
+  user-facing descriptions match the new contract; the architecture
+  diagram now shows `/yoke:ask (Skill)` instead of `query-trace.md`.
+- **Smoke tests** (`tests/smoke/sprint-2.test.sh`,
+  `sprint-5.test.sh`, `folder-isolation.test.sh`) realigned: trace
+  assertions removed; new assertions cover the source-agnostic
+  contract (no abort without `.yoke/.current`, allowed-tools
+  excludes `Write`, sweep gate against query-trace re-introduction).
+
+### Migration
+
+- For host projects already bootstrapped against v1.1: delete the
+  orphaned `.yoke/query-traces/` directory if it exists.
+  ```bash
+  rm -rf .yoke/query-traces/
+  ```
+- No further migration is required. Skills, agents, and templates
+  ship with the new contract on `/plugin upgrade`.
+
 ## [1.1.0] — 2026-04-25 — Runtime-only agents
 
 Architectural refactor of the agent topology. v1.0 had five subagent

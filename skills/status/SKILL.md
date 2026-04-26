@@ -59,7 +59,7 @@ For the active slug, check which archive categories contain
 `<slug>.md`:
 
 - `prds/<slug>.md` exists → at least Phase 1 reached.
-- `tech-specs/<slug>.md` → Phase 2.
+- `specs/<slug>.md` plus at least one `tasks/<slug>-s*-t*.md` → Phase 2.
 - `acceptance-contracts/<slug>.md` → Phase 3.
 - `contracts/<slug>.md` → Phase 4 has run.
 - a canonization marker (Sprint 8 wiring) → complete.

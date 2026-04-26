@@ -54,9 +54,20 @@ the Generator captures intent, you express measurable rigor:
 - Resolve the active task: `slug="$(wm_active_slug)"`. If `.yoke/.current` is missing, surface the helper's "no active task" error and instruct the user to run `/yoke:discover`.
 - Verify `wm_prd_path "$slug"` exists AND is approved. Abort otherwise:
   "PRD missing or unapproved at <path>. Run `/yoke:discover` first."
-- Verify `wm_tech_spec_path "$slug"` exists AND is approved. Abort
+- Verify `wm_spec_path "$slug"` exists AND is approved. Abort
   otherwise: "Tech Spec missing or unapproved at <path>. Run
   `/yoke:tech-spec` first."
+- Read the task list via `wm_list_task_paths "$slug"`. **Abort
+  non-zero if it returns zero paths** — "Tech Spec missing or
+  unapproved at <path>. Run `/yoke:tech-spec` first." (a slug with
+  an approved spec but no task files means stages 2/3 of
+  `/yoke:tech-spec` did not complete).
+- For each path returned by `wm_list_task_paths`, read the
+  frontmatter and **abort non-zero if any file lacks
+  `status: approved`** — "Task <path> not approved (frontmatter
+  status != approved). Run `/yoke:tech-spec` and approve via
+  Trigger 2." This is the partial-approval guard: the binding
+  artifact's input pre-conditions are unambiguous.
 - If `wm_acceptance_contract_path "$slug"` already exists: offer overwrite (replace in place — same path) or abort. No `-v2.md` shadowing — the per-task slug already provides versioning across tasks.
 
 ### 2. Discover sensors from host CLAUDE.md
@@ -75,7 +86,14 @@ with empty sensors.
 ### 3. Read upstream artifacts
 
 - Read the approved PRD at `wm_prd_path "$slug"` (read-only).
-- Read the approved Tech Spec at `wm_tech_spec_path "$slug"` (read-only).
+- Read the approved sprint index at `wm_spec_path "$slug"`
+  (read-only) — overall objective, sprint preambles, contracts /
+  dependencies / out-of-scope feed the Contract's preamble and
+  scope.
+- Read **every** path returned by `wm_list_task_paths "$slug"`
+  (read-only) — each task file's *Validation* section is the
+  primary input to that task's BDD scenario, and the *Acceptance
+  criterion* feeds the scenario's Then clauses.
 - Read `templates/acceptance-contract.md` for artifact shape.
 - For applicable regulatory policies (PCI-DSS, LGPD, HIPAA, etc.) and
   prior sensor calibrations: invoke `/yoke:ask`. Never read canonical
@@ -88,11 +106,20 @@ Acceptance Contract at `wm_acceptance_contract_path "$slug"` (i.e.,
 `.yoke/acceptance-contracts/<slug>.md`) matching
 `templates/acceptance-contract.md`:
 
-- Header with `PRD:`, `Tech Spec:` paths and approval state.
+- Header with `PRD:`, `Spec:` paths and approval state.
 - **Binding statement** (verbatim from the template).
-- **BDD scenarios** — Given / When / Then per Tech-Spec task, each
-  with `Fixture:` and `Sensors:` fields. Every Tech-Spec task maps
-  to at least one BDD scenario.
+- **BDD scenarios** — exactly **one scenario per task file**
+  returned by `wm_list_task_paths`. Each scenario carries:
+  - `Task: <task-id>` line referencing the task file (e.g.
+    `Task: 2026-04-25-foo-s01-t02`) — this is the 1:1 anchor
+    between the Contract and the per-task body.
+  - `Given` / `When` / `Then` blocks — derive the *Then* clauses
+    primarily from the task file's *Validation* section (which is
+    where the validation description lives), supplemented by the
+    task's *Acceptance criterion*.
+  - `Fixture:` and `Sensors:` lines (every scenario must be
+    decidable by at least one sensor or fixture — non-negotiable
+    per `patterns/acceptance-contract.md`).
 - **Functional requirements** — measurable, mapped to sensors.
   Refuse vague items.
 - **Applicable policies** — discovered via `/yoke:ask`. Regulatory
@@ -103,6 +130,10 @@ Acceptance Contract at `wm_acceptance_contract_path "$slug"` (i.e.,
 - **Inferential sensors** — Sprint-3 placeholder for now; full
   calibration metadata (model id, calibration date, rubric) ships
   in Sprint 5+.
+
+The scenario count MUST equal the task-file count. Drafts where the
+two diverge are rejected — the 1:1 mapping is the granularity gain
+the upstream split delivers.
 
 ### 5. Trigger 3 — ratification (binding)
 
@@ -182,7 +213,11 @@ rejected (no `Status: ratified` is written) and the skill exits cleanly.
 - `.yoke/config.yaml` exists.
 - `.yoke/.current` exists and points at a valid slug.
 - `.yoke/prds/<slug>.md` exists and is approved.
-- `.yoke/tech-specs/<slug>.md` exists and is approved.
+- `.yoke/specs/<slug>.md` exists and is approved.
+- `.yoke/tasks/<slug>-s*-t*.md` is non-empty AND every task file
+  carries `status: approved` in its frontmatter (Part 2's `approve`
+  flow flips them all together; partial approval is a fail-closed
+  pre-condition).
 
 ## Output contract
 

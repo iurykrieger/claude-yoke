@@ -45,11 +45,12 @@ subagents adapt.*
   parallel each cycle.
 - **Orchestrator** (`agents/orchestrator.md`) — runtime subagent and
   sole writer of canonical memory under Model C. Three modes:
-  consult (read canonical memory live during cycles, append to
-  `.yoke/query-trace.md`), monitor (detect divergence, escalate via
-  `lib/ralph-loop/escalate.sh`), canonize (at loop termination,
-  apply five-criteria filter, propose writes via
-  `lib/canonical-memory/propose-write.sh`).
+  consult (invoke `/yoke:ask` via the Skill tool to read canonical
+  memory live and reason over the response in-conversation), monitor
+  (detect divergence, escalate via `lib/ralph-loop/escalate.sh`),
+  canonize (at loop termination, invoke `/yoke:preserve` via the
+  Skill tool to apply the five-criterion cascade and open Model
+  C-classified PRs).
 
 Spec-phase work (Phases 1–3) is performed by skills with embedded
 persona prompts:
