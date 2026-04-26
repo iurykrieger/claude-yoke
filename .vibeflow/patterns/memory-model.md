@@ -33,7 +33,7 @@ access.
 | File | Writer | Readers | Purpose |
 | :--- | :--- | :--- | :--- |
 | `prd.md` | `/yoke:discover` skill (Generator persona) | all | Phase 1 ratified artifact |
-| `tech-spec.md` | `/yoke:tech-spec` skill (Generator persona) | all | Phase 2 ratified artifact |
+| `specs/<slug>.md` (sprint index) + `tasks/<slug>-s<NN>-t<MM>.md` (per-task) | `/yoke:tech-spec` skill (Generator persona) | all | Phase 2 ratified artifact pair (sprint index → one-line stories; per-task file → full Story / Technical implementation / Validation / Acceptance criterion) |
 | `acceptance-contract.md` | `/yoke:acceptance-contract` skill (Validator persona) | all | Phase 3 binding artifact |
 | `progress.md` | Generator (runtime subagent) | Validator + Orchestrator | implementation state across cycles |
 | `contracts.md` | Generator + Validator (jointly, on consensus) | both + Orchestrator | accumulated sprint contracts |
@@ -155,19 +155,28 @@ listed in `policies/pii-fields.md` before writing the log line.
 2026-03 incident: ...
 ```
 
-Working-memory layout for a task:
+Working-memory layout for a task (per-category folders, post-tech-spec-task-split):
 
 ```
 .yoke/
-├── prd.md
-├── tech-spec.md
-├── acceptance-contract.md
-├── progress.md
-├── contracts.md
 ├── config.yaml
-└── .snapshots/
-    └── cycle-N.yaml
+├── .gitignore
+├── .current
+├── prds/<slug>.md
+├── specs/<slug>.md                              # sprint index (Phase 2)
+├── tasks/<slug>-s<NN>-t<MM>.md                  # per-task body (Phase 2)
+├── acceptance-contracts/<slug>.md
+├── contracts/<slug>.md
+└── runtime/
+    ├── progress.md
+    ├── .cycle-counter
+    ├── .trigger4-packet.yaml
+    └── .snapshots/cycle-N.yaml
 ```
+
+The `query-traces/` archive was retired in `ask-source-agnostic-read`
+Part 1 — `/yoke:ask` is now a pure source-agnostic read with no
+working-memory side effects.
 
 <!-- vibeflow:auto:end -->
 
@@ -189,12 +198,16 @@ termination") — concrete locations:
 **Working memory** — directory `.yoke/` at the host project root,
 created by `/yoke:bootstrap`:
 
-- `.yoke/prd.md`, `.yoke/tech-spec.md`,
-  `.yoke/acceptance-contract.md`, `.yoke/progress.md`,
-  `.yoke/contracts.md`
+- `.yoke/prds/<slug>.md`, `.yoke/specs/<slug>.md`,
+  every `.yoke/tasks/<slug>-s<NN>-t<MM>.md`,
+  `.yoke/acceptance-contracts/<slug>.md`,
+  `.yoke/contracts/<slug>.md`,
+  `.yoke/runtime/progress.md`
 - Canonical-memory reads do not materialize a working-memory
   artifact — `/yoke:ask` is a pure read invoked on demand via the
-  Skill tool by any subagent or skill that needs canonical context.
+  Skill tool by any subagent or skill that needs canonical context
+  (the `.yoke/query-traces/` archive was retired in
+  `ask-source-agnostic-read` Part 1).
 - `.yoke/config.yaml` — per-project Yoke config (hard-bound
   overrides, canonical-repo URL)
 - `.yoke/.snapshots/cycle-N.yaml` — per-cycle

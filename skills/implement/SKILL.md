@@ -39,9 +39,12 @@ termination.
 - Run `lib/ralph-loop/orchestrate.sh preflight`. The script verifies:
   - `.yoke/config.yaml` exists.
   - `.yoke/.current` exists and points at a valid slug.
-  - `wm_prd_path "$slug"`, `wm_tech_spec_path "$slug"`, and
+  - `wm_prd_path "$slug"`, `wm_spec_path "$slug"`, and
     `wm_acceptance_contract_path "$slug"` all exist and carry
-    `Status: approved` (PRD/Tech Spec) or `Status: ratified` (Contract).
+    `Status: approved` (PRD/Spec) or `Status: ratified` (Contract).
+    The Phase-2 approval flow flips `Status: approved` on the spec
+    AND every `.yoke/tasks/<slug>-s*-t*.md` together — see
+    `skills/tech-spec/SKILL.md` "Recording approval".
   - On any missing pre-condition, the script aborts with a clear
     message (exit codes 3 or 4).
 - Run `hooks/pre-implementation.sh`.
@@ -96,7 +99,8 @@ For each cycle (numbered starting at 1):
 
    - **Generator (`agents/generator.md`)** — input:
      - Approved upstream artifacts at `wm_prd_path`,
-       `wm_tech_spec_path`, `wm_acceptance_contract_path` (read-only).
+       `wm_spec_path`, every path returned by `wm_list_task_paths`,
+       and `wm_acceptance_contract_path` (read-only).
      - Current runtime progress at `wm_progress_path` (last cycle's
        state).
      - Current sprint contracts at `wm_contracts_path "$slug"`.
@@ -251,8 +255,10 @@ see `.vibeflow/patterns/human-triggers.md`.
 
 - `.yoke/config.yaml` exists.
 - `.yoke/.current` exists and points at a valid slug.
-- `.yoke/prds/<slug>.md` (approved), `.yoke/tech-specs/<slug>.md`
-  (approved), `.yoke/acceptance-contracts/<slug>.md` (ratified).
+- `.yoke/prds/<slug>.md` (approved), `.yoke/specs/<slug>.md`
+  (approved), every `.yoke/tasks/<slug>-s*-t*.md`
+  (`status: approved`), `.yoke/acceptance-contracts/<slug>.md`
+  (ratified).
 
 ## Output contract
 

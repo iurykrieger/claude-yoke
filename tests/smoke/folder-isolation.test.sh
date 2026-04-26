@@ -5,8 +5,9 @@
 # working memory. Asserts:
 #   (a) every file written under `.yoke/` lands in an allowed location
 #       (config.yaml, .gitignore, .current, prds/<slug>.md,
-#        tech-specs/<slug>.md, acceptance-contracts/<slug>.md,
-#        contracts/<slug>.md, runtime/<file>);
+#        specs/<slug>.md, tasks/<slug>-s*-t*.md,
+#        acceptance-contracts/<slug>.md, contracts/<slug>.md,
+#        runtime/<file>);
 #   (b) no flat file `.yoke/<file>.md` for any of
 #       prd|tech-spec|acceptance-contract|contracts|progress is ever
 #       created by the simulated flow;
@@ -103,11 +104,29 @@ YAML
 MD
   wm_set_active "$SLUG"
 
-  # Tech spec.
-  mkdir -p "$(dirname "$(wm_tech_spec_path)")"
-  cat > "$(wm_tech_spec_path)" <<'MD'
-# Tech Spec: Folder isolation smoke
+  # Spec (sprint index).
+  mkdir -p "$(dirname "$(wm_spec_path)")"
+  cat > "$(wm_spec_path)" <<'MD'
+# Spec: Folder isolation smoke
 > Status: approved
+
+#### Task __SLUG__-s01-t01 — smoke task
+MD
+  # Substitute the active slug into the synthetic task line so the
+  # scaffolder regex matches when this fixture is exercised. (Inline
+  # heredoc placeholder used to keep the assertion above terse.)
+  sed -i.bak "s/__SLUG__/$SLUG/" "$(wm_spec_path)" && rm "$(wm_spec_path).bak"
+
+  # Task file (per-task body).
+  mkdir -p "$(dirname "$(wm_task_path "$SLUG" 1 1)")"
+  cat > "$(wm_task_path "$SLUG" 1 1)" <<'MD'
+---
+task_id: smoke-task
+sprint: 1
+slug: smoke
+status: approved
+---
+# Task — smoke
 MD
 
   # Acceptance contract.
@@ -140,7 +159,8 @@ while IFS= read -r f; do
     .yoke/.gitignore) ;;
     .yoke/.current) ;;
     .yoke/prds/"$SLUG".md) ;;
-    .yoke/tech-specs/"$SLUG".md) ;;
+    .yoke/specs/"$SLUG".md) ;;
+    .yoke/tasks/"$SLUG"-s*-t*.md) ;;
     .yoke/acceptance-contracts/"$SLUG".md) ;;
     .yoke/contracts/"$SLUG".md) ;;
     .yoke/runtime/*) ;;

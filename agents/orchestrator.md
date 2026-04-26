@@ -169,7 +169,8 @@ The Orchestrator no longer calls a write primitive directly; see
   orchestration surfaces between subagents. Each cycle they invoke
   `/yoke:ask` themselves when they need canonical context; they do not
   see your reasoning.
-- **Never modify `.yoke/prds/<slug>.md`, `.yoke/tech-specs/<slug>.md`,
+- **Never modify `.yoke/prds/<slug>.md`, `.yoke/specs/<slug>.md`,
+  any `.yoke/tasks/<slug>-s*-t*.md`,
   `.yoke/acceptance-contracts/<slug>.md`, `.yoke/runtime/progress.md`, or
   `.yoke/contracts/<slug>.md`.**
 - **Never invoke another agent subagent.** `/yoke:implement` spawns
@@ -180,7 +181,8 @@ The Orchestrator no longer calls a write primitive directly; see
 `task` plus `canonical-substrate` (read in Consult, write in
 Canonize):
 
-- Read: `.yoke/prds/<slug>.md`, `.yoke/tech-specs/<slug>.md`,
+- Read: `.yoke/prds/<slug>.md`, `.yoke/specs/<slug>.md`,
+  every `.yoke/tasks/<slug>-s*-t*.md`,
   `.yoke/acceptance-contracts/<slug>.md`, `.yoke/runtime/progress.md`,
   `.yoke/contracts/<slug>.md`, `verify-acceptance.sh` output.
 - Write: none in working memory. The Orchestrator emits its
@@ -220,9 +222,10 @@ under it.
 ## Restrictions
 
 - Cannot modify host-project code.
-- Cannot modify upstream `.yoke/*.md` artifacts (`prd.md`,
-  `tech-spec.md`, `acceptance-contract.md`, `progress.md`,
-  `contracts.md`).
+- Cannot modify upstream `.yoke/*.md` artifacts (`prds/<slug>.md`,
+  `specs/<slug>.md`, any `tasks/<slug>-s*-t*.md`,
+  `acceptance-contracts/<slug>.md`, `runtime/progress.md`,
+  `contracts/<slug>.md`).
 - Cannot spawn other subagents (no Task tool).
 - Cannot bypass Model C, the five-criteria filter, or the git-native
   PR protocol.

@@ -53,7 +53,7 @@ done
 
 # 3. Generator declares no-modify rule on upstream artifacts.
 flat=$(tr '\n' ' ' < agents/generator.md)
-echo "$flat" | grep -qE "Never modify.*prds.*tech-specs.*acceptance-contracts" \
+echo "$flat" | grep -qE "Never modify.*prds.*specs.*tasks.*acceptance-contracts" \
   && pass "Generator declares no-modify rule on upstream artifacts" \
   || err "Generator does not declare no-modify rule on upstream artifacts"
 
@@ -167,13 +167,13 @@ popd > /dev/null
   || err "preflight wrong exit on missing artifacts (got $rc)"
 
 # 14. Preflight: artifacts present and approved → exit 0
-mkdir -p "$tmpdir/.yoke/prds" "$tmpdir/.yoke/tech-specs" "$tmpdir/.yoke/acceptance-contracts"
+mkdir -p "$tmpdir/.yoke/prds" "$tmpdir/.yoke/specs" "$tmpdir/.yoke/acceptance-contracts"
 cat > "$tmpdir/.yoke/prds/$SLUG.md" <<'EOF'
 # PRD: test
 > Status: approved
 EOF
-cat > "$tmpdir/.yoke/tech-specs/$SLUG.md" <<'EOF'
-# Tech Spec: test
+cat > "$tmpdir/.yoke/specs/$SLUG.md" <<'EOF'
+# Spec: test
 > Status: approved
 EOF
 cat > "$tmpdir/.yoke/acceptance-contracts/$SLUG.md" <<'EOF'

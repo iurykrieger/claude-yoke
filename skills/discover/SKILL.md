@@ -193,7 +193,7 @@ the skill records approval and stops (collapses to `approve`).
 Every `/yoke:discover` invocation starts a *new* task. There is no
 "continue active task" branch. If `.yoke/.current` exists when the
 skill starts, it will be overwritten with the new slug after step 5;
-the previous task's archive files (in `prds/`, `tech-specs/`, etc.)
+the previous task's archive files (in `prds/`, `specs/`, `tasks/`, etc.)
 remain on disk untouched. Different git worktrees get independent
 `.current` files because `.current` is gitignored.
 
@@ -243,8 +243,8 @@ cleanly.
 - Do NOT read canonical memory directly — must go via `/yoke:ask`.
 - Do NOT write to any flat working-memory path. All paths go through
   `lib/working-memory/paths.sh`.
-- Do NOT modify any other task's archive files (`tech-specs/<other>.md`,
-  `acceptance-contracts/<other>.md`, etc.).
+- Do NOT modify any other task's archive files (`specs/<other>.md`,
+  `tasks/<other>-s*-t*.md`, `acceptance-contracts/<other>.md`, etc.).
 - Do NOT propose colliding slugs by appending numeric suffixes
   (`<term>-2`, `<term>-3`). Regenerate semantically.
 

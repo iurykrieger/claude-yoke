@@ -208,12 +208,14 @@ grep -qE "^- citing_criteria:[[:space:]]*\[" "$fix" \
 # Anti-scope: no Validator-verdict shape change, no Orchestrator change,
 # no parallel-spawn change, no upstream-artifact mutation
 # ------------------------------------------------------------------
-# The "Never modify" bullet wraps across two lines — the first line
-# names .yoke/prds/ and .yoke/tech-specs/, the second line names
-# .yoke/acceptance-contracts/. Check each path token independently.
+# The "Never modify" bullet wraps across multiple lines after the
+# tech-spec-task-split rollout — it now names .yoke/prds/, .yoke/specs/,
+# .yoke/tasks/, and .yoke/acceptance-contracts/. Check each path token
+# independently.
 if grep -qE "Never modify" "$gen" \
    && grep -qF ".yoke/prds/" "$gen" \
-   && grep -qF ".yoke/tech-specs/" "$gen" \
+   && grep -qF ".yoke/specs/" "$gen" \
+   && grep -qF ".yoke/tasks/" "$gen" \
    && grep -qF ".yoke/acceptance-contracts/" "$gen"; then
   pass "(anti) Generator still cannot modify upstream artifacts"
 else
