@@ -1,0 +1,40 @@
+{
+  "fixture": "case-1.yaml",
+  "calibrated_against": "claude-opus-4-7",
+  "calibrated_at": "2026-04-25",
+  "note": "Reference verdicts captured from a top-tier Validator run on case-1.yaml. The deployment-time gate compares Sonnet 4.6's verdicts against this reference, ignoring timing-related fields. The smoke test asserts file presence + JSON shape; full LLM-output diff is run with `claude code` against the fixture set.",
+  "verdicts": [
+    {
+      "criterion": "FR-1",
+      "status": "pass",
+      "sensor": "linter",
+      "location": null,
+      "fix_instruction": null,
+      "evidence": "linter: pass"
+    },
+    {
+      "criterion": "FR-2",
+      "status": "fail",
+      "sensor": "type-check",
+      "location": "src/api/refund.py:142",
+      "fix_instruction": "format_currency expects str; cast or change call site",
+      "evidence": "Argument 1 to \"format_currency\" has incompatible type \"int\""
+    },
+    {
+      "criterion": "Scenario 1",
+      "status": "fail",
+      "sensor": "structural",
+      "location": "tests/contracts/test_refund.py",
+      "fix_instruction": "serialize amount.currency as ISO-4217 string before returning",
+      "evidence": "assert 'BRL' == 986 — currency emitted as numeric code instead of ISO-4217 string"
+    },
+    {
+      "criterion": "Scenario 2",
+      "status": "pass",
+      "sensor": "unit",
+      "location": null,
+      "fix_instruction": null,
+      "evidence": "unit: pass"
+    }
+  ]
+}

@@ -13,19 +13,21 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib/harness.sh"
 cd "$PLUGIN_ROOT"
 
 # ---------------------------------------------------------------------
-# (a) Exactly 3 *.md files in agents/
+# (a) Expected runtime subagents enumerated; exact match (no extras)
 # ---------------------------------------------------------------------
+expected_agents=(generator.md validator.md orchestrator.md semantic-judge.md)
 agent_count=$(find agents -maxdepth 1 -name '*.md' | wc -l | tr -d ' ')
-if [ "$agent_count" -eq 3 ]; then
-  pass "agents/ contains exactly 3 .md files"
+
+if [ "$agent_count" -eq "${#expected_agents[@]}" ]; then
+  pass "agents/ contains exactly ${#expected_agents[@]} .md files"
 else
-  err "agents/ contains $agent_count .md files (expected 3)"
+  err "agents/ contains $agent_count .md files (expected ${#expected_agents[@]})"
 fi
 
 # ---------------------------------------------------------------------
-# (b) The three runtime subagents are present
+# (b) Each expected runtime subagent file is present
 # ---------------------------------------------------------------------
-for a in generator.md validator.md orchestrator.md; do
+for a in "${expected_agents[@]}"; do
   if [ -f "agents/$a" ]; then
     pass "agents/$a present"
   else

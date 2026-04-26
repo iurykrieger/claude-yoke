@@ -56,6 +56,41 @@ Every sensor that fails emits:
 Generic output ("tests failed", "build broken") is treated as a sensor bug —
 it provides no signal the agent can act on without re-running and inspecting.
 
+### Parallel execution & acknowledgement (v0.4.0+)
+At runtime, the Validator subagent does **not** call
+`hooks/verify-acceptance.sh` synchronously. Instead it follows the
+parallel-spawn protocol declared in `agents/validator.md`:
+
+1. **Acknowledge first.** Call
+   `bash lib/sensors/ack-sensors.sh --mode readiness <contract>` to
+   verify every declared sensor is reachable. The skill is the
+   single source of truth for sensor discovery — both the runtime
+   path and the synchronous hook delegate to it.
+2. **Spawn in parallel.** For every reachable computational sensor,
+   spawn its command via `Bash(run_in_background=true)`, applying the
+   per-sensor timeout (default **60s** for computational sensors;
+   inferential sensors default to **120s** and use the `Agent` tool —
+   see Part 3).
+3. **Aggregate via `Monitor`.** The Validator listens for completion
+   events and emits structured verdicts incrementally as each sensor
+   finishes. Cycle wall-clock is bounded by `max(timeout_i)`, not
+   `sum(duration_i)`.
+4. **Any-fail-wins aggregation.** When multiple sensors map to the
+   same Acceptance Contract criterion, the combined verdict is
+   `fail` if any sensor reports `fail`. Per-sensor evidence is
+   preserved inside the combined verdict.
+
+The synchronous hook (`hooks/verify-acceptance.sh`) runs sensors
+serially and is reserved for CI / headless callers. Both paths emit
+the same per-sensor YAML schema, so downstream consumers see no
+difference.
+
+**Cycle-budget caveat.** When per-sensor timeout overrides push
+`max(timeout_i)` beyond the ralph-loop cycle budget, the loop will
+hit a hard bound before the Validator finishes. Document each long
+override in the Acceptance Contract and verify the resulting cycle
+budget against `hooks/check-hard-bounds.sh`.
+
 ### Calibration drift management
 Inferential sensors degrade as the underlying model changes. They carry:
 - `calibrated_against: <model id>`

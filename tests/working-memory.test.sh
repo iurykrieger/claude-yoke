@@ -63,8 +63,8 @@ YAML
   printf '# PRD\n> Status: approved\n' > "$(wm_prd_path "$SLUG")"
   wm_set_active "$SLUG"
 
-  mkdir -p "$(dirname "$(wm_tech_spec_path)")"
-  printf '# Tech Spec\n> Status: approved\n' > "$(wm_tech_spec_path)"
+  mkdir -p "$(dirname "$(wm_spec_path)")"
+  printf '# Tech Spec\n> Status: approved\n' > "$(wm_spec_path)"
 
   mkdir -p "$(dirname "$(wm_acceptance_contract_path)")"
   printf '# Acceptance Contract\n> Status: ratified\n' > "$(wm_acceptance_contract_path)"
@@ -87,7 +87,8 @@ while IFS= read -r f; do
     .yoke/.gitignore) ;;
     .yoke/.current) ;;
     .yoke/prds/"$SLUG".md) ;;
-    .yoke/tech-specs/"$SLUG".md) ;;
+    .yoke/specs/"$SLUG".md) ;;
+    .yoke/tasks/*) ;;
     .yoke/acceptance-contracts/"$SLUG".md) ;;
     .yoke/contracts/"$SLUG".md) ;;
     .yoke/runtime/*) ;;

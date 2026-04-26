@@ -30,6 +30,13 @@ skill renders it verbatim and parses the user's response by digit.
 - `binding_statement` — optional verbatim block printed **before** the
   open-questions block when the gate carries binding semantics
   (Trigger 3 — Acceptance Contract). Empty for Triggers 1 and 2.
+- `task_summary` — optional ordered list of per-task tuples (one per
+  task file) used **only** by `/yoke:tech-spec` (Trigger 2) when
+  rendering the Tech-Spec-only block. Each entry is the triple
+  `(task_id, one-line story, file path)`. The host skill builds this
+  list from `wm_list_task_paths "$slug"` after stage 3 has filled
+  every task file's `# Task <id> — <story>` heading. Empty / unset
+  for Triggers 1 and 3.
 
 ## Output (returned to the host skill)
 
@@ -50,8 +57,45 @@ translated.** Localization happens at the label layer (see Rendering).
 The host skill renders these blocks in order, every time:
 
 1. **Binding statement** (only when `binding_statement` is non-empty).
-2. **Open / unresolved items** block — see Detection rule below.
-3. **The 4-option prompt.**
+2. **Tech-Spec-only per-task summary** (only when `artifact_label`
+   equals `Tech Spec` and `task_summary` is non-empty — see
+   "Tech-Spec-only block" below).
+3. **Open / unresolved items** block — see Detection rule below.
+4. **The 4-option prompt.**
+
+### Tech-Spec-only block
+
+Rendered only by `/yoke:tech-spec` (Trigger 2) when
+`task_summary` carries entries — i.e., when stages 1–3 of the
+3-stage blueprint have produced both the spec and the per-task
+files. Triggers 1 and 3 explicitly do not render this block; the
+condition is `artifact_label == "Tech Spec"` (every other host
+passes a different `artifact_label` and hence skips this block).
+Forking the template per trigger is the anti-pattern called out in
+`.vibeflow/patterns/human-triggers.md` ("shape is shared, semantics
+are distinct"); a conditional block honors that rule because the
+condition fires on input shape, not on trigger semantics.
+
+When the condition is met, render exactly:
+
+```
+### Tasks scheduled for approval (N)
+
+- <task_id_1> — <story_1>  (<file_path_1>)
+- <task_id_2> — <story_2>  (<file_path_2>)
+…
+```
+
+`N` is the count of `task_summary` entries. The list is the verbatim
+order returned by `wm_list_task_paths "$slug"` (= positional order
+via the `s<NN>-t<MM>` filename suffix).
+
+The block surfaces what the user is approving in one decision —
+without it, Trigger 2 would conceal the per-task contents under a
+single spec-level approval. The `Open / unresolved items` block that
+follows scans the spec **and** every task file referenced in
+`task_summary`, so unresolved markers anywhere in the sprint set
+surface together.
 
 ### Detection rule (for the open-questions block)
 

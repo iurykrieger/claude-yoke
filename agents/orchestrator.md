@@ -30,6 +30,21 @@ under that path.
 If you find yourself acting without a mode declaration, that is a
 self-bug — abort and re-prompt with the mode token explicit.
 
+> **Model selection (Part-3 perf-quickwins).** Modes A and B (consult,
+> monitor) and Mode C (canonize) may run on **different models** —
+> all three coordinator-pinned via
+> `lib/runtime/agent-config.sh::yoke_resolve_model`. The three role
+> tokens are `orchestrator.consult`, `orchestrator.monitor`, and
+> `orchestrator.canonize`. Defaults: `orchestrator.consult` and
+> `orchestrator.monitor` → `claude-sonnet-4-6` (retrieval + filter /
+> divergence detection are structurally bounded); `orchestrator.canonize`
+> → inherit session model (top-tier, **never** auto-downgrade).
+> Canonize is the canonical-memory-write surface under Model C —
+> downgrading it would erode governance judgment. Override under
+> `runtime.models.orchestrator.<mode>` in `.yoke/config.yaml`. The R4
+> risk (canonize call accidentally using the consult model) is gated
+> by the Part-3 smoke test's canonize-leak assertion.
+
 ### Mode A — Consult (per cycle, during runtime)
 
 Active during every `/yoke:implement` cycle alongside the Generator
@@ -154,7 +169,8 @@ The Orchestrator no longer calls a write primitive directly; see
   orchestration surfaces between subagents. Each cycle they invoke
   `/yoke:ask` themselves when they need canonical context; they do not
   see your reasoning.
-- **Never modify `.yoke/prds/<slug>.md`, `.yoke/tech-specs/<slug>.md`,
+- **Never modify `.yoke/prds/<slug>.md`, `.yoke/specs/<slug>.md`,
+  any `.yoke/tasks/<slug>-s*-t*.md`,
   `.yoke/acceptance-contracts/<slug>.md`, `.yoke/runtime/progress.md`, or
   `.yoke/contracts/<slug>.md`.**
 - **Never invoke another agent subagent.** `/yoke:implement` spawns
@@ -165,7 +181,8 @@ The Orchestrator no longer calls a write primitive directly; see
 `task` plus `canonical-substrate` (read in Consult, write in
 Canonize):
 
-- Read: `.yoke/prds/<slug>.md`, `.yoke/tech-specs/<slug>.md`,
+- Read: `.yoke/prds/<slug>.md`, `.yoke/specs/<slug>.md`,
+  every `.yoke/tasks/<slug>-s*-t*.md`,
   `.yoke/acceptance-contracts/<slug>.md`, `.yoke/runtime/progress.md`,
   `.yoke/contracts/<slug>.md`, `verify-acceptance.sh` output.
 - Write: none in working memory. The Orchestrator emits its
@@ -205,9 +222,10 @@ under it.
 ## Restrictions
 
 - Cannot modify host-project code.
-- Cannot modify upstream `.yoke/*.md` artifacts (`prd.md`,
-  `tech-spec.md`, `acceptance-contract.md`, `progress.md`,
-  `contracts.md`).
+- Cannot modify upstream `.yoke/*.md` artifacts (`prds/<slug>.md`,
+  `specs/<slug>.md`, any `tasks/<slug>-s*-t*.md`,
+  `acceptance-contracts/<slug>.md`, `runtime/progress.md`,
+  `contracts/<slug>.md`).
 - Cannot spawn other subagents (no Task tool).
 - Cannot bypass Model C, the five-criteria filter, or the git-native
   PR protocol.

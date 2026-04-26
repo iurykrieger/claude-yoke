@@ -1,0 +1,25 @@
+results:
+  - sensor: "linter"
+    command: "npm run lint"
+    status: pass
+    exit_code: 0
+    output_excerpt: ""
+    reason: ""
+  - sensor: "type-check"
+    command: "mypy --strict"
+    status: fail
+    exit_code: 1
+    output_excerpt: "src/api/refund.py:142: error: Argument 1 to \"format_currency\" has incompatible type \"int\"; expected \"str\""
+    reason: "exit_code=1"
+  - sensor: "structural"
+    command: "pytest tests/contracts/"
+    status: fail
+    exit_code: 1
+    output_excerpt: "FAILED tests/contracts/test_refund.py::test_currency_iso_4217 - assert 'BRL' == 986"
+    reason: "exit_code=1"
+  - sensor: "unit"
+    command: "pytest tests/unit/"
+    status: pass
+    exit_code: 0
+    output_excerpt: ""
+    reason: ""
