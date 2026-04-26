@@ -31,3 +31,28 @@ overrides:
   # Subgraph traversal depth for /yoke:ask
   # query:
   #   subgraph_depth: 2
+
+  # Per-role / per-mode model selection (perf-quickwins Part 3).
+  # The /yoke:implement coordinator resolves each Task call's `model:`
+  # value via lib/runtime/agent-config.sh::yoke_resolve_model.
+  #
+  # Built-in defaults pin Validator + Orchestrator-consult/monitor to a
+  # Sonnet-class model (structured-JSON judgment + retrieval over
+  # canonical memory tolerate the smaller class). Generator and
+  # Orchestrator-canonize inherit the user's session model — quality is
+  # king on code generation and on Model C governance writes.
+  #
+  # Override any value here to pin a specific model identifier.
+  # Setting `default:` provides a fallback for generator and
+  # orchestrator.canonize when those keys are absent.
+  #
+  # runtime:
+  #   sensor_concurrency: 4              # Part 1 — parallel sensor fanout
+  #   models:
+  #     default: claude-opus-4-7         # falls through to generator + orchestrator.canonize
+  #     generator: claude-opus-4-7       # explicit override; falls back to .default
+  #     validator: claude-sonnet-4-6     # structured-JSON judgment over deterministic sensor output
+  #     orchestrator:
+  #       consult: claude-sonnet-4-6     # subgraph retrieval; progressive disclosure
+  #       monitor: claude-sonnet-4-6     # divergence detection on runtime working memory
+  #       canonize: claude-opus-4-7      # Model C governance writes — never downgrade

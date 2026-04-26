@@ -52,6 +52,26 @@ termination.
   `templates/progress.md`, `templates/contracts.md`, and an empty
   `# Query trace` header respectively if they don't exist (cycle 0
   entries).
+- **Resolve per-role models (Part-3 perf-quickwins).** Source
+  `lib/runtime/agent-config.sh`. Compute:
+  ```
+  generator_model="$(yoke_resolve_model generator)"
+  validator_model="$(yoke_resolve_model validator)"
+  orch_consult_model="$(yoke_resolve_model orchestrator.consult)"
+  orch_monitor_model="$(yoke_resolve_model orchestrator.monitor)"
+  orch_canonize_model="$(yoke_resolve_model orchestrator.canonize)"
+  ```
+  Defaults pin `validator`, `orchestrator.consult`, and
+  `orchestrator.monitor` to `claude-sonnet-4-6`; `generator` and
+  `orchestrator.canonize` inherit the user's session model unless
+  overridden under `runtime.models.*` in `.yoke/config.yaml`. Empty
+  resolved values mean "no pinning — inherit session model". Log
+  every resolved value to `wm_query_trace_path` via
+  `yoke_log_resolved_models "$(wm_query_trace_path "$slug")"` — the
+  trace is the cheapest verification gate for pinning provenance and
+  for R2 (mechanism silently no-ops). Quality is king on the
+  Generator and on Model C governance writes (canonize), so those
+  roles never auto-downgrade.
 
 ### 2. Cycle loop
 
@@ -60,9 +80,18 @@ For each cycle (numbered starting at 1):
 1. **Concurrent subagent batch (single agentic turn, 3 Task calls).**
    In a single assistant turn, issue **three concurrent Task calls**
    spawning `agents/generator.md`, `agents/validator.md`, and
-   `agents/orchestrator.md` simultaneously. Each receives **disjoint
-   inputs** read from the freshest snapshot of working memory at
-   spawn time.
+   `agents/orchestrator.md` simultaneously. Each Task call passes a
+   per-role `model:` argument resolved at preflight:
+   - Generator → `model: $generator_model`
+   - Validator → `model: $validator_model`
+   - Orchestrator (consult+monitor mode) → `model: $orch_consult_model`
+     (consult and monitor modes share the per-cycle model; the
+     canonize-mode call at termination uses `$orch_canonize_model`,
+     see §3 below).
+   When a resolved value is empty, omit the `model:` argument — the
+   subagent inherits the user's session model. Each receives
+   **disjoint inputs** read from the freshest snapshot of working
+   memory at spawn time.
 
    - **Generator (`agents/generator.md`)** — input:
      - Approved upstream artifacts at `wm_prd_path`,
@@ -110,10 +139,23 @@ For each cycle (numbered starting at 1):
    the progress file, Orchestrator owns the query trace, and the
    contracts file is appended only on consensus events post-batch.
 
-2. **Sensor execution (deterministic).** Run
-   `hooks/verify-acceptance.sh` (default arg resolves to
-   `wm_acceptance_contract_path`) to capture cycle N's
-   post-Generator sensor state. Capture the structured YAML output.
+2. **Sensor execution (deterministic, exactly once per cycle).** Run
+   `hooks/verify-acceptance.sh` to capture cycle N's post-Generator
+   sensor state. Pass `--criterion <id>` where `<id>` is the
+   Generator's last targeted criterion (read from the most recent
+   `citing_criterion:` entry in `wm_progress_path`); pass
+   `--fragments-dir "$(wm_runtime_dir)/.pending-fragments"`; redirect
+   stdout to `$(wm_runtime_dir)/.pending-snapshot.yaml`. Sensors run
+   in parallel via `xargs -P "$(yoke_sensor_concurrency)"` (default 4,
+   configurable via `runtime.sensor_concurrency` in
+   `.yoke/config.yaml`). When no `citing_criterion` is recorded
+   (cycle 0 / fallback) omit `--criterion` and run the full suite.
+   This is the sole sensor execution per cycle — `hooks/post-iteration.sh`
+   promotes the scratch artifacts to `cycle-<N>.yaml` /
+   `cycle-<N>.fragments/` and never re-runs sensors when the scratch
+   is present. The Validator (`agents/validator.md`) reads the
+   resulting snapshot — it never invokes `verify-acceptance.sh`
+   itself.
 
 3. **Contradiction check (deterministic).** Run
    `lib/ralph-loop/orchestrate.sh check-contradiction`. If a sprint
@@ -136,8 +178,13 @@ For each cycle (numbered starting at 1):
    `lib/ralph-loop/escalate.sh --reason hard-bound` and exits 10.
    The skill treats this as a pause-with-arbitration-packet.
 
-6. **Stop check.** If every criterion in the Acceptance Contract
-   has `status: pass` in the latest sensor output AND no
+6. **Stop check (full-suite serial sweep).** Before declaring
+   MERGE-READY, run `hooks/verify-acceptance.sh --concurrency 1` (no
+   `--criterion`) one final time, redirecting stdout to a scratch
+   path under `$(wm_runtime_dir)/.merge-ready-snapshot.yaml`. Scoped
+   / parallel mode never decides convergence; the serial full-suite
+   sweep is the authoritative check. If every criterion in the
+   Acceptance Contract has `status: pass` in this snapshot AND no
    `divergence` verdict from the Validator, return MERGE-READY and
    advance to the canonization handoff (step 3). Otherwise, continue
    to the next cycle.
@@ -147,7 +194,13 @@ For each cycle (numbered starting at 1):
 The handoff fires once when the loop terminator hits — whether the
 loop converged (MERGE-READY) or paused (Trigger-4 / hard-bound /
 infeasibility). Issue a **single Orchestrator-only Task call** with
-input `mode=canonize`:
+input `mode=canonize` and `model: $orch_canonize_model` (resolved at
+preflight; see §1). Canonize-mode never reuses the per-cycle
+consult/monitor model — Model C governance writes stay top-tier,
+even when consult/monitor were pinned to a smaller class. Per
+`.vibeflow/patterns/model-c-governance.md`, canonization decides
+canonical-memory writes — mismatching the canonize model is an R4
+defect that the Part-3 smoke gates against.
 
 - Input includes `wm_progress_path`, `wm_contracts_path`,
   `wm_query_trace_path`, all `$(wm_snapshots_dir)/cycle-*.yaml`,
