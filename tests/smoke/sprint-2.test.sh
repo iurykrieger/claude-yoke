@@ -102,10 +102,11 @@ for skill in discover tech-spec; do
   fi
 done
 
-# 8. /yoke:ask is the canonical-memory adaptive read skill
-#    (Part 3 of the bedrock canonical-memory port retired direct query.sh
-#    invocation — the skill now resolves the memory via Part 1's
-#    resolve-memory.sh and reads the filesystem directly).
+# 8. /yoke:ask is the canonical-memory adaptive read skill.
+#    Part 3 of the bedrock canonical-memory port retired the standalone
+#    query.sh shell-out; ask-source-agnostic-read Part 1 retired the
+#    query-trace write and the .yoke/.current pre-condition. The skill
+#    is now a pure source-agnostic read.
 ask="skills/ask/SKILL.md"
 ask_allowed=$(awk '/^allowed-tools:/{print; exit}' "$ask" || true)
 if echo "$ask_allowed" | grep -qw "Task"; then
@@ -113,12 +114,22 @@ if echo "$ask_allowed" | grep -qw "Task"; then
 else
   pass "/yoke:ask allowed-tools excludes Task"
 fi
+if echo "$ask_allowed" | grep -qw "Write"; then
+  err "/yoke:ask allowed-tools includes Write (skill must be pure read)"
+else
+  pass "/yoke:ask allowed-tools excludes Write (pure read)"
+fi
 grep -q "resolve-memory.sh" "$ask" \
   && pass "/yoke:ask resolves the active memory via Part 1's lib" \
   || err "/yoke:ask does not reference resolve-memory.sh"
-grep -qE 'query-traces/<slug>\.md|wm_query_trace_path' "$ask" \
-  && pass "/yoke:ask writes to versioned .yoke/query-traces/<slug>.md" \
-  || err "/yoke:ask does not write query trace"
+if grep -qE 'query-traces|wm_query_trace_path|\.yoke/\.current' "$ask"; then
+  err "/yoke:ask still references retired query-trace / active-task pre-condition"
+else
+  pass "/yoke:ask is source-agnostic (no query-trace, no active-task pre-condition)"
+fi
+grep -qiE 'source-agnostic|callable from any|no active-task' "$ask" \
+  && pass "/yoke:ask declares its source-agnostic contract" \
+  || err "/yoke:ask missing source-agnostic declaration"
 grep -qiE 'never.*(clone|pull|fetch)' "$ask" \
   && pass "/yoke:ask declares the no-clone invariant (Part 3 DoD-1)" \
   || err "/yoke:ask missing no-clone invariant"

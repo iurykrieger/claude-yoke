@@ -52,18 +52,24 @@ Fork dates:
   - Wired the Generator subagent.
   - Trigger-2 prompt with `approve` / `revise <feedback>` / `back to PRD`.
 
-### `lib/canonical-memory/query.sh`
+### `lib/canonical-memory/query.sh` (retired)
+
+This primitive was retired in Part 3 of the bedrock canonical-memory
+port; `/yoke:ask` now resolves the active memory via
+`lib/canonical-memory/resolve-memory.sh` and reads the local
+filesystem directly (no clone, no pull). The audit-trail / query-trace
+contract that originally lived here was retired in
+ask-source-agnostic-read Part 1 — `/yoke:ask` is now a pure read and
+emits no trace. Historical adaptations recorded for lineage:
 
 - **Source:** Bedrock's read primitives (upstream version 1.2.1).
-- **Adaptations:**
-  - Added `--trace <path> --invoker <name>` flags for deterministic
-    audit-trail writing to `.yoke/query-trace.md` (Yoke-specific
-    requirement; called by `skills/ask/SKILL.md` at spec phase and
-    by the Orchestrator subagent's consult mode at runtime).
-  - Added `--subgraph-depth N` flag for progressive disclosure (Sprint
-    6); delegates to `lib/canonical-memory/graph.sh` for traversal.
+- **Historical adaptations** (no longer in effect):
+  - `--trace <path> --invoker <name>` flags for deterministic
+    audit-trail writing (retired with the trace contract itself).
+  - `--subgraph-depth N` flag for progressive disclosure — superseded
+    by `/yoke:ask`'s built-in 15-entity cap and 1-level wikilink hop.
   - Bounded output (cap at 20 flat matches / 10 subgraph entries).
-  - Empty-state UX (`"no entries yet"` / `"no matches"` / `"not configured"`).
+  - Empty-state UX.
 
 ### `lib/canonical-memory/graph.sh`
 

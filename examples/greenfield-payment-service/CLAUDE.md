@@ -37,5 +37,5 @@ in the flow:
 - `/yoke:implement` — Phase 4 (adversarial loop with hard bounds)
 - `/yoke:canonize` — Phase 5 (Model C — low/medium auto, high/regulatory sync)
 - `/yoke:drift-sense` — Phase 6 (continuous; runs daily via Actions)
-- `/yoke:ask "<term>"` — mediated canonical-memory query
+- `/yoke:ask "<term>"` — adaptive canonical-memory query
 - `/yoke:status` — current task state

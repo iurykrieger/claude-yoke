@@ -40,10 +40,10 @@ that satisfies every Contract criterion.
 - Writes: `.yoke/progress.md` every cycle; `.yoke/contracts.md`
   jointly with the Validator on consensus events.
 - Reads: upstream artifacts read-only; sensor output from
-  `verify-acceptance.sh`; `.yoke/query-trace.md` for subgraph entries
-  the Orchestrator surfaced.
-- Reads canonical memory: never directly. Consumes
-  Orchestrator-surfaced subgraph via `.yoke/query-trace.md`.
+  `verify-acceptance.sh`.
+- Reads canonical memory: only via `/yoke:ask` invoked through the
+  Skill tool; never directly. Direct filesystem reads of the
+  registered memory (cat, grep, clone, pull) are prohibited.
 - Writes canonical memory: never.
 
 ### Validator (runtime subagent)
@@ -55,31 +55,33 @@ using declared sensors and structured verdicts.
   consensus events. Emits structured JSON verdicts that the next cycle
   reads.
 - Reads: sensor output from `verify-acceptance.sh`; upstream artifacts
-  read-only; `.yoke/query-trace.md`.
-- Reads canonical memory: never directly. Consumes
-  Orchestrator-surfaced subgraph via `.yoke/query-trace.md`.
+  read-only.
+- Reads canonical memory: only via `/yoke:ask` invoked through the
+  Skill tool; never directly.
 - Writes canonical memory: never.
 
 ### Orchestrator (runtime subagent — sole canonical-memory writer)
 Three runtime modes:
 
-1. **Consult.** Per cycle, alongside Generator and Validator. Reads
-   canonical memory via `lib/canonical-memory/query.sh` and surfaces
-   relevant subgraph entries to `.yoke/query-trace.md` (progressive
-   disclosure — never the full memory).
+1. **Consult.** Per cycle, alongside Generator and Validator. Invokes
+   `/yoke:ask` via the Skill tool and reasons over the response
+   in-conversation. The skill enforces progressive disclosure
+   (≤ 15 entity reads, 1-level wikilink hop) — never the full memory.
 2. **Monitor.** Per cycle. Detects Generator↔Validator divergence and
    sprint-contract / Acceptance-Contract contradictions; on detection
    invokes `lib/ralph-loop/escalate.sh` to emit the Trigger-4 packet.
-3. **Canonize.** Once at loop termination. Applies the five-criterion
-   cascade via `lib/canonical-memory/canonization-criteria.sh`,
-   classifies impact per Model C, and proposes writes via
-   `lib/canonical-memory/propose-write.sh`. The only canonical-memory
-   write path during the loop.
+3. **Canonize.** Once at loop termination. Invokes `/yoke:preserve`
+   via the Skill tool, which applies the five-criterion cascade,
+   classifies impact per Model C, and opens PRs against the canonical-
+   memory substrate. The only canonical-memory write path during the
+   loop.
 
 The Orchestrator is the **sole writer of canonical memory** under
 Model C; no other agent or skill may propose writes; no other agent
-may write directly. Bypass detection: any read that does not leave a
-trace entry in `.yoke/query-trace.md` is a bypass.
+may write directly. Bypass discipline (declarative): every
+canonical-memory read by Generator, Validator, or Orchestrator
+**must** go through `/yoke:ask` invoked via the Skill tool; direct
+filesystem reads of the registered memory are prohibited.
 
 ### Spec-phase personas (inline in skills, no subagents)
 - **Generator persona** lives inline in `skills/discover/SKILL.md` and

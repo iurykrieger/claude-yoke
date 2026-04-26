@@ -117,7 +117,7 @@ Create:
   .current
   runtime/
   ```
-  Rationale: archive categories (`prds/`, `tech-specs/`, `acceptance-contracts/`, `contracts/`, `query-traces/`) are versioned by the host project. Only the per-worktree active-task pointer (`.current`) and the runtime working directory (`runtime/`) are ephemeral. See `lib/working-memory/paths.sh`.
+  Rationale: archive categories (`prds/`, `tech-specs/`, `acceptance-contracts/`, `contracts/`) are versioned by the host project. Only the per-worktree active-task pointer (`.current`) and the runtime working directory (`runtime/`) are ephemeral. See `lib/working-memory/paths.sh`.
 
 Do **not** pre-create archive category folders or any flat working-memory files (`prd.md`, `tech-spec.md`, etc.) — those are created lazily by `/yoke:discover` and downstream skills. After bootstrap completes, `.yoke/` contains exactly `config.yaml` and `.gitignore`.
 

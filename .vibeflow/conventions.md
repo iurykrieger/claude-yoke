@@ -77,7 +77,11 @@ Every task that enters runtime materializes this minimum tree of ephemeral files
 - `acceptance-contract.md` — `/yoke:acceptance-contract` skill writes (Validator persona inline); everyone reads (Phase 3 artifact, binding)
 - `progress.md` — Generator (runtime subagent) writes; Validator + Orchestrator read
 - `contracts.md` — Generator + Validator co-write on consensus; both + Orchestrator read (sprint contracts)
-- `query-trace.md` — `/yoke:ask` skill + Orchestrator (consult mode) write; all read (mediated canonical-memory queries)
+
+Canonical-memory reads do **not** materialize a working-memory artifact —
+`/yoke:ask` is a pure read invoked on demand via the Skill tool by any
+caller (Generator, Validator, Orchestrator, spec-phase skills, ad-hoc
+human queries).
 
 ### Canonical memory — per-item format
 - Body in markdown
@@ -99,7 +103,7 @@ Principle: "every rule gets periodically re-tested against the current model."
 
 ## Don'ts
 
-- Do NOT allow the Generator or the Validator to read canonical memory directly — every query goes through the Orchestrator.
+- Do NOT allow any agent to read canonical memory directly. All reads route through `/yoke:ask` invoked via the Skill tool — direct filesystem reads of the registered memory (cat, grep, clone, pull) are prohibited.
 - Do NOT allow any agent except the Orchestrator to write to canonical memory (and only with Model C applied).
 - Do NOT load the entire canonical memory into any agent's context — only the relevant subgraph, via the Orchestrator.
 - Do NOT accept generic sensor output ("tests failed", "build broken") — that is a sensor bug.

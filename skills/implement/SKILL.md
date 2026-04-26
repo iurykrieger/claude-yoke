@@ -46,12 +46,12 @@ termination.
     message (exit codes 3 or 4).
 - Run `hooks/pre-implementation.sh`.
 - Ensure `.yoke/runtime/` and `.yoke/contracts/` exist (`mkdir -p`).
-  Initialize `wm_progress_path` (`.yoke/runtime/progress.md`),
-  `wm_contracts_path "$slug"` (`.yoke/contracts/<slug>.md`), and
-  `wm_query_trace_path "$slug"` (`.yoke/query-traces/<slug>.md`) from
-  `templates/progress.md`, `templates/contracts.md`, and an empty
-  `# Query trace` header respectively if they don't exist (cycle 0
-  entries).
+  Initialize `wm_progress_path` (`.yoke/runtime/progress.md`) and
+  `wm_contracts_path "$slug"` (`.yoke/contracts/<slug>.md`) from
+  `templates/progress.md` and `templates/contracts.md` respectively if
+  they don't exist (cycle 0 entries). The `query-trace` initialization
+  was retired in ask-source-agnostic-read Part 1 — `/yoke:ask` is now a
+  pure read and emits no trace.
 
 ### 2. Cycle loop
 
@@ -70,10 +70,11 @@ For each cycle (numbered starting at 1):
      - Current runtime progress at `wm_progress_path` (last cycle's
        state).
      - Current sprint contracts at `wm_contracts_path "$slug"`.
-     - Current query trace at `wm_query_trace_path "$slug"`
-       (Orchestrator's prior consult output for this loop).
      - Last `verify-acceptance.sh` snapshot from
        `$(wm_snapshots_dir)/cycle-<N-1>.yaml` (if any).
+     - Canonical-memory context: invoke `/yoke:ask` via the Skill
+       tool on demand (no on-disk handoff; the skill is a pure
+       source-agnostic read).
 
      Writes code targeting the next failing Acceptance Contract
      criterion; persists `wm_progress_path` at end of turn.
@@ -84,7 +85,8 @@ For each cycle (numbered starting at 1):
        `$(wm_snapshots_dir)/cycle-<N-1>.yaml`.
      - Current sprint contracts at `wm_contracts_path` and runtime
        progress at `wm_progress_path` (read-only).
-     - Current query trace at `wm_query_trace_path`.
+     - Canonical-memory context: invoke `/yoke:ask` via the Skill
+       tool on demand.
 
      Emits structured JSON verdicts per criterion against the
      freshest snapshot's sensor output; appends sprint contracts to
@@ -93,13 +95,11 @@ For each cycle (numbered starting at 1):
 
    - **Orchestrator (`agents/orchestrator.md`)** — input:
      - `mode=consult+monitor`, `cycle=<N>`, `slug=<active slug>`.
-     - Current `wm_progress_path`, `wm_contracts_path`,
-       `wm_query_trace_path`.
+     - Current `wm_progress_path`, `wm_contracts_path`.
      - Last `verify-acceptance.sh` snapshot.
 
-     Consults canonical memory via
-     `lib/canonical-memory/query.sh` for patterns relevant to the
-     next failing criterion; appends to `wm_query_trace_path`.
+     Consults canonical memory by invoking `/yoke:ask` via the Skill
+     tool when context is needed; reasons over the response inline.
      Monitors for Generator↔Validator divergence; on divergence
      invokes `lib/ralph-loop/escalate.sh` to emit the Trigger-4
      packet (written to `wm_trigger4_packet_path`).
@@ -107,8 +107,8 @@ For each cycle (numbered starting at 1):
    Issue the three Task calls in a **single assistant turn** so
    they execute concurrently. Per-agent file-write contracts (in
    `agents/*.md`) prevent within-batch collisions: Generator owns
-   the progress file, Orchestrator owns the query trace, and the
-   contracts file is appended only on consensus events post-batch.
+   the progress file; the contracts file is appended only on
+   consensus events post-batch.
 
 2. **Sensor execution (deterministic).** Run
    `hooks/verify-acceptance.sh` (default arg resolves to
@@ -149,9 +149,9 @@ loop converged (MERGE-READY) or paused (Trigger-4 / hard-bound /
 infeasibility). Issue a **single Orchestrator-only Task call** with
 input `mode=canonize`:
 
-- Input includes `wm_progress_path`, `wm_contracts_path`,
-  `wm_query_trace_path`, all `$(wm_snapshots_dir)/cycle-*.yaml`,
-  and the loop's termination reason
+- Input includes `wm_progress_path`, `wm_contracts_path`, all
+  `$(wm_snapshots_dir)/cycle-*.yaml`, and the loop's termination
+  reason
   (`merge-ready` | `divergence` | `contract-conflict` |
   `hard-bound` | `infeasibility`).
 - Orchestrator (in canonize mode) invokes `/yoke:preserve` via the
