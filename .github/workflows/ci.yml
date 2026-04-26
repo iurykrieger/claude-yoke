@@ -1,7 +1,10 @@
 name: CI
 
-# Runs every sprint smoke test on every PR and on push to main.
-# Sprint-8 DoD #4: any sprint smoke failure blocks merge.
+# Gates every PR against the framework-shape test suite.
+# A `prep` job runs the framework-wide invariants (bash version, JSON
+# manifests, SKILL.md frontmatter, shell-script parse). When prep is
+# green, a matrix job fans out — one runner per `tests/<concept>.test.sh`
+# — so a concept failure is isolated in its own log.
 
 on:
   push:
@@ -13,10 +16,10 @@ permissions:
   contents: read
 
 jobs:
-  smoke:
-    name: All sprint smokes
+  prep:
+    name: Framework-wide pre-checks
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
     steps:
       - name: Check out
         uses: actions/checkout@v4
@@ -52,30 +55,34 @@ jobs:
           done < <(find . -name '*.sh' -not -path './.git/*' -not -path './.vibeflow/*')
           exit $fail
 
-      - name: Run Sprint-1 placeholder tests
+  test:
+    name: ${{ matrix.test }}
+    runs-on: ubuntu-latest
+    needs: prep
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        test:
+          - tests/plugin-distribution.test.sh
+          - tests/skills-surface.test.sh
+          - tests/agents-surface.test.sh
+          - tests/working-memory.test.sh
+          - tests/canonical-memory-read.test.sh
+          - tests/canonical-memory-write.test.sh
+          - tests/bootstrap.test.sh
+          - tests/acceptance-and-sensors.test.sh
+          - tests/ralph-loop-bounds.test.sh
+          - tests/example-project.test.sh
+          - tests/docs-and-lineage.test.sh
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Configure git identity (some tests scaffold local memory repos)
         run: |
-          bash tests/plugin-install.test.sh
-          bash tests/skills-format.test.sh
+          git config --global user.email "ci@example.com"
+          git config --global user.name "ci"
 
-      - name: Run Sprint-2 smoke
-        run: timeout 600 bash tests/smoke/sprint-2.test.sh
-
-      - name: Run Sprint-3 smoke
-        run: timeout 600 bash tests/smoke/sprint-3.test.sh
-
-      - name: Run Sprint-4 smoke
-        # Pre-Sprint-6 ralph-loop hardening means external timeout is
-        # mandatory here per the spec.
-        run: timeout 600 bash tests/smoke/sprint-4.test.sh
-
-      - name: Run Sprint-5 smoke
-        run: timeout 600 bash tests/smoke/sprint-5.test.sh
-
-      - name: Run Sprint-6 smoke
-        run: timeout 600 bash tests/smoke/sprint-6.test.sh
-
-      - name: Run Sprint-7 smoke
-        run: timeout 600 bash tests/smoke/sprint-7.test.sh
-
-      - name: Run Sprint-8 smoke
-        run: timeout 600 bash tests/smoke/sprint-8.test.sh
+      - name: Run ${{ matrix.test }}
+        run: bash ${{ matrix.test }}

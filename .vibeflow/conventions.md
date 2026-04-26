@@ -136,11 +136,15 @@ be exercisable up to the coverage added by that sprint. Each sprint bumps
 the plugin version (0.1.0 → 0.2.0 → … → 1.0.0). Distribution failures
 surface only when shipped — make every sprint ship.
 
-### Smoke test per sprint
-Every sprint adds `tests/smoke/sprint-N.test.sh` exercising the new
-capability end-to-end against a clean test repo. Smoke tests must complete
-in minutes and have an external timeout (`timeout 600 ...`) to guard against
-pre-Sprint-6 ralph loops without hard bounds.
+### Test file per framework concept
+Each framework concept (plugin distribution, skills surface, agents
+surface, working memory, canonical-memory read, canonical-memory write,
+bootstrap, acceptance + sensors, ralph-loop bounds, example project,
+docs + lineage) maps to one `tests/<concept>.test.sh` file. Tests assert
+present-tense invariants only — no version literals, no release-history
+commentary, no chronology. Adding a new framework concept means adding
+one file at `tests/`; the CI matrix in `.github/workflows/ci.yml` enumerates
+the files explicitly so additions are deliberate signals, not chores.
 
 ### Bootstrap manually, not recursively
 Yoke v1 is built without running Yoke. Vibeflow and Bedrock may be installed
