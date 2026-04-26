@@ -56,11 +56,15 @@ for phrase in \
   fi
 done
 
-# Senior-engineer / planning persona language
-if grep -qE "Senior engineer who plans" "$gen"; then
-  pass "(a) Persona section sharpened (senior engineer who plans)"
+# Senior-engineer / planning persona language. Accept either the
+# Part-2-only framing ("Senior engineer who plans") or the merged
+# framing that integrates main's "Senior Developer (Coding-Agent role)"
+# with the plan-first instinct.
+if grep -qE "Senior engineer who plans" "$gen" \
+   || grep -qE "Senior Developer.*who plans" "$gen"; then
+  pass "(a) Persona section sharpened (planner-first framing)"
 else
-  err "(a) Persona section missing the 'Senior engineer who plans' framing"
+  err "(a) Persona section missing the planner-first framing"
 fi
 
 # ------------------------------------------------------------------

@@ -140,25 +140,34 @@ of `/yoke:status` and the relevant `.yoke/*.md` files.
 
 ### "skill X is missing canonical-memory access"
 
-- All canonical-memory access goes through `/yoke:ask` (mediated by the
-  Orchestrator skill). If a Generator/Validator subagent tries to read
-  canonical memory directly, the v1.0 detection is conservative
-  (trace-absence based; see Sprint 5 audit). Future versions add
-  stricter enforcement.
+- All canonical-memory access goes through `/yoke:ask` invoked via the
+  Skill tool. The skill is source-agnostic — any caller (Generator,
+  Validator, Orchestrator, spec-phase skill, or ad-hoc human query)
+  can invoke it without an active task. If you suspect a subagent is
+  bypassing it, the v0 detection is declarative — the rule is stated
+  in each subagent's prompt; review during code-review.
+- Verify `/yoke:ask` resolves the active memory by running
+  `bash lib/canonical-memory/resolve-memory.sh --memory <name>` (or
+  with no flag for CWD/default resolution). The output is
+  `<name>\t<path>` on success.
 
 ### Where do I find the canonical-memory repo?
 
-- Path: `~/.cache/yoke/canonical/<slug>/` (cloned by `/yoke:ask` on
-  first run). The URL is in `.yoke/config.yaml` →
-  `canonical_memory.url`.
+- Path: registered in `<plugin_dir>/memories.json` (one entry per
+  registered memory). Use `/yoke:memory list` to see all registered
+  memories; the entry's `path` field is the absolute filesystem path.
+  No clone cache exists — the resolution lib reads the registered path
+  directly.
 
 ### How do I reset Yoke for a clean test?
 
 ```bash
 rm -rf .yoke/                                    # working memory
-rm -rf ~/.cache/yoke/canonical/<your-slug>/      # cached canonical-memory clone
 /yoke:bootstrap                                  # re-init
 ```
+
+The canonical-memory repo at the registered path is **not** managed
+by Yoke — manage it with regular git.
 
 ### `/yoke:status` shows nothing
 

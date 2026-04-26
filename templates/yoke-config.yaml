@@ -9,6 +9,9 @@ canonical_memory:
   # URL of this project's canonical-memory git repository.
   # If empty, /yoke:ask, /yoke:canonize, and /yoke:drift-sense will not work.
   url: "{{ canonical_memory_url }}"
+  # Registered name (lookup key into <plugin_dir>/memories.json).
+  # Populated by /yoke:bootstrap on first run; managed by /yoke:memory.
+  name: "{{ canonical_memory_name }}"
   default_branch: main
 
 overrides:

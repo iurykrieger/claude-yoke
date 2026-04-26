@@ -37,25 +37,33 @@ access.
 | `acceptance-contract.md` | `/yoke:acceptance-contract` skill (Validator persona) | all | Phase 3 binding artifact |
 | `progress.md` | Generator (runtime subagent) | Validator + Orchestrator | implementation state across cycles |
 | `contracts.md` | Generator + Validator (jointly, on consensus) | both + Orchestrator | accumulated sprint contracts |
-| `query-trace.md` | `/yoke:ask` skill + Orchestrator (consult mode) | all | mediated canonical-memory queries |
 | free notes | any agent | any agent | rough context, no schema |
+
+Canonical-memory reads are **not** materialized as working-memory
+artifacts. `/yoke:ask` is a pure read invoked on demand via the Skill
+tool; it produces only the conversational response and writes nothing
+on disk.
 
 Lifetime: task / sprint / PR scope. Location: `.yoke/` in the host
 project repo, created by `/yoke:bootstrap`.
 
 ### Canonical memory (permanent, organization-wide)
 
-- Writer: only the **Orchestrator subagent**, only in **canonize
-  mode**, only at **loop termination** (Model C applied).
-- Readers: every agent, but always **mediated**:
-  - Spec phases (1–3) read via `/yoke:ask` (a thin skill calling
-    `lib/canonical-memory/query.sh`).
-  - Runtime (Phase 4) reads via the Orchestrator subagent's
-    consult mode (also calls `query.sh`, also writes the trace).
-- Lifetime: permanent, versioned (git-native via the substrate
-  repo).
-- Location: external substrate (Claude Bedrock or any
-  MCP-accessible equivalent).
+- Writer: **`/yoke:preserve`** is the single write path. The runtime
+  Orchestrator subagent invokes it in canonize mode at loop termination
+  (Model C applied inside `/yoke:preserve` Phase 3).
+- Readers: every agent, but always **mediated** via `/yoke:ask`:
+  - Spec phases (1–3) invoke `/yoke:ask`.
+  - Runtime (Phase 4) invokes `/yoke:ask` from the Orchestrator
+    subagent's consult mode.
+  - `/yoke:ask` resolves the active memory through
+    `lib/canonical-memory/resolve-memory.sh` and reads the local
+    filesystem directly — no clone, no pull. (Part 3 of the bedrock
+    canonical-memory port retired `query.sh`.)
+- Lifetime: permanent, versioned (git-native via the substrate repo).
+- Location: external substrate registered in
+  `<plugin_dir>/memories.json`. Reference implementation: Claude
+  Bedrock; replaceable by any git-backed equivalent.
 
 #### Per-item format
 - Body: markdown.
@@ -87,32 +95,39 @@ doctrine.** Model C applies by impact class of the write, not by
 content type.
 
 ### Canonical-memory access timing
-- **Consult (live, during runtime).** The Orchestrator subagent
-  reads canonical memory every cycle and surfaces relevant subgraph
-  entries to `.yoke/query-trace.md`. The Generator and Validator
-  consume the trace as freshest-snapshot input.
+- **Consult (live, during runtime).** Any runtime subagent — Generator,
+  Validator, or Orchestrator — invokes `/yoke:ask` via the Skill tool
+  on demand and reasons over the response in-conversation. The skill
+  is source-agnostic and writes nothing on disk; each invocation is
+  independent.
 - **Canonize (write, at loop termination only).** The
   Orchestrator's canonize mode is the only canonical-memory write
   path. Mid-loop writes are forbidden — they would bypass Model C
   governance windows.
 
 ## Rules
-- No agent except the Orchestrator subagent writes to canonical
-  memory. Ever.
+- **`/yoke:preserve` is the single write entry to canonical memory.**
+  No agent or skill writes outside it. The Orchestrator subagent
+  invokes `/yoke:preserve` (canonize mode) at loop termination; no
+  subagent calls `git -C <memory> commit` directly.
 - No agent reads canonical memory directly. Reads are always
-  mediated — via `/yoke:ask` (spec phases) or via the Orchestrator
-  subagent's consult mode (runtime).
+  mediated — via `/yoke:ask` (the Orchestrator subagent invokes the
+  same skill from consult mode).
 - Working memory files are write-owned by the role that produces
   the artifact (table above). Other roles only read.
-- Every canonical-memory item carries the mandatory metadata
-  frontmatter. Items without traceability are pruning candidates.
-- Canonical memory writes go through PRs on the substrate repo.
-  Rollback is `git revert`.
+- Every canonical-memory item carries the mandatory rippability
+  frontmatter (`ratified_at`, `model_calibrated_against`,
+  `last_validated`, `traceability`, `impact_level`). Items without
+  traceability are pruning candidates. The five fields are protected
+  on update — `/yoke:preserve` rejects writes that drop them.
+- Canonical memory writes go through PRs on the substrate repo
+  (Yoke default `git.strategy: commit-push-pr`). Rollback is
+  `git revert`.
 - Working memory is free-write within its files — no Model C, no
   veto windows. The blast radius is one task.
 - Mid-loop canonical-memory writes are forbidden. Canonization
   fires only at `/yoke:implement` loop termination via the
-  Orchestrator's canonize mode.
+  Orchestrator's canonize-mode invocation of `/yoke:preserve`.
 
 ## Examples from this codebase
 > Expected canonical-memory item layout:
@@ -149,7 +164,6 @@ Working-memory layout for a task:
 ├── acceptance-contract.md
 ├── progress.md
 ├── contracts.md
-├── query-trace.md
 ├── config.yaml
 └── .snapshots/
     └── cycle-N.yaml
@@ -164,7 +178,7 @@ Working-memory layout for a task:
 - Canonical-memory items without `traceability` — undeletable junk over time.
 - Working memory in a different repo than the project — recovery and audit become harder, no benefit.
 - Mid-loop canonical-memory writes — bypasses Model C governance windows.
-- Agents reading canonical memory by `cat`/`grep`/cloning the substrate — bypasses progressive disclosure and bypass detection.
+- Agents reading canonical memory by `cat`/`grep`/cloning the substrate — bypasses progressive disclosure and the `/yoke:ask` mediation contract.
 
 ## Implementation Mapping
 
@@ -178,9 +192,9 @@ created by `/yoke:bootstrap`:
 - `.yoke/prd.md`, `.yoke/tech-spec.md`,
   `.yoke/acceptance-contract.md`, `.yoke/progress.md`,
   `.yoke/contracts.md`
-- `.yoke/query-trace.md` — log of every mediated canonical-memory
-  query (written by `/yoke:ask` and the Orchestrator subagent's
-  consult mode)
+- Canonical-memory reads do not materialize a working-memory
+  artifact — `/yoke:ask` is a pure read invoked on demand via the
+  Skill tool by any subagent or skill that needs canonical context.
 - `.yoke/config.yaml` — per-project Yoke config (hard-bound
   overrides, canonical-repo URL)
 - `.yoke/.snapshots/cycle-N.yaml` — per-cycle

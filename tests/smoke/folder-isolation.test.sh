@@ -6,12 +6,15 @@
 #   (a) every file written under `.yoke/` lands in an allowed location
 #       (config.yaml, .gitignore, .current, prds/<slug>.md,
 #        tech-specs/<slug>.md, acceptance-contracts/<slug>.md,
-#        contracts/<slug>.md, query-traces/<slug>.md, runtime/<file>);
+#        contracts/<slug>.md, runtime/<file>);
 #   (b) no flat file `.yoke/<file>.md` for any of
-#       prd|tech-spec|acceptance-contract|contracts|progress|query-trace
-#       is ever created by the simulated flow;
+#       prd|tech-spec|acceptance-contract|contracts|progress is ever
+#       created by the simulated flow;
 #   (c) no skill or hook constructs `.yoke/<file>.md` paths via string
 #       concatenation — every path goes through `lib/working-memory/paths.sh`.
+#
+# Note: the `query-traces/` category was retired in
+# ask-source-agnostic-read Part 1 — the trace concept no longer exists.
 #
 # The skills themselves are prose-driven; this test simulates the flow by
 # invoking the path helper directly and checking that no other location
@@ -40,7 +43,7 @@ echo "[c] Hardcoded flat-path scan"
 # *defines* layout strings — it must be excluded from the flat-path ban.
 # Exclude documentation occurrences where the string is explicitly
 # forbidden or used as a "no flat file like X" comparison.
-flat_hits=$(grep -RIn -E '\.yoke/(prd|tech-spec|acceptance-contract|contracts|progress|query-trace)\.md' \
+flat_hits=$(grep -RIn -E '\.yoke/(prd|tech-spec|acceptance-contract|contracts|progress)\.md' \
               skills/ lib/ hooks/ \
               2>/dev/null \
               | grep -v 'paths\.sh' \
@@ -54,12 +57,15 @@ else
   printf '%s\n' "$flat_hits" | sed 's/^/    /' >&2
 fi
 
-# Also assert the singular query-trace.md is fully gone from skills + lib.
-qt_hits=$(grep -RIn '\.yoke/query-trace\.md' skills/ lib/ hooks/ 2>/dev/null || true)
+# query-traces/ retired in ask-source-agnostic-read Part 1; ensure no
+# live references survived in skills/ or lib/.
+qt_hits=$(grep -RIn -E '\.yoke/query-traces?(/<slug>)?\.md' skills/ lib/ hooks/ 2>/dev/null \
+           | grep -viE 'do not (read|write)|does not exist|retired|removed' \
+           || true)
 if [ -z "$qt_hits" ]; then
-  pass "(c) singular .yoke/query-trace.md removed everywhere"
+  pass "(c) no live query-trace references in skills/ lib/ hooks/"
 else
-  err "(c) singular .yoke/query-trace.md still referenced:"
+  err "(c) live query-trace references found:"
   printf '%s\n' "$qt_hits" | sed 's/^/    /' >&2
 fi
 
@@ -119,9 +125,7 @@ MD
   echo "1" > "$(wm_cycle_counter_path)"
   printf 'results:\n  - sensor: smoke\n    status: pass\n' > "$(wm_snapshots_dir)/cycle-1.yaml"
 
-  # Ask: query-trace (versioned).
-  mkdir -p "$(dirname "$(wm_query_trace_path)")"
-  printf '# Query trace\n' > "$(wm_query_trace_path)"
+  # /yoke:ask is a pure read in v1.2 — no working-memory side effects.
 )
 
 # Now scan everything written under .yoke/ and validate locations.
@@ -139,7 +143,6 @@ while IFS= read -r f; do
     .yoke/tech-specs/"$SLUG".md) ;;
     .yoke/acceptance-contracts/"$SLUG".md) ;;
     .yoke/contracts/"$SLUG".md) ;;
-    .yoke/query-traces/"$SLUG".md) ;;
     .yoke/runtime/*) ;;
     *) unexpected+=("$rel") ;;
   esac
@@ -159,7 +162,6 @@ forbidden=(
   "$TMP/.yoke/acceptance-contract.md"
   "$TMP/.yoke/contracts.md"
   "$TMP/.yoke/progress.md"
-  "$TMP/.yoke/query-trace.md"
 )
 flat_present=()
 for f in "${forbidden[@]}"; do

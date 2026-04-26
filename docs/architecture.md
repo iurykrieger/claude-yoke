@@ -20,7 +20,7 @@
 - **Generator** (`agents/generator.md`) — runtime subagent. Iterates over the Tech Spec, writes code targeting the next failing Acceptance Contract criterion, persists `.yoke/progress.md` every cycle.
 - **Validator** (`agents/validator.md`) — runtime subagent. Runs `hooks/verify-acceptance.sh`, emits structured JSON verdicts per criterion, co-writes `.yoke/contracts.md` on consensus events.
 - **Orchestrator** (`agents/orchestrator.md`) — runtime subagent and **sole writer of canonical memory** under Model C. Three modes:
-  - **Consult** (per cycle) — read canonical memory live; surface relevant subgraph entries to `.yoke/query-trace.md`.
+  - **Consult** (per cycle) — invoke `/yoke:ask` via the Skill tool when canonical-memory context is needed; reason over the response in-conversation. The skill is source-agnostic and writes nothing on disk.
   - **Monitor** (per cycle) — detect Generator↔Validator divergence; escalate via `lib/ralph-loop/escalate.sh` (Trigger 4).
   - **Canonize** (at loop termination) — apply five-criteria filter; classify Model C impact; propose writes via `lib/canonical-memory/propose-write.sh`.
 
@@ -85,7 +85,7 @@ Plus support skills: `/yoke:bootstrap`, `/yoke:ask`
               │   └────┬─────┘  └────┬─────┘  └────────┬─────────┘  │
               │        │             │                 │            │
               │        ▼             ▼                 ▼            │
-              │   progress.md   contracts.md     query-trace.md     │
+              │   progress.md   contracts.md   /yoke:ask (Skill)    │
               │                                                      │
               │   ── deterministic ──> verify-acceptance.sh          │
               │   ── deterministic ──> check-contradiction           │
@@ -147,7 +147,7 @@ yoke/                              # this plugin repo
 
 <host project>/.yoke/              # working memory, per project
 └── (prd.md, tech-spec.md, acceptance-contract.md, progress.md,
-     contracts.md, query-trace.md, .snapshots/cycle-N.yaml)
+     contracts.md, .snapshots/cycle-N.yaml)
 
 <canonical-memory repo>/           # external substrate, organization-wide
 └── (markdown + frontmatter, queryable via MCP, write-only by Orchestrator)

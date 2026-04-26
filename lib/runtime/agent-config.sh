@@ -69,21 +69,19 @@ yoke_resolve_model() {
     printf '%s' "$val"
 }
 
-# yoke_log_resolved_models <query-trace-path> [<config-path>]
-#   Writes one `[task-spawn] role=<r> model=<m>` line per recognized role
-#   to <query-trace-path> for provenance. Append-only.
+# yoke_log_resolved_models <log-path> [<config-path>]
+#   Appends one `[task-spawn] role=<r> model=<m>` line per recognized
+#   role to <log-path> for provenance. Append-only; safe across cycles.
+#   Default coordinator location: `$(wm_runtime_dir)/.task-spawn-log`.
 yoke_log_resolved_models() {
-    local trace_path="${1:-}"
+    local log_path="${1:-}"
     local config="${2:-${_YOKE_DEFAULT_CONFIG}}"
 
-    if [[ -z "$trace_path" ]]; then
+    if [[ -z "$log_path" ]]; then
         return 0
     fi
 
-    mkdir -p "$(dirname "$trace_path")"
-    if [[ ! -f "$trace_path" ]]; then
-        printf '# Query trace\n\n' > "$trace_path"
-    fi
+    mkdir -p "$(dirname "$log_path")"
 
     local role val
     for role in generator validator orchestrator.consult orchestrator.monitor orchestrator.canonize; do
@@ -91,7 +89,7 @@ yoke_log_resolved_models() {
         if [[ -z "$val" ]]; then
             val="<inherit-session>"
         fi
-        printf '[task-spawn] role=%s model=%s\n' "$role" "$val" >> "$trace_path"
+        printf '[task-spawn] role=%s model=%s\n' "$role" "$val" >> "$log_path"
     done
 }
 

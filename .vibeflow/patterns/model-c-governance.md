@@ -119,16 +119,37 @@ Auto-merge: scheduled for 2026-04-27 14:00 UTC
 
 ## Implementation Mapping
 
-From `yoke-implementation-plan.md` (2026-04-24) — concrete artifacts:
+Updated by Part 4 of the bedrock canonical-memory port (2026-04-25).
+Earlier versions named `lib/canonical-memory/propose-write.sh` as the
+write entry; that primitive is retired in favor of the `/yoke:preserve`
+skill.
 
-- **Authority logic** — embedded in `agents/orchestrator.md` (decides impact class per proposition).
-- **Write entry point** — `lib/canonical-memory/propose-write.sh`:
-  - Low impact → opens PR on canonical repo with auto-merge after CI checks.
-  - Medium impact → opens PR with a configurable veto window (default 24 h) before auto-merge; an automated comment announces the window.
-  - High impact → opens PR with `auto-merge: never`; awaits explicit human approval.
-  - Regulatory → high-impact PR routed to Compliance reviewers only.
-- **Canonization criteria** — `lib/canonical-memory/canonization-criteria.sh` applies the five filters in cascade (repeatability, generality, stability, impact, non-contradiction) before the Orchestrator is allowed to call `propose-write.sh`.
-- **PR labels** — every proposition PR carries `yoke-proposal` and `impact-{low,medium,high,regulatory}` labels for fleet-wide auditability.
-- **Dependency** — `gh` CLI must be installed and authenticated; verified by `/yoke:bootstrap`.
+- **Authority logic** — Model C impact-class routing now lives inside
+  `skills/preserve/SKILL.md` Phase 3 (proposal + routing). The
+  Orchestrator subagent invokes `/yoke:preserve` at loop termination;
+  it no longer classifies impact itself.
+- **Write entry point** — `/yoke:preserve` Phase 6:
+  - Low impact → PR with `--auto-merge` after CI checks.
+  - Medium impact → PR with veto window (default 24h, configurable via
+    the memory's `.yoke-memory/config.json` `model_c.veto_window_hours`);
+    auto-merge after window closes.
+  - High impact → PR with `--no-auto-merge`; synchronous human approval
+    required.
+  - Regulatory → PR with `--no-auto-merge`; routed to Compliance via
+    CODEOWNERS in the canonical-memory repo.
+- **Canonization criteria** — `lib/canonical-memory/canonization-criteria.sh`
+  applies the five filters in cascade (repeatability, generality,
+  stability, impact, non-contradiction). It is invoked from inside
+  `/yoke:preserve` Phase 3.2 (when called via `--from-orchestrator`),
+  not from the Orchestrator subagent directly.
+- **PR labels** — every PR carries `yoke-proposal` and
+  `impact-{low,medium,high,regulatory}` labels for fleet-wide
+  auditability.
+- **Dependency** — `gh` CLI installed and authenticated when the
+  memory's `git.strategy` is `commit-push-pr` (Yoke default). Falls
+  back to `commit-push` with a warning when `gh` is missing.
 
-Sprint-5 ships only the low-impact path; Sprint-6 ships the medium and high paths.
+Note: `lib/canonical-memory/propose-write.sh` and `skills/canonize/`
+were deleted in Part 4. `/yoke:preserve` covers the canonize and
+re-canonize use cases; manual re-canonization is `/yoke:preserve`
+invoked without `--from-orchestrator`.

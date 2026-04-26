@@ -13,7 +13,6 @@
 #   ├── tech-specs/<slug>.md                 # versioned archive
 #   ├── acceptance-contracts/<slug>.md       # versioned archive
 #   ├── contracts/<slug>.md                  # versioned archive
-#   ├── query-traces/<slug>.md               # versioned archive
 #   └── runtime/                             # gitignored
 #       ├── progress.md
 #       ├── .cycle-counter
@@ -42,7 +41,7 @@ readonly WM_ROOT=".yoke"
 readonly WM_CURRENT_FILE="${WM_ROOT}/.current"
 readonly WM_RUNTIME_DIR="${WM_ROOT}/runtime"
 readonly WM_SLUG_REGEX='^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9][a-z0-9-]{0,49}$'
-readonly WM_ARCHIVE_CATEGORIES=(prds tech-specs acceptance-contracts contracts query-traces)
+readonly WM_ARCHIVE_CATEGORIES=(prds tech-specs acceptance-contracts contracts)
 
 # --- slug validation --------------------------------------------------------
 
@@ -96,7 +95,6 @@ wm_prd_path()                  { _wm_archive_path "prds" "${1:-}"; }
 wm_tech_spec_path()            { _wm_archive_path "tech-specs" "${1:-}"; }
 wm_acceptance_contract_path()  { _wm_archive_path "acceptance-contracts" "${1:-}"; }
 wm_contracts_path()            { _wm_archive_path "contracts" "${1:-}"; }
-wm_query_trace_path()          { _wm_archive_path "query-traces" "${1:-}"; }
 
 # --- collision detection ----------------------------------------------------
 

@@ -39,6 +39,14 @@ Fork dates:
     rather than reading directly.
   - Added explicit Trigger-1 prompt with `approve` / `revise <feedback>`
     / `restart` options.
+  - **Persona rebalance (2026-04-25):** renamed the inline persona
+    from the umbrella "Generator persona: senior product engineer" to
+    a literal "Product Manager persona" (CPO-style); dialogue questions
+    tightened to product-only framing (problem / audience / success /
+    scope / anti-scope). Implementation-shape language was removed —
+    that deliberation belongs to `/yoke:tech-spec`. See
+    `.vibeflow/decisions.md` 2026-04-25 "Discover persona = Product
+    Manager".
 
 ### `skills/tech-spec/SKILL.md`
 
@@ -51,19 +59,38 @@ Fork dates:
   - Aborts on missing/unapproved PRD (Yoke-specific binding-spec rule).
   - Wired the Generator subagent.
   - Trigger-2 prompt with `approve` / `revise <feedback>` / `back to PRD`.
+  - **Persona rebalance (2026-04-25):** renamed the inline persona
+    from the umbrella "Generator persona: senior product engineer" to
+    a literal "Senior Engineer persona" (CTO-style); replaced the
+    clarity-evaluation block in step 3 with three engineering checks
+    (stack fit against `.vibeflow/index.md`, framework / library
+    choices named with trade-offs, sprint partitionability with binary
+    acceptance criterion per task), replacing the prior product-shaped
+    trio (use-cases / constraints / sprint-partition). Step 4's sprint
+    + use-case-task + binary-acceptance-criterion mandate is preserved;
+    the binary-acceptance-criterion bullet was hoisted to the top of
+    the bullet list as the load-bearing requirement. See
+    `.vibeflow/decisions.md` 2026-04-25 "Tech-spec persona = Senior
+    Engineer / CTO".
 
-### `lib/canonical-memory/query.sh`
+### `lib/canonical-memory/query.sh` (retired)
+
+This primitive was retired in Part 3 of the bedrock canonical-memory
+port; `/yoke:ask` now resolves the active memory via
+`lib/canonical-memory/resolve-memory.sh` and reads the local
+filesystem directly (no clone, no pull). The audit-trail / query-trace
+contract that originally lived here was retired in
+ask-source-agnostic-read Part 1 — `/yoke:ask` is now a pure read and
+emits no trace. Historical adaptations recorded for lineage:
 
 - **Source:** Bedrock's read primitives (upstream version 1.2.1).
-- **Adaptations:**
-  - Added `--trace <path> --invoker <name>` flags for deterministic
-    audit-trail writing to `.yoke/query-trace.md` (Yoke-specific
-    requirement; called by `skills/ask/SKILL.md` at spec phase and
-    by the Orchestrator subagent's consult mode at runtime).
-  - Added `--subgraph-depth N` flag for progressive disclosure (Sprint
-    6); delegates to `lib/canonical-memory/graph.sh` for traversal.
+- **Historical adaptations** (no longer in effect):
+  - `--trace <path> --invoker <name>` flags for deterministic
+    audit-trail writing (retired with the trace contract itself).
+  - `--subgraph-depth N` flag for progressive disclosure — superseded
+    by `/yoke:ask`'s built-in 15-entity cap and 1-level wikilink hop.
   - Bounded output (cap at 20 flat matches / 10 subgraph entries).
-  - Empty-state UX (`"no entries yet"` / `"no matches"` / `"not configured"`).
+  - Empty-state UX.
 
 ### `lib/canonical-memory/graph.sh`
 
@@ -125,11 +152,151 @@ Fork dates:
   See `.vibeflow/decisions.md` "Three runtime subagents only"
   (2026-04-25, supersedes 2026-04-24 "Five subagents").
 
+### `agents/generator.md` — Senior Developer persona import (2026-04-25)
+
+- **Source:** `vibeflow:implement` (upstream version 1.10.0),
+  specifically the `## Role: Coding Agent` block.
+- **What was ported:** The Senior Developer / Coding-Agent persona —
+  role definition (receives the approved PRD, Tech Spec, and binding
+  Acceptance Contract; executes against them; does not redesign the
+  system) plus the must-do / must-not / stop-and-surface discipline
+  rules (follow patterns exactly, follow conventions, minimum change,
+  treat upstream artifacts as constraints, no architectural decisions,
+  no questioning of upstream artifacts at runtime, no scope creep, no
+  while-I'm-here refactors, new dependencies require justification,
+  and on ambiguity write the diagnosis to `.yoke/runtime/progress.md`
+  for Orchestrator-detected Trigger 4 escalation). Materialized as a
+  rewritten `## Persona` section plus a new `## Discipline` subsection
+  inserted between `## Persona` and `## Behaviors`.
+- **What was deliberately NOT ported:** Vibeflow's 7-phase
+  orchestration (find spec → extract guardrails → load patterns →
+  plan → implement → test → self-verify). Yoke's ralph loop in
+  `skills/implement/SKILL.md` already owns cycle orchestration
+  deterministically; importing the 7-phase shape would create two
+  competing orchestration models inside the same cycle (an
+  anti-pattern in `patterns/roles.md` and `patterns/ralph-loop.md`).
+  Also not ported: vibeflow's budget enforcement, test-runner
+  detection heuristics, and audit-suggestion footer — those belong
+  to a single-agent pipeline; Yoke's equivalents are
+  `hooks/check-hard-bounds.sh` plus the Acceptance Contract
+  sensors invoked by `hooks/verify-acceptance.sh`.
+- See `.vibeflow/decisions.md` 2026-04-25 "Generator subagent
+  persona = Senior Developer (Coding-Agent discipline)".
+
 ### `skills/drift-sense/SKILL.md`, `lib/canonical-memory/staleness-check.sh`, `lib/canonical-memory/trace-analyzer.sh`
 
 - **Source:** Yoke-original. Phase 6 (continuous drift sensing across
   three observation targets) is one of Yoke's distinctive contributions
   — see manifesto §8.6.
+
+### Bedrock canonical-memory port — Part 1 (Foundation, 2026-04-25)
+
+Imported from **bedrock 1.2.1**. This is the substrate for the larger
+six-part port specified in
+`.vibeflow/specs/bedrock-canonical-memory-port-part-{1..6}.md`. Part 1
+ships the entity model and registry plumbing only; user-facing skills
+land in Parts 2–6.
+
+#### Entity templates (8) — `templates/canonical/{type}/_template.md`
+
+Mapped from bedrock's `templates/<plural>/_template.md`:
+
+| Yoke path | Bedrock source |
+| :--- | :--- |
+| `templates/canonical/actor/_template.md` | `templates/actors/_template.md` |
+| `templates/canonical/person/_template.md` | `templates/people/_template.md` |
+| `templates/canonical/team/_template.md` | `templates/teams/_template.md` |
+| `templates/canonical/concept/_template.md` | `templates/concepts/_template.md` |
+| `templates/canonical/topic/_template.md` | `templates/topics/_template.md` |
+| `templates/canonical/discussion/_template.md` | `templates/discussions/_template.md` |
+| `templates/canonical/project/_template.md` | `templates/projects/_template.md` |
+| `templates/canonical/fleeting/_template.md` | `templates/fleeting/_template.md` |
+
+Each template extends bedrock's frontmatter with the five mandatory
+**Yoke rippability fields** (`ratified_at`,
+`model_calibrated_against`, `last_validated`, `traceability`,
+`impact_level`) plus the four graph-relationship fields (`depends_on`,
+`supersedes`, `applies_to`, `contradicts_with`) already documented in
+`templates/canonical-entry-frontmatter.yaml`. Bedrock-defined fields
+are preserved verbatim — the rippability extension is additive.
+
+#### Entity definitions (8) — `entities/{type}.md`
+
+Mapped from bedrock's `entities/{type}.md` with these adaptations:
+
+- Namespace renames: `/teach`, `/preserve`, `/bedrock` → `/yoke:teach`,
+  `/yoke:preserve`, `/yoke:ask`.
+- Vocabulary renames: "Second Brain" / "vault" → "canonical memory".
+- New `## Yoke Update Rules` section per entity, explicitly forbidding
+  deletion of the five rippability fields on update.
+- New `## Yoke rippability` section after the required-fields table.
+
+#### Excluded from Part 1 (deferred)
+
+- `entities/code.md` and `_template_node.md` — graphify-dependent;
+  reserved for a future graphify-integration sprint.
+- `entities/sources-field.md` — folded into the per-entity update rules.
+
+#### New Yoke-native libraries (no upstream)
+
+- `lib/canonical-memory/registry.sh` — manages the plugin-level
+  `<plugin_dir>/memories.json` registry. Yoke-original.
+- `lib/canonical-memory/resolve-memory.sh` — 3-step memory resolution
+  (`--memory <name>` → CWD → default → error). Yoke-original.
+- `lib/canonical-memory/scaffold-memory.sh` — initializes a fresh
+  canonical-memory repo with the 8-entity scaffold. Yoke-original.
+- `templates/yoke-memory-config.json` — per-memory config schema.
+  Yoke-original.
+
+These libraries are introduced by Part 1 to support the registered
+local checkout model that replaces clone-each-time. They are not ports
+from bedrock — bedrock's vault registry uses the same conceptual
+shape but lives at a different file path and uses different
+field names.
+
+### Bedrock canonical-memory port — Part 3 (Ask refactor, 2026-04-25)
+
+| Yoke path | Bedrock source | Adaptation |
+| :--- | :--- | :--- |
+| `skills/ask/SKILL.md` | `skills/ask/SKILL.md` (1.2.1) | Adaptive 5-phase reader (classify → vault-first search → assess → recency → respond). 15-entity cap; 1-level wikilink hop. **No clone, no pull, no fetch** — reads against the registered local checkout via Part 1's `resolve-memory.sh`. Bedrock's Phase 3-G/3-T (graphify / teach escalation) stubbed: emit a callout, continue with vault-only content. |
+
+`lib/canonical-memory/query.sh` was **deleted** in Part 3 — direct
+filesystem reads via the resolution lib replace the clone-each-time path.
+
+### Bedrock canonical-memory port — Part 4 (Preserve replaces canonize, 2026-04-25)
+
+| Yoke path | Bedrock source | Adaptation |
+| :--- | :--- | :--- |
+| `skills/preserve/SKILL.md` | `skills/preserve/SKILL.md` (1.2.1) | Streamlined 7-phase flow (sync → parse → match → propose → execute → link → publish → report). Phase 3 wraps bedrock's confirmation gate with **Model C impact-class routing**, invoking `lib/canonical-memory/canonization-criteria.sh` as the classifier. Phase 0.2 (graphify-merge) replaced with a deferred-sprint abort. |
+
+`skills/canonize/` and `lib/canonical-memory/propose-write.sh` were
+**deleted** in Part 4 — `/yoke:preserve` is now the single write entry
+to canonical memory.
+
+### Bedrock canonical-memory port — Part 6 (Compress + status extension, 2026-04-25)
+
+| Yoke path | Bedrock source | Adaptation |
+| :--- | :--- | :--- |
+| `skills/compress/SKILL.md` | `skills/compress/SKILL.md` (1.2.1) | Verbatim copy with namespace renames (`/bedrock:*` → `/yoke:*`, vault → memory). Detects bedrock's 5 misalignment classes (broken backlinks, fragmentation, miscategorization, duplicated entities, misnamed entities). All writes delegate to `/yoke:preserve`. Supports `--mode cron`. |
+| `skills/status/SKILL.md` (extension) | `skills/healthcheck/SKILL.md` (1.2.1) | The Sprint-8 placeholder is replaced with a full read-only diagnostic. Section 1 (working memory) is Yoke-original. Section 2 (canonical-memory health) absorbs bedrock's 5 healthcheck checks: setup verification, graphify-out integrity, orphan entities, dangling content, stale content (>15 days). Bedrock's standalone `/healthcheck` skill is **not** copied — Yoke's `/yoke:status --canonical` is the single entry point. |
+
+`lib/canonical-memory/staleness-check.sh` was **deleted** in Part 6 —
+its rippability re-validation logic was folded into
+`/yoke:status --canonical` Section 2.5.
+
+### Bedrock canonical-memory port — Part 5 (Teach + helpers, 2026-04-25)
+
+| Yoke path | Bedrock source | Adaptation |
+| :--- | :--- | :--- |
+| `skills/teach/SKILL.md` | `skills/teach/SKILL.md` (1.2.1) | Streamlined for v0's no-graphify scope. Bedrock Phases 4–5 (graphify extraction + per-run output merge) replaced with direct Zettelkasten classification using `entities/{type}.md`. Ingestion ends by delegating to `/yoke:preserve` (single write point). All other phases preserved. |
+| `skills/confluence-to-markdown/SKILL.md` | same (1.2.1) | Verbatim copy with namespace renames (`/bedrock:*` → `/yoke:*`, vault → memory). 3-layer fallback (MCP → REST → browser DOM) preserved. DOM-extraction `scripts/extract.js` copied unchanged. |
+| `skills/gdoc-to-markdown/SKILL.md` | same (1.2.1) | Verbatim copy with namespace renames. Preserves the GDoc / Sheets adapter chain. DOM-extraction `scripts/extract.js` copied unchanged. |
+
+**Excluded from Part 5:**
+
+- `/yoke:graphify` skill — graphify integration is deferred. The
+  `code` entity type is reserved for that sprint.
+- Bedrock's `/sync` — out of scope for v0.
 
 ## Honesty statement
 

@@ -135,6 +135,64 @@ PRs. When CODEOWNERS is absent, the PR is still opened with
 guaranteed, so configure CODEOWNERS before regulatory writes are
 expected.
 
+## Memory registry
+
+Starting with the canonical-memory port (Part 1+ of the bedrock import,
+2026-04-25), Yoke maintains a plugin-level **memory registry** at
+`<plugin_dir>/memories.json`. Each entry maps a kebab-case name to an
+absolute path on disk and (optionally) the source git URL:
+
+```json
+{
+  "memories": [
+    { "name": "main", "path": "/Users/me/.local/share/yoke/canonical/acme-canonical-memory", "url": "git@github.com:acme/canonical-memory.git", "default": true }
+  ]
+}
+```
+
+Operations like `/yoke:ask`, `/yoke:preserve`, `/yoke:teach`, and
+`/yoke:compress` resolve the active memory through this registry — no
+more clone-each-time. Resolution chain:
+
+1. `--memory <name>` flag (explicit).
+2. CWD detection (longest-prefix match against registered paths).
+3. Default-marked registry entry.
+4. Error with the registry listing.
+
+### Managing memories — `/yoke:memory`
+
+```
+/yoke:memory list                              # show all
+/yoke:memory add <path> [--url <url>] [--name <name>]
+/yoke:memory set-default <name>
+/yoke:memory remove <name>                     # registry only; files on disk are untouched
+```
+
+`/yoke:memory add` against an empty or non-existent path scaffolds a
+fresh canonical-memory repo (8 entity directories + templates +
+`.yoke-memory/config.json`), then registers it.
+
+### Plugin reinstall — recovery
+
+The registry file lives inside the plugin directory. **If you reinstall
+the Yoke plugin, `memories.json` is lost.** Files on disk are not
+affected.
+
+To recover:
+
+1. Run `/yoke:memory add <path>` for each canonical-memory checkout you
+   still have on disk. Use `--url <url>` if you remember the original
+   git URL; it's optional but recommended for future re-clones.
+2. Run `/yoke:memory set-default <name>` to mark the one you want as
+   the default.
+
+`/yoke:bootstrap` also runs an automatic migration on first invocation
+after upgrade: if your existing `.yoke/config.yaml` has a populated
+`canonical_memory.url` and there's a clone at
+`~/.cache/yoke/canonical/<slug>/`, it clones to
+`~/.local/share/yoke/canonical/<slug>/`, registers it, and removes the
+legacy cache. Order is strict: `register → verify → delete cache`.
+
 ## What canonical memory is **not**
 
 - Not a knowledge graph for arbitrary org content (that's vault / Bedrock / whatever your team already uses).

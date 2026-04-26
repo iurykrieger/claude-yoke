@@ -46,13 +46,13 @@ termination.
     message (exit codes 3 or 4).
 - Run `hooks/pre-implementation.sh`.
 - Ensure `.yoke/runtime/` and `.yoke/contracts/` exist (`mkdir -p`).
-  Initialize `wm_progress_path` (`.yoke/runtime/progress.md`),
-  `wm_contracts_path "$slug"` (`.yoke/contracts/<slug>.md`), and
-  `wm_query_trace_path "$slug"` (`.yoke/query-traces/<slug>.md`) from
-  `templates/progress.md`, `templates/contracts.md`, and an empty
-  `# Query trace` header respectively if they don't exist (cycle 0
-  entries).
-- **Resolve per-role models (Part-3 perf-quickwins).** Source
+  Initialize `wm_progress_path` (`.yoke/runtime/progress.md`) and
+  `wm_contracts_path "$slug"` (`.yoke/contracts/<slug>.md`) from
+  `templates/progress.md` and `templates/contracts.md` respectively if
+  they don't exist (cycle 0 entries). The `query-trace` initialization
+  was retired in ask-source-agnostic-read Part 1 — `/yoke:ask` is now a
+  pure read and emits no trace.
+- **Resolve per-role models (perf-quickwins Part 3).** Source
   `lib/runtime/agent-config.sh`. Compute:
   ```
   generator_model="$(yoke_resolve_model generator)"
@@ -66,12 +66,13 @@ termination.
   `orchestrator.canonize` inherit the user's session model unless
   overridden under `runtime.models.*` in `.yoke/config.yaml`. Empty
   resolved values mean "no pinning — inherit session model". Log
-  every resolved value to `wm_query_trace_path` via
-  `yoke_log_resolved_models "$(wm_query_trace_path "$slug")"` — the
-  trace is the cheapest verification gate for pinning provenance and
-  for R2 (mechanism silently no-ops). Quality is king on the
-  Generator and on Model C governance writes (canonize), so those
-  roles never auto-downgrade.
+  every resolved value via
+  `yoke_log_resolved_models "$(wm_runtime_dir)/.task-spawn-log"` —
+  the log is append-only and lives alongside the cycle counter; it is
+  the cheapest verification gate for pinning provenance and for R2
+  (mechanism silently no-ops). Quality is king on the Generator and
+  on Model C governance writes (canonize), so those roles never
+  auto-downgrade.
 
 ### 2. Cycle loop
 
@@ -99,10 +100,11 @@ For each cycle (numbered starting at 1):
      - Current runtime progress at `wm_progress_path` (last cycle's
        state).
      - Current sprint contracts at `wm_contracts_path "$slug"`.
-     - Current query trace at `wm_query_trace_path "$slug"`
-       (Orchestrator's prior consult output for this loop).
      - Last `verify-acceptance.sh` snapshot from
        `$(wm_snapshots_dir)/cycle-<N-1>.yaml` (if any).
+     - Canonical-memory context: invoke `/yoke:ask` via the Skill
+       tool on demand (no on-disk handoff; the skill is a pure
+       source-agnostic read).
 
      Writes code targeting the next failing Acceptance Contract
      criterion; persists `wm_progress_path` at end of turn.
@@ -113,7 +115,8 @@ For each cycle (numbered starting at 1):
        `$(wm_snapshots_dir)/cycle-<N-1>.yaml`.
      - Current sprint contracts at `wm_contracts_path` and runtime
        progress at `wm_progress_path` (read-only).
-     - Current query trace at `wm_query_trace_path`.
+     - Canonical-memory context: invoke `/yoke:ask` via the Skill
+       tool on demand.
 
      Emits structured JSON verdicts per criterion against the
      freshest snapshot's sensor output; appends sprint contracts to
@@ -122,13 +125,11 @@ For each cycle (numbered starting at 1):
 
    - **Orchestrator (`agents/orchestrator.md`)** — input:
      - `mode=consult+monitor`, `cycle=<N>`, `slug=<active slug>`.
-     - Current `wm_progress_path`, `wm_contracts_path`,
-       `wm_query_trace_path`.
+     - Current `wm_progress_path`, `wm_contracts_path`.
      - Last `verify-acceptance.sh` snapshot.
 
-     Consults canonical memory via
-     `lib/canonical-memory/query.sh` for patterns relevant to the
-     next failing criterion; appends to `wm_query_trace_path`.
+     Consults canonical memory by invoking `/yoke:ask` via the Skill
+     tool when context is needed; reasons over the response inline.
      Monitors for Generator↔Validator divergence; on divergence
      invokes `lib/ralph-loop/escalate.sh` to emit the Trigger-4
      packet (written to `wm_trigger4_packet_path`).
@@ -136,8 +137,8 @@ For each cycle (numbered starting at 1):
    Issue the three Task calls in a **single assistant turn** so
    they execute concurrently. Per-agent file-write contracts (in
    `agents/*.md`) prevent within-batch collisions: Generator owns
-   the progress file, Orchestrator owns the query trace, and the
-   contracts file is appended only on consensus events post-batch.
+   the progress file; the contracts file is appended only on
+   consensus events post-batch.
 
 2. **Sensor execution (deterministic, exactly once per cycle).** Run
    `hooks/verify-acceptance.sh` to capture cycle N's post-Generator
@@ -202,22 +203,23 @@ even when consult/monitor were pinned to a smaller class. Per
 canonical-memory writes — mismatching the canonize model is an R4
 defect that the Part-3 smoke gates against.
 
-- Input includes `wm_progress_path`, `wm_contracts_path`,
-  `wm_query_trace_path`, all `$(wm_snapshots_dir)/cycle-*.yaml`,
-  and the loop's termination reason
+- Input includes `wm_progress_path`, `wm_contracts_path`, all
+  `$(wm_snapshots_dir)/cycle-*.yaml`, and the loop's termination
+  reason
   (`merge-ready` | `divergence` | `contract-conflict` |
   `hard-bound` | `infeasibility`).
-- Orchestrator (in canonize mode) invokes
+- Orchestrator (in canonize mode) invokes `/yoke:preserve` via the
+  Skill tool, passing the active task's `.yoke/<task-slug>/` path
+  and `--from-orchestrator`. `/yoke:preserve` invokes
   `lib/canonical-memory/canonization-criteria.sh` to apply the
-  five-criterion cascade, classifies impact per Model C, and calls
-  `lib/canonical-memory/propose-write.sh` for each candidate that
-  passes 1–4 and is non-contradicting (5).
+  five-criterion cascade, reads each candidate's `impact_level`,
+  and opens PRs per Model C.
 - Per Model C: low-impact PRs auto-merge after CI; medium PRs open
   with veto window; high-impact and regulatory PRs surface for
   synchronous human review without blocking the skill's exit.
 - This is the **only** canonical-memory write path during the loop.
   Mid-loop Orchestrator invocations (consult / monitor mode) never
-  invoke `propose-write.sh`.
+  invoke `/yoke:preserve`.
 
 Exit with the loop's termination reason and a one-line summary of
 PRs opened (count + URLs).
@@ -225,8 +227,10 @@ PRs opened (count + URLs).
 ### 4. Termination paths
 
 - **All criteria pass** → loop returns MERGE-READY; canonize handoff
-  fires. Print: "Merge-ready. Canonization summary: <count> PRs
-  opened." Pointer to `/yoke:canonize` only as a re-run escape hatch.
+  fires (Orchestrator invokes `/yoke:preserve` via the Skill tool).
+  Print: "Merge-ready. Canonization summary: <count> PRs opened."
+  `/yoke:preserve` can also be invoked manually for re-canonization
+  (e.g. after a model upgrade or to re-evaluate stale working memory).
 - **Sprint contract contradicts Acceptance Contract** → invoke
   `lib/ralph-loop/escalate.sh --reason contract-conflict`; emits
   Trigger-4 packet; canonize handoff still fires (with termination
@@ -266,7 +270,8 @@ see `.vibeflow/patterns/human-triggers.md`.
 - Do NOT let the subagents share context. Each Task call passes only
   the explicit inputs listed in step 2; communication is via
   working-memory files.
-- Do NOT invoke `lib/canonical-memory/propose-write.sh` mid-loop.
+- Do NOT invoke `/yoke:preserve` mid-loop. Canonization fires only
+  at termination via the Orchestrator's canonize-mode handoff.
   Canonical-memory writes happen only in the termination handoff
   (step 3).
 - Do NOT skip `hooks/verify-acceptance.sh` between cycles — sensor
@@ -289,8 +294,11 @@ see `.vibeflow/patterns/human-triggers.md`.
   `agents/orchestrator.md`.
 - `lib/ralph-loop/orchestrate.sh`,
   `lib/ralph-loop/escalate.sh`,
-  `lib/canonical-memory/query.sh`,
-  `lib/canonical-memory/canonization-criteria.sh`,
-  `lib/canonical-memory/propose-write.sh`.
+  `lib/canonical-memory/canonization-criteria.sh` (invoked from
+  inside `/yoke:preserve`).
+- `skills/ask/SKILL.md` (canonical-memory reads — Part 3 of the
+  bedrock canonical-memory port retired `query.sh`).
+- `skills/preserve/SKILL.md` (canonical-memory writes — Part 4
+  retired `propose-write.sh`).
 - `hooks/pre-implementation.sh`, `hooks/post-iteration.sh`,
   `hooks/verify-acceptance.sh`, `hooks/check-hard-bounds.sh`.
