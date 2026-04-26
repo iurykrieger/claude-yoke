@@ -178,6 +178,27 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# --- ack-sensors readiness pre-flight ---------------------------------------
+# Delegate sensor discovery + reachability to /yoke:ack-sensors --mode
+# readiness (single source of truth, same parser used by humans during
+# Trigger 3 and by other tooling that needs the catalog/manifest). This
+# call is informational on the hook's serial / xargs parallel path —
+# the per-sensor `command -v` check inside run_one_sensor remains
+# authoritative for the actual reachability decision (xargs subshells
+# don't share state with this top-level call). When ack-sensors is
+# missing or returns an unexpected exit, we log to stderr and continue
+# so legacy CI consumers never see a regression.
+ack_sensors="${hook_dir}/../lib/sensors/ack-sensors.sh"
+if [ -f "$ack_sensors" ]; then
+  set +e
+  bash "$ack_sensors" --mode readiness "$contract" >/dev/null 2>&1
+  ack_readiness_code=$?
+  set -e
+  if [ "$ack_readiness_code" -ne 0 ] && [ "$ack_readiness_code" -ne 4 ]; then
+    echo "verify-acceptance: ack-sensors readiness returned exit ${ack_readiness_code}; continuing with hook-local discovery." >&2
+  fi
+fi
+
 # --- sensor block extraction ------------------------------------------------
 sensors_block=$(awk '
   /^## Sensors[[:space:]]*$/ { in_sensors = 1; next }
