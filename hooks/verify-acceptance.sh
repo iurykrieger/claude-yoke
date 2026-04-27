@@ -21,7 +21,7 @@
 #
 # Default contract path: resolved via lib/working-memory/paths.sh::wm_acceptance_contract_path
 #                        (i.e., .yoke/acceptance-contracts/<slug>.md, where <slug>
-#                        comes from .yoke/.current).
+#                        comes from .yoke/runtime/.current).
 #
 # v0.3.0 supports only "shell command" sensor types (e.g. `npm test`,
 # `pytest`). Richer sensor types (structural fixtures, inferential

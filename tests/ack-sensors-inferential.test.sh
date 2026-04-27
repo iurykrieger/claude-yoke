@@ -251,8 +251,8 @@ else
   # family uses printf without trailing newline, so capture each
   # invocation in its own subshell and compare exactly.
   helper_tmp=$(mktemp -d)
-  mkdir -p "$helper_tmp/.yoke"
-  echo 2026-04-26-test-slug > "$helper_tmp/.yoke/.current"
+  mkdir -p "$helper_tmp/.yoke/runtime"
+  echo 2026-04-26-test-slug > "$helper_tmp/.yoke/runtime/.current"
   dir_actual=$(
     cd "$helper_tmp" \
       && bash -c "source \"$PATHS_LIB\" && wm_judge_verdict_dir 2026-04-26-test-slug 3" 2>&1

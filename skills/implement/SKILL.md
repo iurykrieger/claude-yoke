@@ -33,12 +33,22 @@ termination.
 
 ### 1. Pre-flight (deterministic)
 
-- Source `lib/working-memory/paths.sh`. All paths below resolve through
-  `wm_*_path` helpers; the active task slug comes from `.yoke/.current`
+- Source `lib/working-memory/paths.sh` and
+  `lib/working-memory/cleanup.sh`. All paths below resolve through
+  `wm_*_path` helpers; the active task slug comes from `.yoke/runtime/.current`
   via `wm_active_slug`.
+- **Working-memory hygiene (deterministic, silent on success).** Call
+  `wm_gitignore_self_heal` to write/repair `.yoke/.gitignore` if
+  missing or incomplete (canonical content: `.current` + `runtime/`).
+  Then call `wm_check_runtime_tracked` to detect host projects that
+  bootstrapped before the gitignore landed and still track
+  `.yoke/runtime/`; on detection it prints a one-line remediation hint
+  pointing at `git rm -r --cached .yoke/runtime/` and never modifies
+  git state. Both are read-only against the loop's working memory and
+  must run *before* the orchestrate.sh preflight call below.
 - Run `lib/ralph-loop/orchestrate.sh preflight`. The script verifies:
   - `.yoke/config.yaml` exists.
-  - `.yoke/.current` exists and points at a valid slug.
+  - `.yoke/runtime/.current` exists and points at a valid slug.
   - `wm_prd_path "$slug"`, `wm_spec_path "$slug"`, and
     `wm_acceptance_contract_path "$slug"` all exist and carry
     `Status: approved` (PRD/Spec) or `Status: ratified` (Contract).
@@ -304,11 +314,25 @@ PRs opened (count + URLs).
 
 ### 4. Termination paths
 
+After the canonize handoff in §3 returns, call
+`wm_runtime_cleanup "$termination_reason" "$canonize_exit_code"`
+(from `lib/working-memory/cleanup.sh`) **before** printing the exit
+summary. The helper is gated on `(reason == merge-ready &&
+canonize_exit == 0)` and is a no-op otherwise — so paused
+terminations (divergence, contract-conflict, hard-bound,
+infeasibility) and canonize failures preserve `.yoke/runtime/`
+intact for the user to arbitrate, resume, or manually re-canonize.
+
 - **All criteria pass** → loop returns MERGE-READY; canonize handoff
   fires (Orchestrator invokes `/yoke:preserve` via the Skill tool).
-  Print: "Merge-ready. Canonization summary: <count> PRs opened."
+  On canonize success, `wm_runtime_cleanup` deletes the contents of
+  `wm_runtime_dir` (the directory itself stays). Print:
+  "Merge-ready. Canonization summary: <count> PRs opened."
   `/yoke:preserve` can also be invoked manually for re-canonization
-  (e.g. after a model upgrade or to re-evaluate stale working memory).
+  against canonical memory (e.g. after a model upgrade) — note that
+  runtime working memory has been cleared by the cleanup step, so
+  manual re-canonization re-evaluates canonical entries directly,
+  not stale runtime state.
 - **Sprint contract contradicts Acceptance Contract** → invoke
   `lib/ralph-loop/escalate.sh --reason contract-conflict`; emits
   Trigger-4 packet; canonize handoff still fires (with termination
@@ -328,7 +352,7 @@ see `.vibeflow/patterns/human-triggers.md`.
 ## Pre-conditions
 
 - `.yoke/config.yaml` exists.
-- `.yoke/.current` exists and points at a valid slug.
+- `.yoke/runtime/.current` exists and points at a valid slug.
 - `.yoke/prds/<slug>.md` (approved), `.yoke/specs/<slug>.md`
   (approved), every `.yoke/tasks/<slug>-s*-t*.md`
   (`status: approved`), `.yoke/acceptance-contracts/<slug>.md`
@@ -367,6 +391,12 @@ see `.vibeflow/patterns/human-triggers.md`.
 - Do NOT skip `hooks/verify-acceptance.sh` between cycles — sensor
   output is the structured channel through which the Validator
   judges the next cycle.
+- Do NOT call `wm_runtime_cleanup` on non-MERGE-READY exits — paused
+  loops (Trigger-4 divergence, contract-conflict, hard-bound,
+  infeasibility) require cycle history for resumption. The helper is
+  internally gated on `(reason == merge-ready && canonize_exit == 0)`;
+  bypassing the gate destroys the user's ability to resume after
+  arbitration.
 - Do NOT silently relax the Acceptance Contract. Sprint contracts
   that contradict the Contract pause the loop.
 - Do NOT proceed past 5–8 cycles without an external `timeout`
