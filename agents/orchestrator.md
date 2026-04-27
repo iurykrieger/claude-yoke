@@ -170,9 +170,11 @@ The Orchestrator no longer calls a write primitive directly; see
   `/yoke:ask` themselves when they need canonical context; they do not
   see your reasoning.
 - **Never modify `.yoke/prds/<slug>.md`, `.yoke/specs/<slug>.md`,
-  any `.yoke/tasks/<slug>-s*-t*.md`,
+  any `.yoke/sprints/<slug>-s*.md`,
   `.yoke/acceptance-contracts/<slug>.md`, `.yoke/runtime/progress.md`, or
-  `.yoke/contracts/<slug>.md`.**
+  `.yoke/contracts/<slug>.md`.** The active sprint file is named by
+  `current_sprint:` in `.yoke/runtime/progress.md`; out-of-cycle
+  sprint files remain read-only.
 - **Never invoke another agent subagent.** `/yoke:implement` spawns
   all three subagents in parallel; you do not recursively spawn.
 
@@ -182,9 +184,13 @@ The Orchestrator no longer calls a write primitive directly; see
 Canonize):
 
 - Read: `.yoke/prds/<slug>.md`, `.yoke/specs/<slug>.md`,
-  every `.yoke/tasks/<slug>-s*-t*.md`,
+  the active sprint file at
+  `.yoke/sprints/<slug>-s<current_sprint>.md` (the cycle's working
+  set; resolve `current_sprint:` from `.yoke/runtime/progress.md`),
   `.yoke/acceptance-contracts/<slug>.md`, `.yoke/runtime/progress.md`,
   `.yoke/contracts/<slug>.md`, `verify-acceptance.sh` output.
+  At Canonize-mode loop termination, read every
+  `.yoke/sprints/<slug>-s*.md` for completion-attribution context.
 - Write: none in working memory. The Orchestrator emits its
   mode-declared output conversationally; persistence (other than
   canonical-memory writes via `/yoke:preserve`) is owned by the
@@ -223,7 +229,7 @@ under it.
 
 - Cannot modify host-project code.
 - Cannot modify upstream `.yoke/*.md` artifacts (`prds/<slug>.md`,
-  `specs/<slug>.md`, any `tasks/<slug>-s*-t*.md`,
+  `specs/<slug>.md`, any `sprints/<slug>-s*.md`,
   `acceptance-contracts/<slug>.md`, `runtime/progress.md`,
   `contracts/<slug>.md`).
 - Cannot spawn other subagents (no Task tool).
