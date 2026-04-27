@@ -3,6 +3,16 @@
 #
 # Subcommands:
 #   preflight                        verify Phase-4 pre-conditions
+#   active-sprint                    print the value of `current_sprint:` from
+#                                     .yoke/runtime/progress.md (zero-padded);
+#                                     defaults to `01` when absent. Used by
+#                                     /yoke:implement to load the cycle's
+#                                     working set (one sprint = one cycle).
+#   total-sprints                    print the number of sprint files for the
+#                                     active slug (i.e. the count returned by
+#                                     wm_list_sprint_paths). Used by the
+#                                     coordinator to decide when the outer
+#                                     walk has finished.
 #   append-contract <yaml-file>      append a sprint contract YAML fragment
 #                                     to the active task's
 #                                     .yoke/contracts/<slug>.md
@@ -36,6 +46,8 @@ Usage: orchestrate.sh <subcommand> [args]
 
 Subcommands:
   preflight                        verify Phase-4 pre-conditions
+  active-sprint                    print current_sprint: from progress.md
+  total-sprints                    print count of sprint files for active slug
   append-contract <yaml-file>      append a sprint contract from a YAML file
   check-contradiction              detect textual contradictions
   help                             print this help
@@ -85,7 +97,56 @@ case "$cmd" in
       echo "Error: $ac is not ratified. Run /yoke:acceptance-contract and ratify." >&2
       exit 4
     fi
+    # Sprint-walk pre-check: at least one sprint file MUST exist for the
+    # cycle loop to have a working set to load. The /yoke:implement
+    # cycle reads `current_sprint:` from progress.md and loads
+    # `.yoke/sprints/<slug>-s<current_sprint>.md` — without sprint
+    # files there is nothing to converge.
+    sprint_count=0
+    while IFS= read -r _; do
+      sprint_count=$((sprint_count + 1))
+    done < <(wm_list_sprint_paths "$slug" 2>/dev/null || true)
+    if [ "$sprint_count" -eq 0 ]; then
+      echo "Error: no sprint files for slug '$slug'. Run /yoke:tech-spec and approve." >&2
+      exit 4
+    fi
     echo "ok"
+    exit 0
+    ;;
+
+  active-sprint)
+    # Read `current_sprint:` from .yoke/runtime/progress.md frontmatter.
+    # Returns "01" (the conventional first sprint id) when progress.md
+    # is absent or the field is unset — /yoke:implement initializes the
+    # walk at sprint 01 on first invocation. Output is zero-padded to
+    # 2 digits to match the sprint-id filename convention enforced by
+    # WM_SPRINT_ID_REGEX in lib/working-memory/paths.sh.
+    progress_file="$(wm_progress_path)" || exit 3
+    if [ ! -f "$progress_file" ]; then
+      echo "01"
+      exit 0
+    fi
+    raw="$(awk '/^current_sprint:/ { gsub(/^current_sprint:[[:space:]]*"?|"?[[:space:]]*$/, "", $0); print; exit }' "$progress_file" 2>/dev/null || true)"
+    if [ -z "$raw" ]; then
+      echo "01"
+      exit 0
+    fi
+    # Normalize to zero-padded 2 digits.
+    if [[ "$raw" =~ ^[0-9]+$ ]]; then
+      printf '%02d\n' "$raw"
+      exit 0
+    fi
+    echo "Error: malformed current_sprint: '$raw' in $progress_file" >&2
+    exit 4
+    ;;
+
+  total-sprints)
+    slug="$(wm_active_slug)" || exit 3
+    sprint_count=0
+    while IFS= read -r _; do
+      sprint_count=$((sprint_count + 1))
+    done < <(wm_list_sprint_paths "$slug" 2>/dev/null || true)
+    echo "$sprint_count"
     exit 0
     ;;
 

@@ -1,13 +1,16 @@
 ---
 name: implement
 description: >
-  Phase 4 — adversarial ralph loop. Spawns the Generator, Validator, and
-  Orchestrator subagents concurrently each cycle (single Task batch) and
-  iterates against the binding Acceptance Contract until every criterion
-  passes or the loop pauses for human arbitration. Sprint contracts on
-  consensus persist to `.yoke/contracts/<slug>.md`; runtime state under
-  `.yoke/runtime/`. At loop termination, issues
-  one final Orchestrator call with `mode=canonize` to apply the
+  Phase 4 — adversarial ralph loop. Walks sprints serially: reads
+  `current_sprint:` from `.yoke/runtime/progress.md`, loads
+  `.yoke/sprints/<slug>-s<current_sprint>.md` as the cycle's working
+  set, spawns the Generator, Validator, and Orchestrator subagents
+  concurrently each cycle (single Task batch), iterates ≤8 cycles
+  against the binding Acceptance Contract, advances the pointer and
+  resets the cycle counter on per-sprint convergence. Sprint contracts
+  on consensus persist to `.yoke/contracts/<slug>.md`; runtime state
+  under `.yoke/runtime/`. At full convergence (every sprint complete),
+  issues one final Orchestrator call with `mode=canonize` to apply the
   five-criteria filter and propose Model C writes to canonical memory.
 argument-hint: ""
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Task
@@ -16,9 +19,9 @@ allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Task
 # /yoke:implement — Phase 4 (parallel ralph loop, v1.1.0)
 
 Drive Generator ↔ Validator cycles inside the envelope of the binding
-Acceptance Contract, with the Orchestrator subagent consulting
-canonical memory live and owning the canonization handoff at
-termination.
+Acceptance Contract, sprint by sprint, with the Orchestrator subagent
+consulting canonical memory live and owning the canonization handoff
+at full-run termination.
 
 > **v1.1.0 architectural note.** This skill no longer routes through
 > an "Orchestrator skill in runtime-coordinator mode". Instead, it is
@@ -28,6 +31,16 @@ termination.
 > per cycle. No subagent spawns another. At loop termination the skill
 > issues one more Orchestrator call with `mode=canonize` to perform
 > the canonization handoff.
+>
+> **sprint-as-cycle refresh.** Per the 2026-04-27 sprint-as-cycle
+> PRD, one ralph cycle = one sprint file as the working set. The
+> coordinator reads `current_sprint:` from
+> `.yoke/runtime/progress.md`, loads
+> `.yoke/sprints/<slug>-s<current_sprint>.md` as the cycle's working
+> set, runs ≤8 cycles per sprint to convergence, then advances
+> `current_sprint:` and resets `cycle_count:` to 0. The full-run
+> termination handoff (canonize) fires only when every sprint has
+> converged (i.e. `completed_sprints:` length equals `total_sprints:`).
 
 ## Process
 
@@ -53,10 +66,18 @@ termination.
     `wm_acceptance_contract_path "$slug"` all exist and carry
     `Status: approved` (PRD/Spec) or `Status: ratified` (Contract).
     The Phase-2 approval flow flips `Status: approved` on the spec
-    AND every `.yoke/tasks/<slug>-s*-t*.md` together — see
+    AND every `.yoke/sprints/<slug>-s*.md` together — see
     `skills/tech-spec/SKILL.md` "Recording approval".
   - On any missing pre-condition, the script aborts with a clear
     message (exit codes 3 or 4).
+- **Initialize the sprint walk (deterministic).** Read
+  `current_sprint:` and `completed_sprints:` from
+  `.yoke/runtime/progress.md` frontmatter. On first invocation the
+  template seeds `current_sprint: "01"`, `completed_sprints: []`,
+  `cycle_count: 0`. `total_sprints:` is inferred at preflight by
+  counting `wm_list_sprint_paths "$slug"` entries. The cycle counter
+  resets to 0 on every sprint advance — per-sprint hard bounds are
+  per `concepts/yoke-pattern-ralph-loop`.
 - Run `hooks/pre-implementation.sh`.
 - Ensure `.yoke/runtime/` and `.yoke/contracts/` exist (`mkdir -p`).
   Initialize `wm_progress_path` (`.yoke/runtime/progress.md`) and
@@ -87,9 +108,41 @@ termination.
   on Model C governance writes (canonize), so those roles never
   auto-downgrade.
 
-### 2. Cycle loop
+### 2. Cycle loop (per-sprint walk)
 
-For each cycle (numbered starting at 1):
+The coordinator walks sprints serially. Outer iteration:
+
+```
+while [ $(jq_count_array completed_sprints) -lt $total_sprints ]; do
+    current_sprint=$(read_frontmatter current_sprint progress.md)
+    sprint_file=".yoke/sprints/${slug}-s${current_sprint}.md"
+    cycle_count=$(read_frontmatter cycle_count progress.md)
+
+    # Inner per-sprint cycle loop, ≤8 iterations.
+    while [ $cycle_count -lt 8 ]; do
+        # Each cycle's working set = $sprint_file.
+        # ... (cycle steps below, numbered 1–9)
+        if convergence_for_sprint; then
+            append_to completed_sprints "$current_sprint"
+            advance current_sprint
+            reset cycle_count to 0
+            break  # outer while re-evaluates
+        fi
+        cycle_count=$((cycle_count + 1))
+    done
+
+    if [ $cycle_count -ge 8 ]; then
+        # Per-sprint hard bound exhausted — escalate Trigger 4.
+        bash lib/ralph-loop/escalate.sh \
+            --reason hard-bound \
+            --active-sprint "$current_sprint"
+        break  # halt the run; canonize handoff still fires
+    fi
+done
+```
+
+For each cycle of the inner loop (numbered starting at 1, reset at
+sprint boundaries):
 
 1. **Concurrent subagent batch (single agentic turn, `3 + N` background Task calls).**
    In a single assistant turn, issue **`3 + N` concurrent Task calls**:
@@ -115,8 +168,13 @@ For each cycle (numbered starting at 1):
 
    - **Generator (`agents/generator.md`)** — input:
      - Approved upstream artifacts at `wm_prd_path`,
-       `wm_spec_path`, every path returned by `wm_list_task_paths`,
-       and `wm_acceptance_contract_path` (read-only).
+       `wm_spec_path`, the **active sprint file** at
+       `.yoke/sprints/<slug>-s<current_sprint>.md` (the cycle's
+       working set — never the full sprint set), and
+       `wm_acceptance_contract_path` (read-only).
+     - `active_sprint: <NN>` (the value of `current_sprint:` from
+       progress.md) — passed explicitly so the Generator scopes its
+       diff to the active sprint's tasks and DoD.
      - Current runtime progress at `wm_progress_path` (last cycle's
        state).
      - Current sprint contracts at `wm_contracts_path "$slug"`.
@@ -127,7 +185,8 @@ For each cycle (numbered starting at 1):
        source-agnostic read).
 
      Writes code targeting the next failing Acceptance Contract
-     criterion; persists `wm_progress_path` at end of turn.
+     criterion in the **active sprint's** Functional acceptance
+     criteria list; persists `wm_progress_path` at end of turn.
 
    - **Validator (`agents/validator.md`)** — input:
      - Approved Acceptance Contract at `wm_acceptance_contract_path`.
@@ -144,7 +203,8 @@ For each cycle (numbered starting at 1):
      verdict, never concurrent with Generator's writes).
 
    - **Orchestrator (`agents/orchestrator.md`)** — input:
-     - `mode=consult+monitor`, `cycle=<N>`, `slug=<active slug>`.
+     - `mode=consult+monitor`, `cycle=<N>`, `slug=<active slug>`,
+       `active_sprint=<current_sprint>`.
      - Current `wm_progress_path`, `wm_contracts_path`.
      - Last `verify-acceptance.sh` snapshot.
 
@@ -287,21 +347,45 @@ For each cycle (numbered starting at 1):
    `lib/ralph-loop/escalate.sh --reason hard-bound` and exits 10.
    The skill treats this as a pause-with-arbitration-packet.
 
-8. **Stop check (full-suite serial sweep, all tiers).** Before
-   declaring MERGE-READY, run `hooks/verify-acceptance.sh
-   --concurrency 1 --tier all` (no `--criterion`) one final time,
-   redirecting stdout to a scratch path under
-   `$(wm_runtime_dir)/.merge-ready-snapshot.yaml`. The merge-ready
-   sweep ignores `schedule_next` entirely — every sensor (cheap
-   AND expensive) MUST pass before convergence, regardless of what
-   the Validator authorized in the last per-cycle decision. Scoped /
-   parallel / tier-filtered modes never decide convergence; the
-   serial full-suite sweep across all tiers is the authoritative
-   check (sensor-cost-tiering Part 5). If every criterion in the
-   Acceptance Contract has `status: pass` in this snapshot AND no
-   `divergence` verdict from the Validator, return MERGE-READY and
-   advance to the canonization handoff (§3). Otherwise, continue
-   to step 9.
+8. **Stop check — per-sprint convergence + full-run merge-ready
+   sweep.** This step decides three outcomes: (a) advance to the
+   next sprint, (b) declare MERGE-READY (last sprint just
+   converged), or (c) continue this sprint's loop.
+   - First, run `hooks/verify-acceptance.sh --concurrency 1 --tier
+     all --sprint <current_sprint>` (no `--criterion`), filtering
+     sensors / criteria to those declared in the active sprint
+     file's `## Functional acceptance criteria` and `## Sensors`
+     blocks. Redirect stdout to
+     `$(wm_runtime_dir)/.sprint-converge-snapshot.yaml`. If every
+     active-sprint criterion has `status: pass` AND no `divergence`
+     verdict from the Validator, the sprint has converged.
+   - On per-sprint convergence: append `<current_sprint>` to
+     `completed_sprints:` in `wm_progress_path`, increment
+     `current_sprint:` to the next zero-padded sprint id (with
+     bounds), reset `cycle_count:` to 0, append the sprint-scoped
+     contract section to `.yoke/contracts/<slug>.md`, and **write
+     a sprint-boundary entry** to `wm_progress_path` summarizing
+     the sprint outcome before resuming the outer walk.
+   - When `current_sprint` would exceed the last sprint id (i.e.
+     every sprint has been completed), promote to the **full-run
+     merge-ready sweep**: run `hooks/verify-acceptance.sh
+     --concurrency 1 --tier all` (no `--criterion`, no `--sprint`)
+     and redirect stdout to
+     `$(wm_runtime_dir)/.merge-ready-snapshot.yaml`. The merge-ready
+     sweep ignores `schedule_next` entirely — every sensor (cheap
+     AND expensive) across every criterion MUST pass before the run
+     terminates, regardless of any per-sprint authorization. Scoped
+     / parallel / tier-filtered modes never decide convergence; the
+     serial full-suite sweep across all tiers is the authoritative
+     final check (sensor-cost-tiering Part 5). If every criterion
+     in the Acceptance Contract has `status: pass` in this snapshot
+     AND no `divergence` verdict from the Validator, return
+     MERGE-READY and advance to the canonization handoff (§3).
+     Otherwise, escalate `escalate.sh --reason divergence
+     --category quality-policies-broken` — a converged-per-sprint
+     run that fails the cross-sprint sweep is a coupling regression
+     between sprints.
+   - On no per-sprint convergence: continue to step 9.
 
 9. **Cycle status snapshot (deterministic, exactly once per cycle).**
    Run `bash lib/ralph-loop/status-snapshot.sh "$(wm_runtime_dir)"`
@@ -398,7 +482,7 @@ see `concepts/yoke-pattern-human-triggers`.
 - `.yoke/config.yaml` exists.
 - `.yoke/runtime/.current` exists and points at a valid slug.
 - `.yoke/prds/<slug>.md` (approved), `.yoke/specs/<slug>.md`
-  (approved), every `.yoke/tasks/<slug>-s*-t*.md`
+  (approved), every `.yoke/sprints/<slug>-s*.md`
   (`status: approved`), `.yoke/acceptance-contracts/<slug>.md`
   (ratified).
 
