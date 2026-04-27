@@ -4,7 +4,8 @@ command: bash -c '! grep -lE "^# Spec:.*Part [0-9]+( of [0-9]+)?$" .yoke/sprints
 class: computational
 tier: cheap
 applies_to: []
-runs: []
+runs:
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: pass, criterion: "sprint-1-bundle", evidence_snippet: "grep: .yoke/sprints/*.md: No such file or directory"}
 ---
 
 # Sensor: h1-reframe-zero-spec-residue

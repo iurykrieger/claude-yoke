@@ -4,7 +4,8 @@ command: bash -c 'for f in .yoke/sprints/*.md; do ! grep -qE "^#!/.*bash" "$f"; 
 class: computational
 tier: cheap
 applies_to: []
-runs: []
+runs:
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: pass, criterion: "sprint-1-bundle", evidence_snippet: "grep: .yoke/sprints/*.md: No such file or directory"}
 ---
 
 # Sensor: sprint-files-reference-only

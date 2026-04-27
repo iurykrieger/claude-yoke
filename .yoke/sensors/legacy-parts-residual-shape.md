@@ -4,7 +4,8 @@ command: bash -c 'bash lib/sensors/legacy-parts-zero-residual.sh 2>/dev/null | h
 class: computational
 tier: cheap
 applies_to: []
-runs: []
+runs:
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: pass, criterion: "sprint-1-bundle", evidence_snippet: "true"}
 ---
 
 # Sensor: legacy-parts-residual-shape

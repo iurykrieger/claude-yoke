@@ -4,7 +4,8 @@ command: bash -c '[ -z "$(find skills/ agents/ lib/ -type f \( -name "*.sh" -o -
 class: computational
 tier: cheap
 applies_to: []
-runs: []
+runs:
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: fail, criterion: "sprint-1-bundle"}
 ---
 
 # Sensor: codebase-no-task-helper-refs

@@ -4,7 +4,8 @@ command: bash -c 'bash lib/sensors/legacy-parts-zero-residual.sh && [ "$(bash li
 class: computational
 tier: cheap
 applies_to: []
-runs: []
+runs:
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: fail, criterion: "sprint-1-bundle", evidence_snippet: "{\\\"criterion\\\":\\\"legacy-parts-zero-residual\\\",\\\"status\\\":\\\"fail\\\",\\\"location\\\":\\\".yoke/specs/2026-04-25-ack-sensors-skill-part-1.md\\\",\\\"fix_instruction\\\":\\\"rename via git…"}
 ---
 
 # Sensor: legacy-parts-residual-clean

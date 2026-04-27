@@ -4,7 +4,8 @@ command: bash -c 'grep -qE "^current_sprint:" .yoke/runtime/progress.md && grep 
 class: computational
 tier: cheap
 applies_to: []
-runs: []
+runs:
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: pass, criterion: "sprint-1-bundle"}
 ---
 
 # Sensor: progress-md-frontmatter-shape

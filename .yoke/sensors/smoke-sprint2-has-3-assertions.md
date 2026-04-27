@@ -4,7 +4,8 @@ command: bash -c '[ "$(grep -c "legacy -part-N.md\|lost its sprint counterpart\|
 class: computational
 tier: cheap
 applies_to: []
-runs: []
+runs:
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: fail, criterion: "sprint-1-bundle", evidence_snippet: "grep: tests/smoke/sprint-2.test.sh: No such file or directory\\nbash: line 1: [: : integer expected"}
 ---
 
 # Sensor: smoke-sprint2-has-3-assertions

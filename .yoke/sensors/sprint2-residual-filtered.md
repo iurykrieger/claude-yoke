@@ -1,10 +1,11 @@
 ---
 id: sprint2-residual-filtered
-command: bash -c '[ "$(bash lib/sensors/legacy-parts-zero-residual.sh 2>/dev/null | jq -c "select(.location | test(\".yoke/tasks/2026-04-27-sprint-as-cycle-s\") | not)" 2>/dev/null | wc -l)" = "0" ]'
+command: bash -c '[ "$(bash lib/sensors/legacy-parts-zero-residual.sh 2>/dev/null | jq -c "select(.location | test(\".yoke/tasks/2026-04-27-sprint-as-cycle-s\") | not)" 2>/dev/null | wc -l | xargs)" = "0" ]'
 class: computational
 tier: cheap
 applies_to: []
-runs: []
+runs:
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: fail, criterion: "sprint-1-bundle"}
 ---
 
 # Sensor: sprint2-residual-filtered

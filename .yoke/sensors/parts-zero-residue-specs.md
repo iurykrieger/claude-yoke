@@ -1,10 +1,11 @@
 ---
 id: parts-zero-residue-specs
-command: bash -c '[ "$(find .yoke/specs -name "*-part-[0-9]*.md" -type f | wc -l)" = "0" ]'
+command: bash -c '[ "$(find .yoke/specs -name "*-part-[0-9]*.md" -type f | wc -l | xargs)" = "0" ]'
 class: computational
 tier: cheap
 applies_to: []
-runs: []
+runs:
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: fail, criterion: "sprint-1-bundle"}
 ---
 
 # Sensor: parts-zero-residue-specs

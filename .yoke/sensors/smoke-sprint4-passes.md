@@ -4,7 +4,8 @@ command: bash tests/smoke/sprint-4.test.sh
 class: computational
 tier: cheap
 applies_to: []
-runs: []
+runs:
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: fail, criterion: "sprint-1-bundle", evidence_snippet: "bash: tests/smoke/sprint-4.test.sh: No such file or directory"}
 ---
 
 # Sensor: smoke-sprint4-passes

@@ -4,7 +4,8 @@ command: bash -c '[ -z "$(find agents -name "*.md" -exec grep -lE "wm_list_task_
 class: computational
 tier: cheap
 applies_to: []
-runs: []
+runs:
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: fail, criterion: "sprint-1-bundle"}
 ---
 
 # Sensor: agents-no-task-refs

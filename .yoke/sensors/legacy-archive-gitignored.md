@@ -4,7 +4,8 @@ command: git check-ignore .yoke/.legacy-archive/2026-04-27-pre-migration/MANIFES
 class: computational
 tier: cheap
 applies_to: []
-runs: []
+runs:
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: fail, criterion: "sprint-1-bundle"}
 ---
 
 # Sensor: legacy-archive-gitignored

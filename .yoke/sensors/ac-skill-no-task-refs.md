@@ -4,7 +4,8 @@ command: bash -c '! grep -qE "wm_list_task_paths|\.yoke/tasks/" skills/acceptanc
 class: computational
 tier: cheap
 applies_to: []
-runs: []
+runs:
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: fail, criterion: "sprint-1-bundle"}
 ---
 
 # Sensor: ac-skill-no-task-refs

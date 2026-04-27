@@ -4,7 +4,8 @@ command: bash -c 'source lib/working-memory/paths.sh && wm_task_path 2026-04-27-
 class: computational
 tier: cheap
 applies_to: []
-runs: []
+runs:
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: pass, criterion: "sprint-1-bundle"}
 ---
 
 # Sensor: wm-task-helpers-still-callable

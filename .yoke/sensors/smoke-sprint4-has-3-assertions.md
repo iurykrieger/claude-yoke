@@ -4,7 +4,8 @@ command: bash -c '[ "$(grep -c "current_sprint: did not advance\|progress.md was
 class: computational
 tier: cheap
 applies_to: []
-runs: []
+runs:
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: fail, criterion: "sprint-1-bundle", evidence_snippet: "grep: tests/smoke/sprint-4.test.sh: No such file or directory\\nbash: line 1: [: : integer expected"}
 ---
 
 # Sensor: smoke-sprint4-has-3-assertions

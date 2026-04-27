@@ -1,10 +1,11 @@
 ---
 id: migrated-from-frontmatter
-command: bash -c '[ "$(grep -l "^Migrated-from:" .yoke/sprints/2026-04-27-yoke-doctrine-canonization-s*.md | wc -l)" = "5" ]'
+command: bash -c '[ "$(grep -l "^Migrated-from:" .yoke/sprints/2026-04-27-yoke-doctrine-canonization-s*.md | wc -l | xargs)" = "5" ]'
 class: computational
 tier: cheap
 applies_to: []
-runs: []
+runs:
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: fail, criterion: "sprint-1-bundle", evidence_snippet: "grep: .yoke/sprints/2026-04-27-yoke-doctrine-canonization-s*.md: No such file or directory"}
 ---
 
 # Sensor: migrated-from-frontmatter

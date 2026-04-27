@@ -4,7 +4,8 @@ command: bash tests/sensors/legacy-parts-zero-residual.test.sh
 class: computational
 tier: cheap
 applies_to: []
-runs: []
+runs:
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: pass, criterion: "sprint-1-bundle", evidence_snippet: "--- legacy-parts-zero-residual sensor self-test ---\\n[PASS] sensor is executable\\n[PASS] pass path: clean tree → exit 0\\n[PASS] pass path: stdout empty on clean tree\\n[PASS] fail path 1: planted…"}
 ---
 
 # Sensor: legacy-parts-residual-self-test

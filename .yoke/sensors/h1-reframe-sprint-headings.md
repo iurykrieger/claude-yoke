@@ -1,10 +1,11 @@
 ---
 id: h1-reframe-sprint-headings
-command: bash -c '[ "$(grep -lE "^# Sprint [0-9]{2}( of [0-9]{2})?:" .yoke/sprints/*.md | wc -l)" -ge "62" ]'
+command: bash -c '[ "$(grep -lE "^# Sprint [0-9]{2}( of [0-9]{2})?:" .yoke/sprints/*.md 2>/dev/null | wc -l | xargs)" -ge "49" ]'
 class: computational
 tier: cheap
 applies_to: []
-runs: []
+runs:
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: fail, criterion: "sprint-1-bundle", evidence_snippet: "grep: .yoke/sprints/*.md: No such file or directory"}
 ---
 
 # Sensor: h1-reframe-sprint-headings

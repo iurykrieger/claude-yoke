@@ -4,7 +4,8 @@ command: bash tests/fixtures/scaffold-sprints-smoke.sh
 class: computational
 tier: cheap
 applies_to: []
-runs: []
+runs:
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: pass, criterion: "sprint-1-bundle", evidence_snippet: "PASS: scaffold-sprints.sh creates sprint files and refuses overwrite"}
 ---
 
 # Sensor: scaffold-sprints-functional

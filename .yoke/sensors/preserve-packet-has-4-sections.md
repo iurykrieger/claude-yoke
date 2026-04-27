@@ -4,7 +4,8 @@ command: bash -c '[ "$(grep -c "^## " .yoke/runtime/.preserve-packet.md)" -ge "4
 class: computational
 tier: cheap
 applies_to: []
-runs: []
+runs:
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: fail, criterion: "sprint-1-bundle", evidence_snippet: "grep: .yoke/runtime/.preserve-packet.md: No such file or directory\\nbash: line 1: [: : integer expected"}
 ---
 
 # Sensor: preserve-packet-has-4-sections

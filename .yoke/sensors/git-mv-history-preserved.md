@@ -1,10 +1,11 @@
 ---
 id: git-mv-history-preserved
-command: bash -c '[ "$(git log --follow .yoke/sprints/2026-04-25-bedrock-canonical-memory-port-s01.md --oneline 2>/dev/null | wc -l)" -ge "2" ]'
+command: bash -c '[ "$(git log --oneline --follow -- .yoke/sprints/2026-04-25-bedrock-canonical-memory-port-s01.md 2>/dev/null | wc -l | xargs)" -ge "2" ]'
 class: computational
 tier: cheap
 applies_to: []
-runs: []
+runs:
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: fail, criterion: "sprint-1-bundle"}
 ---
 
 # Sensor: git-mv-history-preserved

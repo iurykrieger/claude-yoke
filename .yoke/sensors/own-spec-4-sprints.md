@@ -4,7 +4,8 @@ command: bash -c '[ "$(find .yoke/sprints -name "2026-04-27-sprint-as-cycle-s*.m
 class: computational
 tier: cheap
 applies_to: []
-runs: []
+runs:
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: fail, criterion: "sprint-1-bundle"}
 ---
 
 # Sensor: own-spec-4-sprints
