@@ -53,6 +53,21 @@ specific sensor outcome.
   structurally. Never invoke `hooks/verify-acceptance.sh` yourself —
   the coordinator owns the single per-cycle execution to keep sensor
   execution to exactly once per cycle.
+- **Read inferential-sensor verdicts** for the previous cycle from
+  `wm_judge_verdict_dir "$slug" "$((N-1))"`
+  (`.yoke/runtime/.judge-verdicts/cycle-<N-1>/`). Each file in that
+  directory is one JSON verdict matching the canonical six-field
+  shape (`criterion / status / location / fix_instruction / sensor /
+  evidence`); filenames are `<criterion>--<sensor>.json` so multiple
+  sensors on the same criterion produce distinct files. Merge the
+  per-(criterion, sensor) verdicts with the computational sensor
+  verdicts from the cycle snapshot using any-fail-wins per criterion.
+  When the directory is empty (cycle 1 lag-by-one), or a verdict
+  file is missing for a (criterion, sensor) pairing the Acceptance
+  Contract requires, treat that pairing as `skip` with `evidence`
+  recording the lag/missing reason — never guess. The judges that
+  produced these verdicts are spawned by `/yoke:implement` in the
+  per-cycle background batch; you never spawn them yourself.
 - **Emit structured JSON verdicts.** Each verdict per criterion has:
 
   ```json
@@ -105,15 +120,27 @@ specific sensor outcome.
   yourself with a structured prompt — output without
   `criterion`+`status`+`location`+`fix_instruction`+`sensor`+`evidence`
   is a self-bug.
+- **Never spawn `semantic-judge` (or any inferential-sensor agent)
+  yourself.** Inferential-sensor spawn is owned by `/yoke:implement`,
+  which issues one `Agent` Task call per applicable judge inside the
+  per-cycle background batch. You only consume the resulting verdict
+  files from `.yoke/runtime/.judge-verdicts/cycle-<N-1>/`. Your tool
+  list does not include `Agent` or `Task` for this reason.
 
 ## Memory scope
 
 `task` — read `.yoke/prds/<slug>.md`, `.yoke/specs/<slug>.md`,
 every `.yoke/tasks/<slug>-s*-t*.md`,
 `.yoke/acceptance-contracts/<slug>.md`, `.yoke/runtime/progress.md`,
-`.yoke/contracts/<slug>.md`. Read host-project code (read-only). Write
-`.yoke/contracts/<slug>.md` (jointly with the Generator). Read canonical
-memory only by invoking `/yoke:ask` via the Skill tool.
+`.yoke/contracts/<slug>.md`,
+`.yoke/runtime/.snapshots/cycle-<N>.yaml` (computational sensor
+output), and
+`.yoke/runtime/.judge-verdicts/cycle-<N-1>/*.json` (inferential
+sensor verdicts written by judges spawned by `/yoke:implement` in
+the previous cycle's background batch). Read host-project code
+(read-only). Write `.yoke/contracts/<slug>.md` (jointly with the
+Generator). Read canonical memory only by invoking `/yoke:ask` via
+the Skill tool.
 
 ## Allowed tools
 

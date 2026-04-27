@@ -81,11 +81,17 @@ termination.
 
 For each cycle (numbered starting at 1):
 
-1. **Concurrent subagent batch (single agentic turn, 3 Task calls).**
-   In a single assistant turn, issue **three concurrent Task calls**
-   spawning `agents/generator.md`, `agents/validator.md`, and
-   `agents/orchestrator.md` simultaneously. Each Task call passes a
-   per-role `model:` argument resolved at preflight:
+1. **Concurrent subagent batch (single agentic turn, `3 + N` background Task calls).**
+   In a single assistant turn, issue **`3 + N` concurrent Task calls**:
+   three role calls spawning `agents/generator.md`,
+   `agents/validator.md`, and `agents/orchestrator.md` simultaneously,
+   plus **N inferential-sensor calls** with
+   `subagent_type: semantic-judge` (one per applicable inferential
+   sensor on the targeted criterion; see the inferential-sensor
+   sub-step below for how `N` is resolved). Each Task call sets
+   `run_in_background: true` so the assistant turn does not block on
+   completion. Each role Task call also passes a per-role `model:`
+   argument resolved at preflight:
    - Generator → `model: $generator_model`
    - Validator → `model: $validator_model`
    - Orchestrator (consult+monitor mode) → `model: $orch_consult_model`
@@ -138,11 +144,60 @@ For each cycle (numbered starting at 1):
      invokes `lib/ralph-loop/escalate.sh` to emit the Trigger-4
      packet (written to `wm_trigger4_packet_path`).
 
-   Issue the three Task calls in a **single assistant turn** so
+   - **Inferential sensors (`agents/semantic-judge.md`, N instances)**
+     — for each applicable inferential sensor on the targeted
+     criterion, issue one additional concurrent Task call with
+     `subagent_type: semantic-judge` and `run_in_background: true`.
+     Identification: read the active Acceptance Contract at
+     `wm_acceptance_contract_path` and select sensors whose
+     `class: inferential` and whose `criterion_scope` covers the
+     Generator's targeted criterion (read from the most recent
+     `citing_criterion:` entry in `wm_progress_path`; on cycle 1 /
+     fallback, select all inferential sensors on the contract).
+     Cap `N` at `runtime.inferential_sensor_concurrency` in
+     `.yoke/config.yaml` (default `4`); when applicable sensors
+     exceed the cap, choose deterministically (criterion order,
+     ties broken by sensor id) and **defer** the surplus by
+     appending their ids to
+     `$(wm_runtime_dir)/.deferred-sensors.json`. The next cycle's
+     spawn pass prepends deferred ids before fresh ones, so every
+     applicable sensor eventually runs without exceeding the
+     parallel-spawn cap. Inputs per spawn: criterion text, diff
+     under review, calibration block, and a verdict-output path
+     resolved via
+     `wm_judge_verdict_path "$slug" "$cycle" "$criterion-id" "$sensor-id"`
+     (`.yoke/runtime/.judge-verdicts/cycle-<N>/<criterion>--<sensor>.json`).
+     Each judge spawn is one (criterion, sensor) pairing — multiple
+     inferential sensors on the same criterion get distinct verdict
+     files, supporting `patterns/sensors.md`'s any-fail-wins
+     aggregation. Judges write their verdict JSON to the supplied
+     path; the Validator in cycle `<N+1>` reads from
+     `wm_judge_verdict_dir "$slug" "$cycle"` (Model A lag-by-one).
+     Failure policy: on non-zero judge exit, log to
+     `$(wm_runtime_dir)/.judge-verdicts/cycle-<N>/.failures.log`,
+     treat the criterion's verdict as `skip` for the cycle, and
+     surface in the cycle status block. When the same sensor fails
+     in two consecutive cycles, invoke
+     `lib/ralph-loop/escalate.sh --reason sensor-failure --sensor
+     <id>` and pause the loop.
+
+   Issue all `3 + N` Task calls in a **single assistant turn** so
    they execute concurrently. Per-agent file-write contracts (in
    `agents/*.md`) prevent within-batch collisions: Generator owns
    the progress file; the contracts file is appended only on
-   consensus events post-batch.
+   consensus events post-batch; each judge owns its own verdict
+   file under `.yoke/runtime/.judge-verdicts/cycle-<N>/`.
+
+   After dispatching the batch, **wait for all `3 + N` completion
+   notifications** before advancing to step 2. Do **not** poll, sleep,
+   or otherwise probe for state — Claude Code emits a completion
+   notification automatically when each background Task ends, and the
+   skill resumes deterministically once the final notification
+   arrives. This wait is a deterministic node in the blueprint: no
+   agentic decision is made in it. The skill cannot run the cycle's
+   deterministic tail (sensor execution, contradiction check, persist,
+   hard-bound check, stop check) against partial state — every step
+   below in this cycle assumes all `3 + N` Task calls have returned.
 
 2. **Sensor execution (deterministic, exactly once per cycle).** Run
    `hooks/verify-acceptance.sh` to capture cycle N's post-Generator
@@ -192,7 +247,21 @@ For each cycle (numbered starting at 1):
    Acceptance Contract has `status: pass` in this snapshot AND no
    `divergence` verdict from the Validator, return MERGE-READY and
    advance to the canonization handoff (step 3). Otherwise, continue
-   to the next cycle.
+   to step 7.
+
+7. **Cycle status snapshot (deterministic, exactly once per cycle).**
+   Run `bash lib/ralph-loop/status-snapshot.sh "$(wm_runtime_dir)"`
+   and emit its stdout to the user verbatim. Fires once per cycle,
+   only when the loop continues to the next cycle — i.e. **after**
+   step 4 (`post-iteration.sh`) and step 5 (`check-hard-bounds.sh`)
+   have completed and step 6 chose to continue. Do **not** emit on
+   MERGE-READY (the canonize handoff prints the exit summary) or on
+   escalation paths (`escalate.sh` already surfaces full state via
+   the Trigger-4 packet). Do **not** emit between step 1 and step 6
+   — the per-notification / mid-cycle window must remain silent.
+   On non-zero helper exit, log a single line `(status snapshot
+   unavailable: <stderr summary>)` and continue — the snapshot is a
+   user-visibility node, never a cycle-blocking node.
 
 ### 3. Termination handoff — Orchestrator canonize call (single agentic call)
 
@@ -200,9 +269,14 @@ The handoff fires once when the loop terminator hits — whether the
 loop converged (MERGE-READY) or paused (Trigger-4 / hard-bound /
 infeasibility). Issue a **single Orchestrator-only Task call** with
 input `mode=canonize` and `model: $orch_canonize_model` (resolved at
-preflight; see §1). Canonize-mode never reuses the per-cycle
-consult/monitor model — Model C governance writes stay top-tier,
-even when consult/monitor were pinned to a smaller class. Per
+preflight; see §1). This call is **foreground** — background spawning
+applies only to the per-cycle batch in step 1; the canonize handoff's
+result is needed inline for the skill's exit summary ("Merge-ready.
+Canonization summary: <count> PRs opened.") and for downstream PR-URL
+reporting.
+Canonize-mode never reuses the per-cycle consult/monitor model —
+Model C governance writes stay top-tier, even when consult/monitor
+were pinned to a smaller class. Per
 `.vibeflow/patterns/model-c-governance.md`, canonization decides
 canonical-memory writes — mismatching the canonize model is an R4
 defect that the Part-3 smoke gates against.
@@ -273,6 +347,16 @@ see `.vibeflow/patterns/human-triggers.md`.
 - Do NOT spawn the three subagents sequentially. They must launch in
   a **single assistant turn with three concurrent Task calls** so
   they execute in parallel.
+- Do NOT spawn the per-cycle batch in foreground. The three Task
+  calls in step 1 must use `run_in_background: true` so the
+  assistant turn does not block on completion. The termination
+  canonization handoff (step 3) is the **only** Task call in the
+  loop that runs foreground — its result is needed inline for the
+  exit summary.
+- Do NOT poll, sleep, or otherwise probe for completion state during
+  the wait between step 1 and step 2. The skill relies on Claude
+  Code's automatic completion notifications; manual probing
+  introduces latency without changing semantics.
 - Do NOT let the subagents share context. Each Task call passes only
   the explicit inputs listed in step 2; communication is via
   working-memory files.
@@ -289,6 +373,18 @@ see `.vibeflow/patterns/human-triggers.md`.
   before Sprint 6's hard bounds are wired.
 - Do NOT spawn `agents/orchestrator.md` recursively from inside any
   subagent — only this skill spawns subagents.
+- Do NOT spawn `semantic-judge` (or any inferential-sensor agent)
+  from inside any subagent — only `/yoke:implement` spawns
+  inferential-sensor agents. The Validator never invokes
+  `Agent(subagent_type: semantic-judge, …)`; it consumes verdicts
+  written to `.yoke/runtime/.judge-verdicts/cycle-<N-1>/` by judges
+  spawned in the previous cycle's batch.
+- Do NOT emit user-visible status mid-cycle — between step 1
+  (per-cycle batch dispatch) and step 7 (cycle status snapshot) the
+  skill must stay silent. The status block is a single, fixed-format
+  emission per cycle; per-notification or per-step output dilutes
+  back-pressure (`conventions.md`: "success is silent, failures are
+  verbose") and turns the cycle log into a scrollable mess.
 
 ## See also
 

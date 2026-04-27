@@ -27,10 +27,15 @@ fires with `mode=canonize` to propose Model C canonical-memory writes.
 
 ## The Pattern
 
-### Concurrent agentic batch (per cycle, single assistant turn)
-The skill issues **one assistant turn with three Task calls**
-spawning the three runtime subagents simultaneously. Each receives
-disjoint inputs from the freshest snapshot of working memory:
+### Concurrent agentic batch (per cycle, single assistant turn, background)
+The skill issues **one assistant turn with three concurrent Task
+calls** spawning the three runtime subagents simultaneously, each
+with `run_in_background: true` so the assistant turn does not block
+on completion. After dispatching the batch the skill waits for all
+three completion notifications via Claude Code's automatic
+notification mechanism — no polling, no sleep loops. The wait is a
+deterministic node in the blueprint. Each subagent receives disjoint
+inputs from the freshest snapshot of working memory:
 
 - **Generator (`agents/generator.md`)** — writes code targeting the
   next failing Acceptance Contract criterion; persists
@@ -49,6 +54,9 @@ Orchestrator do not write working-memory artifacts in consult/monitor
 mode; `contracts.md` is appended only on consensus events post-batch.
 
 ### Deterministic nodes (no agent decision)
+- Waiting for the per-cycle batch's three completion notifications
+  before any subsequent step runs. The wait relies on Claude Code's
+  automatic notifications — no polling, no sleep loops.
 - Sensor execution: `hooks/verify-acceptance.sh` runs after each
   cycle's agentic batch to capture cycle-N's post-Generator state.
 - Persisting `progress.md` at the end of every cycle (Generator's
@@ -151,6 +159,10 @@ Tech Spec, accept the trade-off, or abort.
 - The three runtime subagents must launch in a **single concurrent
   Task batch per cycle**, not sequentially across turns. Sequential
   spawning defeats parallelism.
+- The per-cycle three-Task batch must use `run_in_background: true`
+  so the assistant turn does not block on completion. The
+  termination canonization handoff is the **only** Task call in the
+  loop that runs foreground.
 - Canonical-memory writes happen **only** at loop termination via
   the Orchestrator's canonize mode. Mid-loop writes are forbidden.
 - The runtime subagents do not share context. Communication is via
@@ -164,11 +176,12 @@ loop:
   cycle = cycle + 1
   if cycle > N or elapsed > timeout or budget_spent:
     escalate(reason="hard-bound"); break
-  # --- single assistant turn, 3 concurrent Task calls ---
-  parallel_spawn:
+  # --- single assistant turn, 3 concurrent background Task calls ---
+  parallel_spawn(run_in_background=True):
     Generator(.yoke/, last_snapshot)        # writes code + progress.md
     Validator(.yoke/, last_snapshot)        # emits structured verdicts
     Orchestrator(mode="consult+monitor")    # /yoke:ask + escalate on divergence
+  wait_for_completions(batch_size=3)        # deterministic node — no polling
   # --- deterministic nodes ---
   sensor_output = run_sensors()                                     # verify-acceptance.sh
   if contradicts(latest_contract, acceptance_contract):
@@ -179,7 +192,7 @@ loop:
   if all_criteria_pass(acceptance_contract):
     result = MERGE_READY; break
 
-# termination handoff (single Orchestrator call)
+# termination handoff (single foreground Orchestrator call)
 Orchestrator(mode="canonize", trigger=result)  # 5-criteria + Model C → propose-write.sh
 return result
 ```
@@ -193,6 +206,8 @@ return result
 - Allowing a sprint contract to silently relax the Acceptance Contract — must escalate.
 - Aborting on hard bound without surfacing the partial state to the user — discards context valuable for canonization.
 - Spawning the three runtime subagents in three separate assistant turns instead of one concurrent Task batch — defeats parallelism and adds latency.
+- Spawning the per-cycle three-Task batch in foreground (without `run_in_background: true`) — blocks the assistant turn for the full cycle, leaves no room for the cycle's user-visibility node, and contradicts the parallel-spawn intent. The termination canonization handoff is the only Task call in the loop that runs foreground.
+- Polling, sleeping, or otherwise probing for completion state during the wait between the per-cycle batch and the cycle's deterministic tail — the wait is a deterministic node that relies exclusively on Claude Code's automatic completion notifications.
 - Mid-loop canonical-memory writes — bypasses Model C governance windows; auto-canonize at termination is the only allowed write surface.
 
 ## Implementation Mapping
@@ -206,7 +221,10 @@ termination") — concrete artifacts for the loop:
   coordinator; it spawns subagents but is not itself a subagent.
 - **Concurrent subagent batch** — `agents/generator.md`,
   `agents/validator.md`, `agents/orchestrator.md` (consult+monitor
-  mode), launched in a single Task batch per cycle.
+  mode), launched in a single Task batch per cycle with
+  `run_in_background: true`. The skill waits on the batch's three
+  completion notifications (no polling) before any deterministic-tail
+  step runs.
 - **Hard-bound enforcement** — `hooks/check-hard-bounds.sh`.
   Defaults: N = 5–8, timeout 2–4 h, budget configurable.
   Per-project overrides in `.yoke/config.yaml`.
@@ -218,10 +236,11 @@ termination") — concrete artifacts for the loop:
   structured `pass` / `fail` / `skip` per criterion).
 - **Human escalation (Trigger 4)** — `lib/ralph-loop/escalate.sh`
   (emits arbitration packet with full state).
-- **Termination canonization** — final Orchestrator-only Task call
-  from `/yoke:implement` with `mode=canonize`; invokes
+- **Termination canonization** — final Orchestrator-only **foreground**
+  Task call from `/yoke:implement` with `mode=canonize`; invokes
   `lib/canonical-memory/canonization-criteria.sh` then
-  `lib/canonical-memory/propose-write.sh`.
+  `lib/canonical-memory/propose-write.sh`. Foreground because its
+  result is needed inline for the skill's exit summary.
 
 Sprint roll-out: Sprint-4 ships the parallel-spawn loop without
 full hard-bound enforcement; Sprint-5 wires Orchestrator

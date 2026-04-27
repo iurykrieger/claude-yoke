@@ -56,26 +56,43 @@ Every sensor that fails emits:
 Generic output ("tests failed", "build broken") is treated as a sensor bug —
 it provides no signal the agent can act on without re-running and inspecting.
 
-### Parallel execution & acknowledgement (v0.4.0+)
-At runtime, the Validator subagent does **not** call
-`hooks/verify-acceptance.sh` synchronously. Instead it follows the
-parallel-spawn protocol declared in `agents/validator.md`:
+### Parallel execution — coordinator-owned spawn (v0.5.0+)
+Sensor execution is owned by `/yoke:implement` — the deterministic
+skill coordinator — not by the Validator subagent. Splitting it by
+sensor class:
 
-1. **Acknowledge first.** Call
+1. **Acknowledge first.** Both paths call
    `bash lib/sensors/ack-sensors.sh --mode readiness <contract>` to
    verify every declared sensor is reachable. The skill is the
-   single source of truth for sensor discovery — both the runtime
-   path and the synchronous hook delegate to it.
-2. **Spawn in parallel.** For every reachable computational sensor,
-   spawn its command via `Bash(run_in_background=true)`, applying the
-   per-sensor timeout (default **60s** for computational sensors;
-   inferential sensors default to **120s** and use the `Agent` tool —
-   see Part 3).
-3. **Aggregate via `Monitor`.** The Validator listens for completion
-   events and emits structured verdicts incrementally as each sensor
-   finishes. Cycle wall-clock is bounded by `max(timeout_i)`, not
+   single source of truth for sensor discovery.
+2. **Computational sensors — synchronous, deterministic.**
+   `/yoke:implement` runs them via `hooks/verify-acceptance.sh` with
+   `xargs -P "$(yoke_sensor_concurrency)"` (default 4) exactly once
+   per cycle, immediately after the per-cycle background batch
+   completes. Output lands in
+   `$(wm_snapshots_dir)/cycle-<N>.yaml` per the structured schema.
+   Default per-sensor timeout: **60s**.
+3. **Inferential sensors — background agents in the per-cycle batch.**
+   `/yoke:implement` spawns one
+   `Agent(subagent_type: semantic-judge, run_in_background: true)`
+   per applicable inferential sensor on the targeted criterion,
+   inside the same per-cycle Task batch as
+   Generator/Validator/Orchestrator. Cap on parallel judges is
+   `runtime.inferential_sensor_concurrency` in `.yoke/config.yaml`
+   (default 4); surplus sensors are deferred to the next cycle via
+   `$(wm_runtime_dir)/.deferred-sensors.json`. Default per-judge
+   timeout: **120s**. Each judge writes its verdict JSON to
+   `wm_judge_verdict_path "$slug" "$cycle" "$criterion-id"`
+   (`.yoke/runtime/.judge-verdicts/cycle-<N>/<criterion-id>.json`).
+   The Validator never spawns judges itself; its tool list excludes
+   `Agent` and `Task`.
+4. **Aggregate via working memory (Model A — lag-by-one).** The
+   Validator in cycle `<N+1>` reads inferential-sensor verdicts from
+   `wm_judge_verdict_dir "$slug" "$cycle"` and merges them with
+   cycle-`<N>`'s computational verdicts. Cycle wall-clock is bounded
+   by `max(judge_timeout, post_iteration_tail)`, not
    `sum(duration_i)`.
-4. **Any-fail-wins aggregation.** When multiple sensors map to the
+5. **Any-fail-wins aggregation.** When multiple sensors map to the
    same Acceptance Contract criterion, the combined verdict is
    `fail` if any sensor reports `fail`. Per-sensor evidence is
    preserved inside the combined verdict.
@@ -87,9 +104,18 @@ difference.
 
 **Cycle-budget caveat.** When per-sensor timeout overrides push
 `max(timeout_i)` beyond the ralph-loop cycle budget, the loop will
-hit a hard bound before the Validator finishes. Document each long
+hit a hard bound before the cycle finishes. Document each long
 override in the Acceptance Contract and verify the resulting cycle
 budget against `hooks/check-hard-bounds.sh`.
+
+**Inferential-sensor failure policy.** When a judge agent reports a
+non-zero exit, `/yoke:implement` logs the failure to
+`$(wm_runtime_dir)/.judge-verdicts/cycle-<N>/.failures.log`, treats
+the criterion's verdict as `skip` for the cycle, and surfaces it in
+the cycle status block. When the same sensor fails on two
+consecutive cycles, the skill invokes
+`lib/ralph-loop/escalate.sh --reason sensor-failure --sensor <id>`
+and pauses the loop.
 
 ### Calibration drift management
 Inferential sensors degrade as the underlying model changes. They carry:
