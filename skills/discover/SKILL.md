@@ -4,7 +4,7 @@ description: >
   Phase 1 — Discovery. Runs an interactive dialogue (1–5 rounds) to turn
   an idea into an approved PRD with product invariants, business context,
   known constraints, risks, and open questions. Saves to
-  `.yoke/prds/<YYYY-MM-DD>-<slug>.md` and sets `.yoke/.current` to the
+  `.yoke/prds/<YYYY-MM-DD>-<slug>.md` and sets `.yoke/runtime/.current` to the
   slug. Pauses for explicit human approval (Trigger 1) before completing.
 argument-hint: "<idea>"
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash
@@ -143,7 +143,7 @@ After slug confirmation, in this order:
 - Technical Context (`.yoke/`-grounded if available)
 - Open Questions (TODOs to resolve before `/yoke:tech-spec`)
 
-4. `wm_set_active "<slug>"` — write the slug to `.yoke/.current` (no
+4. `wm_set_active "<slug>"` — write the slug to `.yoke/runtime/.current` (no
    trailing newline).
 
 ### 6. Canonical memory consultation
@@ -191,7 +191,7 @@ the skill records approval and stops (collapses to `approve`).
 ### 8. Re-invocation semantics
 
 Every `/yoke:discover` invocation starts a *new* task. There is no
-"continue active task" branch. If `.yoke/.current` exists when the
+"continue active task" branch. If `.yoke/runtime/.current` exists when the
 skill starts, it will be overwritten with the new slug after step 5;
 the previous task's archive files (in `prds/`, `specs/`, `tasks/`, etc.)
 remain on disk untouched. Different git worktrees get independent
@@ -202,7 +202,7 @@ remain on disk untouched. Different git worktrees get independent
 On `approve` or `approve_and_continue`:
 - The versioned PRD (`wm_prd_path "$slug"`) carries `Status: approved`,
   `Approved by`, `Approved at` in its frontmatter.
-- `.yoke/.current` contains exactly `<slug>`.
+- `.yoke/runtime/.current` contains exactly `<slug>`.
 - `.yoke/runtime/` exists and is empty.
 - No flat working-memory files at the legacy paths exist.
 - On `approve_and_continue` (after the open-questions warning, when
@@ -229,7 +229,7 @@ cleanly.
 ## Output contract
 
 - Exit 0 with the versioned PRD populated and approved, and
-  `.yoke/.current` containing exactly the slug.
+  `.yoke/runtime/.current` containing exactly the slug.
 - Exit non-zero on missing `.yoke/config.yaml`, user abort, slug-collision
   exhaustion without user choice, or unrecoverable dialogue stall after
   5 rounds.

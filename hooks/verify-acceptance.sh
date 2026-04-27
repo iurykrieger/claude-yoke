@@ -35,7 +35,7 @@
 #
 # Default contract path: resolved via lib/working-memory/paths.sh::wm_acceptance_contract_path
 #                        (i.e., .yoke/acceptance-contracts/<slug>.md, where <slug>
-#                        comes from .yoke/.current).
+#                        comes from .yoke/runtime/.current).
 #
 # Sensor source-of-truth (sensor-cost-tiering Part 1+):
 #

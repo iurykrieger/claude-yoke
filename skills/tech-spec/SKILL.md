@@ -81,7 +81,7 @@ prose.
 
 - Source `lib/working-memory/paths.sh`. All paths below resolve through `wm_*` helpers.
 - Verify `.yoke/config.yaml` exists. If not, abort: "Run `/yoke:bootstrap` first."
-- Resolve the active task: `slug="$(wm_active_slug)"`. If `.yoke/.current` is missing, the helper aborts with "no active task" — surface that and instruct the user to run `/yoke:discover`.
+- Resolve the active task: `slug="$(wm_active_slug)"`. If `.yoke/runtime/.current` is missing, the helper aborts with "no active task" — surface that and instruct the user to run `/yoke:discover`.
 - Verify `wm_prd_path "$slug"` exists AND is approved (header carries
   `Status: approved`). If missing or unapproved, abort: "PRD missing
   or unapproved at <path>. Run `/yoke:discover` first."
@@ -322,7 +322,7 @@ skill exits cleanly.
 ## Pre-conditions
 
 - `.yoke/config.yaml` exists.
-- `.yoke/.current` exists and points at a valid slug.
+- `.yoke/runtime/.current` exists and points at a valid slug.
 - `.yoke/prds/<slug>.md` exists and is approved.
 
 ## Output contract

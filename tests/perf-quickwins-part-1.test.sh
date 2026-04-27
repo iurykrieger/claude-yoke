@@ -143,7 +143,7 @@ cd "$yoke_root"
 mkdir -p .yoke/runtime .yoke/acceptance-contracts
 echo "config_version: 1" > .yoke/config.yaml
 slug="2026-04-25-counter-fixture"
-echo -n "$slug" > .yoke/.current
+echo -n "$slug" > .yoke/runtime/.current
 
 counter_file="$tmpdir/exec-counter"
 echo 0 > "$counter_file"

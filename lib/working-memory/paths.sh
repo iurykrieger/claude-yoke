@@ -8,7 +8,6 @@
 #   .yoke/
 #   ├── config.yaml                                # versioned
 #   ├── .gitignore                                 # versioned
-#   ├── .current                                   # gitignored, per-worktree
 #   ├── prds/<slug>.md                             # versioned archive
 #   ├── specs/<slug>.md                            # versioned archive  (tech-spec-task-split sprint index)
 #   ├── tasks/<slug>-s<NN>-t<MM>.md                # versioned archive  (tech-spec-task-split per-task body)
@@ -16,6 +15,7 @@
 #   ├── contracts/<slug>.md                        # versioned archive
 #   ├── sensors/<sensor-id>.md                     # versioned archive  (project-scoped; not slug-keyed)
 #   └── runtime/                                   # gitignored
+#       ├── .current                               # per-worktree active-task pointer
 #       ├── progress.md
 #       ├── .cycle-counter
 #       ├── .trigger4-packet.yaml
@@ -47,8 +47,8 @@ fi
 readonly _WM_PATHS_LOADED=1
 
 readonly WM_ROOT=".yoke"
-readonly WM_CURRENT_FILE="${WM_ROOT}/.current"
 readonly WM_RUNTIME_DIR="${WM_ROOT}/runtime"
+readonly WM_CURRENT_FILE="${WM_RUNTIME_DIR}/.current"
 readonly WM_SENSORS_DIR="${WM_ROOT}/sensors"
 readonly WM_SLUG_REGEX='^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9][a-z0-9-]{0,49}$'
 readonly WM_TASK_NUM_REGEX='^[1-9][0-9]{0,2}$'
@@ -81,7 +81,7 @@ wm_active_slug() {
 wm_set_active() {
     local slug="${1:-}"
     wm_validate_slug "$slug" || return 1
-    mkdir -p "$WM_ROOT"
+    mkdir -p "$WM_RUNTIME_DIR"
     printf '%s' "$slug" > "$WM_CURRENT_FILE"
 }
 
