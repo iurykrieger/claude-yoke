@@ -1,27 +1,39 @@
 ---
 name: ack-sensors
 description: >
-  Acknowledges every sensor available for the host project (catalog mode)
-  or verifies that every sensor declared in an Acceptance Contract is
-  reachable on the local machine (readiness mode). Deterministic node —
-  no agentic spawning. Output is structured YAML on stdout; diagnostics
-  go to stderr. Sorted output is byte-identical across consecutive
-  invocations on the same project.
-argument-hint: "[--mode catalog | readiness] [<acceptance-contract-path>]"
+  Acknowledges every sensor available for the host project (catalog mode),
+  verifies that every sensor referenced by an Acceptance Contract has a
+  well-formed `.yoke/sensors/<id>.md` file (readiness mode), or creates /
+  updates those sensor files from the contract's `## Sensors registry`
+  block (upsert mode). Deterministic node — no agentic spawning. Output
+  is structured YAML on stdout; diagnostics go to stderr. Sorted output
+  is byte-identical across consecutive invocations on the same project.
+argument-hint: "[--mode catalog | readiness | upsert] [<acceptance-contract-path>]"
 allowed-tools: Bash, Read
 ---
 
-# /yoke:ack-sensors — sensor catalog + readiness check
+# /yoke:ack-sensors — sensor catalog + readiness + upsert
 
-Single source of truth for sensor discovery (catalog) and pre-runtime
-reachability (readiness). Used by humans during Trigger 3 and by the
-Validator subagent at the start of every Phase-4 cycle.
+Single source of truth for sensor discovery (catalog), pre-runtime
+sensor-file readiness (readiness), and per-sensor file
+materialization from the contract (upsert). Used by humans during
+Trigger 3, by the Validator subagent at the start of every Phase-4
+cycle, and by the human between cycles when a contract gains a new
+sensor reference.
+
+Per-sensor files live in `.yoke/sensors/<id>.md` (working memory,
+project-scoped, **not** slug-keyed). They are the source of truth for
+the sensor's command, class, tier (with class-based default), criterion
+mapping, accumulated caveats, and run history. The Acceptance Contract
+references sensors **by id only**.
+
+Source PRD: `.yoke/prds/2026-04-27-sensor-cost-tiering.md`.
 
 ## How to run this skill
 
 This skill is a thin wrapper: it forwards every argument to the
 deterministic helper `lib/sensors/ack-sensors.sh`, which contains all
-the parsing, sorting, and reachability logic.
+the parsing, sorting, materialization, and validation logic.
 
 Run the helper from the plugin root, forwarding `$@`:
 
@@ -43,7 +55,8 @@ The helper supports one optional `--mode` flag. Default is `catalog`.
 | Flag | What it does | When to call it |
 | :--- | :--- | :--- |
 | `--mode catalog` *(default)* | Enumerate every sensor that *could* run for the host project | Before drafting an Acceptance Contract; on demand from a human |
-| `--mode readiness <contract>` | Verify every sensor declared under `## Sensors > ### Computational` in the given Acceptance Contract is reachable | Before Phase 4; first thing the Validator does each cycle |
+| `--mode readiness <contract>` | Verify every sensor referenced by the contract has a well-formed `.yoke/sensors/<id>.md` file | Before Phase 4; first thing the Validator does each cycle |
+| `--mode upsert <contract>` | Create or update `.yoke/sensors/<id>.md` files from the contract's `## Sensors registry` block; field-level merge preserves author edits | After editing the contract; before the next `/yoke:implement` |
 
 ### Catalog output schema
 
@@ -67,59 +80,126 @@ CLAUDE.md, no parseable bullets, etc.).
 ```yaml
 status: ready | not-ready
 sensors:
-  - sensor: "<name from contract>"
-    command: "<command from contract>"
-    binary: "<leading token>"
-    reachable: true | false
+  - id: "<sensor-id>"
+    path: ".yoke/sensors/<id>.md"
+    exists: true | false
+    parses: true | false
 failures:
-  - sensor: "<name>"
-    command: "<command>"
-    expected: "on-PATH"
-    actual: "missing"
-    reason: "binary not found: <leading token>"
+  - sensor: "<id>"
+    expected: "<what should be there>"
+    actual: "<what is there>"
+    reason: "<short failure description>"
+    correction: "<suggested next command>"
 ```
 
 `failures:` is empty when `status: ready`. Every failure carries
-`sensor`, `command`, `expected`, `actual`, `reason` — the
+`sensor`, `expected`, `actual`, `reason`, `correction` — the
 structured-output rule from `patterns/sensors.md`.
+
+Readiness checks **file existence + frontmatter shape**: the per-sensor
+file must exist at `.yoke/sensors/<id>.md` and contain the required
+frontmatter keys (`id`, `command`, `class`, `applies_to`, `runs`).
+The standard correction when a check fails is to run
+`/yoke:ack-sensors --mode upsert <contract>` to materialize / refresh
+the missing file.
+
+### Upsert mode
+
+Reads the contract's `## Sensors registry` YAML block and the
+`Sensors: [...]` references in BDD scenarios, then for each registered
+sensor id:
+
+- **Create path** (file absent at `.yoke/sensors/<id>.md`): renders
+  the per-sensor file from `templates/sensor.md`, populating `id`,
+  `command`, `class`, `applies_to` (the union of task ids referencing
+  this sensor in the contract's scenarios), and `tier` (class-based
+  default — `computational` → `cheap`, `inferential` → `expensive`).
+  Body sections (`## Caveats`, `## Calibration notes`) are seeded
+  empty for the author to fill in.
+- **Update path** (file present): **field-level merge**. Only
+  `applies_to` is refreshed from the contract. Author edits to
+  `command`, `class`, explicit `tier:` overrides, the body (caveats,
+  calibration notes), and `runs:` history are preserved verbatim.
+  Atomic write via temp file + `mv`.
+- **Idempotent**: when the desired `applies_to` matches the on-disk
+  value, no file is rewritten — `mtime` stays put. Running upsert
+  twice on a stable contract is a no-op.
+
+Validation (fail-fast, structured violations on stderr):
+
+- Every `Sensors: [<id>]` reference in a scenario must appear in the
+  `## Sensors registry`. Unregistered references → exit 4.
+- Every registry entry must have non-empty `command` and `class`. The
+  `class` must be `computational` or `inferential`. Malformed entries
+  → exit 4.
+- Sensor `id` must satisfy `[a-z0-9][a-z0-9_.-]{0,63}` (path-traversal
+  guard); enforced by `wm_sensor_path` in `lib/working-memory/paths.sh`.
+
+#### Upsert output schema
+
+```yaml
+status: ok | error
+upserted:
+  - id: "<sensor-id>"
+    path: ".yoke/sensors/<id>.md"
+    action: created | updated | unchanged
+failures: []
+```
+
+The `failures:` block is non-empty (and emitted on stderr) only when
+the contract's registry / references fail validation; in that case
+`status: error` and exit code is `4`.
 
 ### Exit codes
 
 | Code | Meaning |
 | :---: | :--- |
-| `0` | Catalog or readiness ran successfully (regardless of whether sensors were found / reachable in catalog mode) |
-| `2` | Usage error (bad flag, missing required argument in readiness mode) |
-| `3` | Acceptance Contract file not found (readiness mode only) |
-| `4` | At least one declared sensor's binary is missing (readiness mode only) |
+| `0` | Operation succeeded (catalog, readiness ready, upsert ok) |
+| `2` | Usage error (bad flag, missing required argument) |
+| `3` | Acceptance Contract file not found (readiness / upsert only) |
+| `4` | Readiness: at least one sensor file is missing or malformed. Upsert: registry / reference validation failed. |
 
 Codes match the family used by `lib/sensors/discover-from-claude-md.sh`
 and `hooks/verify-acceptance.sh`.
 
 ## Pattern compliance
 
-- **`patterns/sensors.md`** — every readiness failure includes
-  `sensor`, `command`, `expected`, `actual`, `reason`. No prose-only
-  failures. Catalog output preserves the structured `category /
-  command / source` shape.
+- **`patterns/sensors.md`** — every readiness / upsert failure
+  includes `sensor`, `expected`, `actual`, `reason`, `correction`.
+  No prose-only failures. Catalog output preserves the structured
+  `category / command / source` shape. Per-sensor files are now the
+  source of truth for command + class + tier; the contract carries
+  only ids + a registry block.
 - **`patterns/plugin-structure.md`** — skill lives at
   `skills/ack-sensors/SKILL.md`; logic delegates to
   `lib/sensors/ack-sensors.sh`, which calls the existing
-  `lib/sensors/discover-from-claude-md.sh`.
+  `lib/sensors/discover-from-claude-md.sh` (catalog) and writes to
+  the project's `.yoke/sensors/` (upsert).
 - **Conventions: "Blueprints wrapping agentic nodes"** — this skill
   is purely deterministic. `allowed-tools: Bash, Read` only — no
-  `Task`, no `Agent`.
+  `Task`, no `Agent`. Upsert is idempotent, atomic, and
+  non-destructive (never deletes a sensor file even when the
+  contract drops a reference — orphan handling is drift-sense's
+  job).
 
 ## Anti-scope reminders
 
 - This skill **does not** parse `package.json`, `Makefile`, or
-  `pyproject.toml`. Those discoverers ship in Part 4.
+  `pyproject.toml` for catalog mode beyond what
+  `discover-from-*.sh` already does.
 - This skill **does not** spawn sensors. The Validator orchestrates
-  spawning (Part 2).
+  spawning.
 - This skill **does not** read or write canonical memory.
+- Upsert **does not** delete sensor files when the contract drops
+  a reference — leftovers are drift-sense's responsibility.
+- Upsert **does not** prompt interactively; missing registry
+  metadata fails fast with a structured violation telling the user
+  exactly which field to fill.
 
 ## Lineage
 
 The CLAUDE.md parser (`lib/sensors/discover-from-claude-md.sh`)
 predates this skill (introduced in Sprint 3). This skill exposes it
-under a single user-facing surface and adds the readiness-mode
-reachability check.
+under a single user-facing surface, adds the readiness-mode
+file-existence check, and adds the upsert mode that materializes
+per-sensor files from the contract registry.

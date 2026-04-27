@@ -33,12 +33,22 @@ termination.
 
 ### 1. Pre-flight (deterministic)
 
-- Source `lib/working-memory/paths.sh`. All paths below resolve through
-  `wm_*_path` helpers; the active task slug comes from `.yoke/.current`
+- Source `lib/working-memory/paths.sh` and
+  `lib/working-memory/cleanup.sh`. All paths below resolve through
+  `wm_*_path` helpers; the active task slug comes from `.yoke/runtime/.current`
   via `wm_active_slug`.
+- **Working-memory hygiene (deterministic, silent on success).** Call
+  `wm_gitignore_self_heal` to write/repair `.yoke/.gitignore` if
+  missing or incomplete (canonical content: `.current` + `runtime/`).
+  Then call `wm_check_runtime_tracked` to detect host projects that
+  bootstrapped before the gitignore landed and still track
+  `.yoke/runtime/`; on detection it prints a one-line remediation hint
+  pointing at `git rm -r --cached .yoke/runtime/` and never modifies
+  git state. Both are read-only against the loop's working memory and
+  must run *before* the orchestrate.sh preflight call below.
 - Run `lib/ralph-loop/orchestrate.sh preflight`. The script verifies:
   - `.yoke/config.yaml` exists.
-  - `.yoke/.current` exists and points at a valid slug.
+  - `.yoke/runtime/.current` exists and points at a valid slug.
   - `wm_prd_path "$slug"`, `wm_spec_path "$slug"`, and
     `wm_acceptance_contract_path "$slug"` all exist and carry
     `Status: approved` (PRD/Spec) or `Status: ratified` (Contract).
@@ -199,25 +209,64 @@ For each cycle (numbered starting at 1):
    hard-bound check, stop check) against partial state — every step
    below in this cycle assumes all `3 + N` Task calls have returned.
 
-2. **Sensor execution (deterministic, exactly once per cycle).** Run
-   `hooks/verify-acceptance.sh` to capture cycle N's post-Generator
-   sensor state. Pass `--criterion <id>` where `<id>` is the
-   Generator's last targeted criterion (read from the most recent
-   `citing_criterion:` entry in `wm_progress_path`); pass
+2. **Sensor execution — Phase A (cheap, deterministic).** Run
+   `hooks/verify-acceptance.sh --tier cheap` to capture cycle N's
+   post-Generator sensor state for the **cheap tier**. Pass
+   `--criterion <id>` where `<id>` is the Generator's last targeted
+   criterion (read from the most recent `citing_criterion:` entry in
+   `wm_progress_path`); pass
    `--fragments-dir "$(wm_runtime_dir)/.pending-fragments"`; redirect
    stdout to `$(wm_runtime_dir)/.pending-snapshot.yaml`. Sensors run
    in parallel via `xargs -P "$(yoke_sensor_concurrency)"` (default 4,
    configurable via `runtime.sensor_concurrency` in
    `.yoke/config.yaml`). When no `citing_criterion` is recorded
-   (cycle 0 / fallback) omit `--criterion` and run the full suite.
-   This is the sole sensor execution per cycle — `hooks/post-iteration.sh`
-   promotes the scratch artifacts to `cycle-<N>.yaml` /
-   `cycle-<N>.fragments/` and never re-runs sensors when the scratch
-   is present. The Validator (`agents/validator.md`) reads the
-   resulting snapshot — it never invokes `verify-acceptance.sh`
-   itself.
+   (cycle 0 / fallback) omit `--criterion` and run the full cheap
+   tier. The Validator (`agents/validator.md`) reads the resulting
+   snapshot — it never invokes `verify-acceptance.sh` itself.
 
-3. **Contradiction check (deterministic).** Run
+3. **Sensor execution — Phase B (expensive, gated, deterministic).**
+   Decide whether to run the expensive tier this cycle by reading
+   cycle `<N-1>`'s `schedule_next` from `wm_progress_path` (Validator-
+   owned scheduling, sensor-cost-tiering Part 4 — see
+   `agents/validator.md`'s "schedule_next emission" contract).
+   - **Cycle 1**: skip Phase B. No prior `schedule_next` exists; the
+     coordinator runs cheap-only by design. Phase B becomes possible
+     from cycle 2 onward via the Validator's authorization.
+   - **Cycle ≥ 2**: parse the `schedule_next:` block from the most
+     recent `## Cycle <N-1>` entry in `wm_progress_path`. If
+     `tiers:` includes `expensive`, OR `sensors:` lists explicit
+     ids whose `applies_to` covers the current criterion, run
+     `hooks/verify-acceptance.sh --tier expensive --criterion <id>
+     --fragments-dir "$(wm_runtime_dir)/.pending-fragments"` and
+     **append** its results to the same
+     `$(wm_runtime_dir)/.pending-snapshot.yaml` (the snapshot is the
+     union of Phase A + Phase B). Otherwise, skip Phase B.
+   This dual phase is the **two-phase per-cycle execution** of
+   sensor-cost-tiering — cheap sensors fire every cycle (shift-left
+   on actionable feedback), expensive sensors fire only when
+   pre-convergence failure would yield actionable signal. Source PRD:
+   `.yoke/prds/2026-04-27-sensor-cost-tiering.md`. Both phases respect the
+   `runtime.inferential_sensor_concurrency` cap and the deferred-
+   sensors queue when tier filtering authorizes inferential judges.
+
+4. **Run-history append (deterministic).** After Phase A (always)
+   and Phase B (when authorized), invoke
+   `bash lib/sensors/append-runs.sh "$(wm_runtime_dir)/.pending-snapshot.yaml" <N> <criterion>`
+   to append one entry to each executed sensor's
+   `.yoke/sensors/<id>.md` `runs:` history. The helper applies a
+   retention cap of N=20 (oldest entries roll off on overflow) and
+   writes atomically. Sensors that did not run this cycle (Phase B
+   was skipped, or the sensor was filtered out by `--criterion`)
+   are not touched. Sensors with no per-sensor file (not registered
+   under `## Sensors registry`) are skipped silently — readiness
+   mode is the right place to surface that. The persisted history
+   is the durable record the Validator reads next cycle when
+   emitting `schedule_next`. `hooks/post-iteration.sh` then promotes
+   the scratch snapshot to `$(wm_snapshots_dir)/cycle-<N>.yaml` —
+   the snapshot file is the union of Phase A + Phase B and is never
+   re-run when the scratch is already present.
+
+5. **Contradiction check (deterministic).** Run
    `lib/ralph-loop/orchestrate.sh check-contradiction`. If a sprint
    contract textually contradicts an Acceptance Contract criterion
    (heuristic: contains a relax/remove/skip/disable/bypass/ignore
@@ -225,39 +274,44 @@ For each cycle (numbered starting at 1):
    and the loop pauses with a clear message: "Sprint contract
    contradicts Acceptance Contract. Pausing for human arbitration."
 
-4. **Persist (deterministic).** Run `hooks/post-iteration.sh`. The
+6. **Persist (deterministic).** Run `hooks/post-iteration.sh`. The
    hook:
    - Increments the cycle counter at `wm_cycle_counter_path`
      (`.yoke/runtime/.cycle-counter`).
    - Snapshots `verify-acceptance.sh` output to
      `$(wm_snapshots_dir)/cycle-<N>.yaml`.
 
-5. **Hard-bound check (deterministic).** Run
+7. **Hard-bound check (deterministic).** Run
    `hooks/check-hard-bounds.sh`. If cycles, timeout, or token
    budget is exceeded, the hook invokes
    `lib/ralph-loop/escalate.sh --reason hard-bound` and exits 10.
    The skill treats this as a pause-with-arbitration-packet.
 
-6. **Stop check (full-suite serial sweep).** Before declaring
-   MERGE-READY, run `hooks/verify-acceptance.sh --concurrency 1` (no
-   `--criterion`) one final time, redirecting stdout to a scratch
-   path under `$(wm_runtime_dir)/.merge-ready-snapshot.yaml`. Scoped
-   / parallel mode never decides convergence; the serial full-suite
-   sweep is the authoritative check. If every criterion in the
+8. **Stop check (full-suite serial sweep, all tiers).** Before
+   declaring MERGE-READY, run `hooks/verify-acceptance.sh
+   --concurrency 1 --tier all` (no `--criterion`) one final time,
+   redirecting stdout to a scratch path under
+   `$(wm_runtime_dir)/.merge-ready-snapshot.yaml`. The merge-ready
+   sweep ignores `schedule_next` entirely — every sensor (cheap
+   AND expensive) MUST pass before convergence, regardless of what
+   the Validator authorized in the last per-cycle decision. Scoped /
+   parallel / tier-filtered modes never decide convergence; the
+   serial full-suite sweep across all tiers is the authoritative
+   check (sensor-cost-tiering Part 5). If every criterion in the
    Acceptance Contract has `status: pass` in this snapshot AND no
    `divergence` verdict from the Validator, return MERGE-READY and
-   advance to the canonization handoff (step 3). Otherwise, continue
-   to step 7.
+   advance to the canonization handoff (§3). Otherwise, continue
+   to step 9.
 
-7. **Cycle status snapshot (deterministic, exactly once per cycle).**
+9. **Cycle status snapshot (deterministic, exactly once per cycle).**
    Run `bash lib/ralph-loop/status-snapshot.sh "$(wm_runtime_dir)"`
    and emit its stdout to the user verbatim. Fires once per cycle,
    only when the loop continues to the next cycle — i.e. **after**
-   step 4 (`post-iteration.sh`) and step 5 (`check-hard-bounds.sh`)
-   have completed and step 6 chose to continue. Do **not** emit on
+   step 6 (`post-iteration.sh`) and step 7 (`check-hard-bounds.sh`)
+   have completed and step 8 chose to continue. Do **not** emit on
    MERGE-READY (the canonize handoff prints the exit summary) or on
    escalation paths (`escalate.sh` already surfaces full state via
-   the Trigger-4 packet). Do **not** emit between step 1 and step 6
+   the Trigger-4 packet). Do **not** emit between step 1 and step 8
    — the per-notification / mid-cycle window must remain silent.
    On non-zero helper exit, log a single line `(status snapshot
    unavailable: <stderr summary>)` and continue — the snapshot is a
@@ -304,11 +358,25 @@ PRs opened (count + URLs).
 
 ### 4. Termination paths
 
+After the canonize handoff in §3 returns, call
+`wm_runtime_cleanup "$termination_reason" "$canonize_exit_code"`
+(from `lib/working-memory/cleanup.sh`) **before** printing the exit
+summary. The helper is gated on `(reason == merge-ready &&
+canonize_exit == 0)` and is a no-op otherwise — so paused
+terminations (divergence, contract-conflict, hard-bound,
+infeasibility) and canonize failures preserve `.yoke/runtime/`
+intact for the user to arbitrate, resume, or manually re-canonize.
+
 - **All criteria pass** → loop returns MERGE-READY; canonize handoff
   fires (Orchestrator invokes `/yoke:preserve` via the Skill tool).
-  Print: "Merge-ready. Canonization summary: <count> PRs opened."
+  On canonize success, `wm_runtime_cleanup` deletes the contents of
+  `wm_runtime_dir` (the directory itself stays). Print:
+  "Merge-ready. Canonization summary: <count> PRs opened."
   `/yoke:preserve` can also be invoked manually for re-canonization
-  (e.g. after a model upgrade or to re-evaluate stale working memory).
+  against canonical memory (e.g. after a model upgrade) — note that
+  runtime working memory has been cleared by the cleanup step, so
+  manual re-canonization re-evaluates canonical entries directly,
+  not stale runtime state.
 - **Sprint contract contradicts Acceptance Contract** → invoke
   `lib/ralph-loop/escalate.sh --reason contract-conflict`; emits
   Trigger-4 packet; canonize handoff still fires (with termination
@@ -328,7 +396,7 @@ see `concepts/yoke-pattern-human-triggers`.
 ## Pre-conditions
 
 - `.yoke/config.yaml` exists.
-- `.yoke/.current` exists and points at a valid slug.
+- `.yoke/runtime/.current` exists and points at a valid slug.
 - `.yoke/prds/<slug>.md` (approved), `.yoke/specs/<slug>.md`
   (approved), every `.yoke/tasks/<slug>-s*-t*.md`
   (`status: approved`), `.yoke/acceptance-contracts/<slug>.md`
@@ -367,6 +435,12 @@ see `concepts/yoke-pattern-human-triggers`.
 - Do NOT skip `hooks/verify-acceptance.sh` between cycles — sensor
   output is the structured channel through which the Validator
   judges the next cycle.
+- Do NOT call `wm_runtime_cleanup` on non-MERGE-READY exits — paused
+  loops (Trigger-4 divergence, contract-conflict, hard-bound,
+  infeasibility) require cycle history for resumption. The helper is
+  internally gated on `(reason == merge-ready && canonize_exit == 0)`;
+  bypassing the gate destroys the user's ability to resume after
+  arbitration.
 - Do NOT silently relax the Acceptance Contract. Sprint contracts
   that contradict the Contract pause the loop.
 - Do NOT proceed past 5–8 cycles without an external `timeout`
@@ -380,7 +454,7 @@ see `concepts/yoke-pattern-human-triggers`.
   written to `.yoke/runtime/.judge-verdicts/cycle-<N-1>/` by judges
   spawned in the previous cycle's batch.
 - Do NOT emit user-visible status mid-cycle — between step 1
-  (per-cycle batch dispatch) and step 7 (cycle status snapshot) the
+  (per-cycle batch dispatch) and step 9 (cycle status snapshot) the
   skill must stay silent. The status block is a single, fixed-format
   emission per cycle; per-notification or per-step output dilutes
   back-pressure (`conventions.md`: "success is silent, failures are

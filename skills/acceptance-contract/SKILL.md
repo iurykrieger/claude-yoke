@@ -6,7 +6,7 @@ description: >
   functional requirements, applicable policies, and the sensors that
   will run during Phase 4. Saves to
   `.yoke/acceptance-contracts/<slug>.md`, where <slug> comes from
-  `.yoke/.current`. Pauses for Trigger-3 ratification with the binding
+  `.yoke/runtime/.current`. Pauses for Trigger-3 ratification with the binding
   statement printed verbatim.
 argument-hint: ""
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash
@@ -51,7 +51,7 @@ the Generator captures intent, you express measurable rigor:
 - Source `lib/working-memory/paths.sh`. All paths below resolve through `wm_*_path`.
 - Verify `.yoke/config.yaml` exists. If not, abort: "Run
   `/yoke:bootstrap` first."
-- Resolve the active task: `slug="$(wm_active_slug)"`. If `.yoke/.current` is missing, surface the helper's "no active task" error and instruct the user to run `/yoke:discover`.
+- Resolve the active task: `slug="$(wm_active_slug)"`. If `.yoke/runtime/.current` is missing, surface the helper's "no active task" error and instruct the user to run `/yoke:discover`.
 - Verify `wm_prd_path "$slug"` exists AND is approved. Abort otherwise:
   "PRD missing or unapproved at <path>. Run `/yoke:discover` first."
 - Verify `wm_spec_path "$slug"` exists AND is approved. Abort
@@ -211,7 +211,7 @@ rejected (no `Status: ratified` is written) and the skill exits cleanly.
 ## Pre-conditions
 
 - `.yoke/config.yaml` exists.
-- `.yoke/.current` exists and points at a valid slug.
+- `.yoke/runtime/.current` exists and points at a valid slug.
 - `.yoke/prds/<slug>.md` exists and is approved.
 - `.yoke/specs/<slug>.md` exists and is approved.
 - `.yoke/tasks/<slug>-s*-t*.md` is non-empty AND every task file

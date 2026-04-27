@@ -49,7 +49,7 @@ Source `lib/working-memory/paths.sh`.
 ### 1.1 Active task
 
 1. Read the active slug via `wm_active_slug`.
-2. If `.yoke/.current` is missing, print `no active task` and skip
+2. If `.yoke/runtime/.current` is missing, print `no active task` and skip
    to Section 2 (this is not an error — the host may simply not have
    a task in flight).
 
@@ -203,7 +203,7 @@ to keep `--all` output readable.
 - Auto-fixing detected issues — that's `/yoke:compress`'s job.
 - Writing the report to a file inside the memory — output to stdout
   only.
-- Failing on missing `.yoke/.current` — degrade to "no active task"
+- Failing on missing `.yoke/runtime/.current` — degrade to "no active task"
   and continue.
 - Claiming a section as `OK` without actually running its checks.
 

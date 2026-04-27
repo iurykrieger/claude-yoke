@@ -8,13 +8,14 @@
 #   .yoke/
 #   ├── config.yaml                                # versioned
 #   ├── .gitignore                                 # versioned
-#   ├── .current                                   # gitignored, per-worktree
 #   ├── prds/<slug>.md                             # versioned archive
 #   ├── specs/<slug>.md                            # versioned archive  (tech-spec-task-split sprint index)
 #   ├── tasks/<slug>-s<NN>-t<MM>.md                # versioned archive  (tech-spec-task-split per-task body)
 #   ├── acceptance-contracts/<slug>.md             # versioned archive
 #   ├── contracts/<slug>.md                        # versioned archive
+#   ├── sensors/<sensor-id>.md                     # versioned archive  (project-scoped; not slug-keyed)
 #   └── runtime/                                   # gitignored
+#       ├── .current                               # per-worktree active-task pointer
 #       ├── progress.md
 #       ├── .cycle-counter
 #       ├── .trigger4-packet.yaml
@@ -46,8 +47,9 @@ fi
 readonly _WM_PATHS_LOADED=1
 
 readonly WM_ROOT=".yoke"
-readonly WM_CURRENT_FILE="${WM_ROOT}/.current"
 readonly WM_RUNTIME_DIR="${WM_ROOT}/runtime"
+readonly WM_CURRENT_FILE="${WM_RUNTIME_DIR}/.current"
+readonly WM_SENSORS_DIR="${WM_ROOT}/sensors"
 readonly WM_SLUG_REGEX='^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9][a-z0-9-]{0,49}$'
 readonly WM_TASK_NUM_REGEX='^[1-9][0-9]{0,2}$'
 readonly WM_ARCHIVE_CATEGORIES=(prds specs tasks acceptance-contracts contracts)
@@ -79,7 +81,7 @@ wm_active_slug() {
 wm_set_active() {
     local slug="${1:-}"
     wm_validate_slug "$slug" || return 1
-    mkdir -p "$WM_ROOT"
+    mkdir -p "$WM_RUNTIME_DIR"
     printf '%s' "$slug" > "$WM_CURRENT_FILE"
 }
 
@@ -179,6 +181,37 @@ wm_progress_path()         { printf '%s/progress.md' "$WM_RUNTIME_DIR"; }
 wm_cycle_counter_path()    { printf '%s/.cycle-counter' "$WM_RUNTIME_DIR"; }
 wm_snapshots_dir()         { printf '%s/.snapshots' "$WM_RUNTIME_DIR"; }
 wm_trigger4_packet_path()  { printf '%s/.trigger4-packet.yaml' "$WM_RUNTIME_DIR"; }
+
+# --- sensor paths -----------------------------------------------------------
+#
+# Sensors are first-class persistent artifacts in working memory, scoped to
+# the host project (not per-task). Each sensor lives in
+# .yoke/sensors/<sensor-id>.md with frontmatter + caveats body + runs history.
+#
+# Created/refreshed by `/yoke:ack-sensors --mode upsert`; read by
+# `hooks/verify-acceptance.sh` and `agents/validator.md`; appended to by
+# `skills/implement/SKILL.md` after each cycle.
+#
+# Source PRD: .yoke/prds/2026-04-27-sensor-cost-tiering.md
+wm_sensors_dir() { printf '%s' "$WM_SENSORS_DIR"; }
+
+# wm_sensor_path "<sensor-id>"
+#   echoes .yoke/sensors/<sensor-id>.md for the given sensor id.
+#   Sensor ids must match [a-z0-9][a-z0-9_.-]{0,63} — kebab-or-snake plus
+#   '.' and trailing '-_.': lower-case alnum-start, ≤64 chars total.
+#   Returns non-zero with a `wm:`-prefixed message on invalid id.
+wm_sensor_path() {
+    local id="${1:-}"
+    if [[ -z "$id" ]]; then
+        echo "wm: wm_sensor_path requires <sensor-id>" >&2
+        return 1
+    fi
+    if [[ ! "$id" =~ ^[a-z0-9][a-z0-9_.-]{0,63}$ ]]; then
+        echo "wm: invalid sensor id: '$id' (expected [a-z0-9][a-z0-9_.-]{0,63})" >&2
+        return 1
+    fi
+    printf '%s/%s.md' "$WM_SENSORS_DIR" "$id"
+}
 
 # wm_judge_verdict_dir "<slug>" "<cycle>"
 #   echoes .yoke/runtime/.judge-verdicts/cycle-<N>/ for the given cycle.

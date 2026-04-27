@@ -3,7 +3,7 @@
 #
 # /yoke:bootstrap host-project scaffolding:
 #   (a) simulating bootstrap's file effects creates .yoke/config.yaml and
-#       .yoke/.gitignore (content exactly .current\nruntime/)
+#       .yoke/.gitignore (content exactly runtime/)
 #   (b) the host repo's working tree shows the new .yoke/ files but no
 #       auto-commit was made by the simulation (mirroring the SKILL's
 #       declared no-host-pollution invariant)
@@ -64,7 +64,7 @@ canonical_memory:
   name: ""
 created_at: "2026-04-25"
 YAML
-  printf '.current\nruntime/\n' > .yoke/.gitignore
+  printf 'runtime/\n' > .yoke/.gitignore
 )
 
 # (a) Files exist
@@ -81,9 +81,9 @@ else
 fi
 
 gi=$(cat "$TMP/.yoke/.gitignore")
-expected=$'.current\nruntime/'
+expected='runtime/'
 if [ "$gi" = "$expected" ]; then
-  pass "(a) .yoke/.gitignore content is exactly .current\\nruntime/"
+  pass "(a) .yoke/.gitignore content is exactly runtime/"
 else
   err "(a) .yoke/.gitignore content unexpected:"
   printf '%s\n' "$gi" | sed 's/^/    /' >&2
