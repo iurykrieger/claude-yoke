@@ -1,6 +1,6 @@
 ---
 id: agents-have-current-sprint
-command: bash -c '[ "$(grep -l "current_sprint" agents/generator.md agents/validator.md agents/orchestrator.md 2>/dev/null | wc -l)" = "3" ]'
+command: bash -c '[ "$(grep -l "current_sprint" agents/generator.md agents/validator.md agents/orchestrator.md 2>/dev/null | wc -l | xargs)" = "3" ]'
 class: computational
 tier: cheap
 applies_to: []
