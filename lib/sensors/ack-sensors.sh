@@ -10,6 +10,15 @@
 #       by the contract has a well-formed `.yoke/sensors/<id>.md` file
 #       (rewritten in sensor-cost-tiering Part 2; previously verified
 #       binary-on-PATH against the inline `## Sensors` block).
+#       Optional `--sensor <id>` filter scopes the readiness check to
+#       sensors whose registered id matches `<id>` by case-sensitive
+#       substring (typically the common base of a sensor family — e.g.
+#       `--sensor contract-promotion-bidirectional` matches the three
+#       `contract-promotion-bidirectional-*` ids). Added in
+#       sprint-contract-promotion s01-t04 (FR-9). When the filter
+#       supplied does not match any registered id, the mode emits an
+#       empty-list `status: ready` so the caller can still treat the
+#       run as a clean readiness probe; tests should pin a known id.
 #   upsert <acceptance-contract-path> — create / update
 #       `.yoke/sensors/<id>.md` files from the contract's
 #       `## Sensors registry` block and `Sensors: [...]` references.
@@ -22,7 +31,8 @@
 #       Source PRD: .yoke/prds/2026-04-27-sensor-cost-tiering.md
 #
 # Usage:
-#   bash lib/sensors/ack-sensors.sh [--mode catalog | readiness | upsert] [<contract>]
+#   bash lib/sensors/ack-sensors.sh [--mode catalog | readiness | upsert] \
+#                                   [--sensor <id>] [<contract>]
 #
 # Output:
 #   stdout — structured YAML (see SKILL.md for the schema per mode)
@@ -44,6 +54,7 @@ set -euo pipefail
 
 mode="catalog"
 contract=""
+sensor_filter=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -57,6 +68,18 @@ while [ $# -gt 0 ]; do
       ;;
     --mode=*)
       mode="${1#--mode=}"
+      shift
+      ;;
+    --sensor)
+      if [ $# -lt 2 ]; then
+        echo "Error: --sensor requires a value." >&2
+        exit 2
+      fi
+      sensor_filter="$2"
+      shift 2
+      ;;
+    --sensor=*)
+      sensor_filter="${1#--sensor=}"
       shift
       ;;
     -h|--help)
@@ -404,20 +427,55 @@ applies_to_for() {
 # Readiness mode (rewritten in Part 2 — checks per-sensor files now)
 # ---------------------------------------------------------------------------
 readiness_mode() {
-  require_contract_arg "readiness"
+  # `--sensor <id>` scoping path: when the caller supplies a sensor
+  # filter and NO contract path, derive the candidate id list directly
+  # from `.yoke/sensors/<id>.md` filenames matching the filter
+  # substring. This supports the AC sensor-command shape declared by
+  # sprint-contract-promotion (FR-9):
+  #
+  #   bash lib/sensors/ack-sensors.sh --mode readiness \
+  #       --sensor contract-promotion-bidirectional
+  #
+  # The probe still verifies file existence + well-formed frontmatter
+  # per the standard readiness contract, so callers get a meaningful
+  # PASS/FAIL signal without hand-supplying a contract path.
+  local sensors_dir=".yoke/sensors"
+  local referenced_ids=""
 
-  # Collect the union of registered ids and id-references from scenarios.
-  local registry_tsv pairs_tsv
-  registry_tsv="$(extract_registry_yaml | parse_registry_tsv)"
-  pairs_tsv="$(parse_scenario_sensor_pairs)"
+  if [ -n "$sensor_filter" ] && [ -z "$contract" ]; then
+    if [ -d "$sensors_dir" ]; then
+      referenced_ids="$(
+        find "$sensors_dir" -maxdepth 1 -type f -name '*.md' -print 2>/dev/null \
+          | sed -e 's|^.*/||' -e 's|\.md$||' \
+          | grep -F "$sensor_filter" \
+          | LC_ALL=C sort -u || true
+      )"
+    fi
 
-  local referenced_ids
-  referenced_ids="$(
-    {
-      printf '%s\n' "$registry_tsv" | awk -F'\t' '$1 != "" { print $1 }'
-      printf '%s\n' "$pairs_tsv"    | awk -F'\t' '$1 != "" { print $1 }'
-    } | LC_ALL=C sort -u
-  )"
+    if [ -z "$referenced_ids" ]; then
+      printf 'status: ready\nsensors: []\nfailures: []\n'
+      return 0
+    fi
+  else
+    require_contract_arg "readiness"
+
+    # Collect the union of registered ids and id-references from scenarios.
+    local registry_tsv pairs_tsv
+    registry_tsv="$(extract_registry_yaml | parse_registry_tsv)"
+    pairs_tsv="$(parse_scenario_sensor_pairs)"
+
+    referenced_ids="$(
+      {
+        printf '%s\n' "$registry_tsv" | awk -F'\t' '$1 != "" { print $1 }'
+        printf '%s\n' "$pairs_tsv"    | awk -F'\t' '$1 != "" { print $1 }'
+      } | LC_ALL=C sort -u
+    )"
+
+    # Apply --sensor filter (substring match against the id) when set.
+    if [ -n "$sensor_filter" ]; then
+      referenced_ids="$(printf '%s\n' "$referenced_ids" | grep -F "$sensor_filter" || true)"
+    fi
+  fi
 
   if [ -z "$referenced_ids" ]; then
     printf 'status: ready\nsensors: []\nfailures: []\n'
@@ -427,7 +485,6 @@ readiness_mode() {
   local sensor_yaml=""
   local failure_yaml=""
   local any_missing=0
-  local sensors_dir=".yoke/sensors"
   local id file exists_str parses_str
 
   while IFS= read -r id; do

@@ -1,0 +1,1 @@
+url quoting style	split	The two contracts share surface prose ("url quoting style") but resolve different ambiguities: split-a addresses shell-redirect URLs, split-b addresses JSON webhook payloads. The prose collision was superficial.

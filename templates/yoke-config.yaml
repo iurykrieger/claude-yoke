@@ -14,6 +14,21 @@ canonical_memory:
   name: "{{ canonical_memory_name }}"
   default_branch: main
 
+host:
+  # Human-readable project name (used as the default seed for actor_name
+  # when actor_name is unset). Managed by Yoke; hand-edit only when the
+  # canonical actor name in canonical memory should differ from the
+  # kebab-case of this value.
+  project_name: "{{ host_project_name }}"
+  # Canonical actor name for this host project — the actor entity that
+  # promoted concepts hang `applies_to:` to and bidirectionally backlink
+  # from. Read by `lib/working-memory/host-actor.sh::wm_host_actor_name`.
+  # If left empty, that helper auto-derives the kebab-case of project_name
+  # (or the CWD basename) and writes the default back here on first use.
+  # Used by `lib/canonical-memory/write-promoted-concept.sh` (s01-t03 of
+  # the sprint-contract-promotion sprint).
+  actor_name: "{{ host_actor_name }}"
+
 overrides:
   # Hard bounds for the ralph loop (defaults baked into Yoke; uncomment to override)
   # hard_bounds:
