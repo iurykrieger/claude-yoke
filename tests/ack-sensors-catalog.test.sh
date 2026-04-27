@@ -1,11 +1,20 @@
 #!/bin/bash
 # tests/ack-sensors-catalog.test.sh
 #
-# Part 1 smoke test for /yoke:ack-sensors (catalog + readiness).
-# Validates DoD #1–#6 from .vibeflow/specs/ack-sensors-skill-part-1.md:
+# Smoke test for /yoke:ack-sensors — catalog mode + mode-dispatch
+# error paths + SKILL.md compliance.
+#
+# Originally validated DoD #1–#6 of
+# `.vibeflow/specs/ack-sensors-skill-part-1.md`. Readiness coverage
+# (DoD #2) was rewritten in `sensor-cost-tiering` Part 2 — the
+# binary-on-PATH check was replaced by per-sensor-file existence /
+# frontmatter checks against `.yoke/sensors/<id>.md`. Comprehensive
+# readiness + upsert assertions for the new behavior live in
+# `tests/sensor-tiering.test.sh`. This file now covers:
 #   - deterministic sorted catalog YAML
-#   - readiness exit codes (0 / 4) and structured failure block
 #   - empty-discovery envelope
+#   - mode-dispatch error paths (missing contract, missing arg,
+#     unknown --mode value)
 #   - SKILL.md frontmatter + structured-output compliance
 
 set -euo pipefail
@@ -93,72 +102,11 @@ echo "$out_empty" | grep -q '^sensors: \[\]' && pass "missing CLAUDE.md → sens
 echo "$out_empty" | grep -q '^notes:' && pass "missing CLAUDE.md → notes: present" || err "missing CLAUDE.md did not include notes:"
 
 # ---------------------------------------------------------------------------
-# DoD #2 — readiness mode: ready exit and not-ready exit + structured failure
+# Readiness coverage moved to tests/sensor-tiering.test.sh (sensor-cost-
+# tiering Part 2) — readiness now checks `.yoke/sensors/<id>.md`
+# files instead of binary-on-PATH. The mode-dispatch error paths
+# below still apply and are exercised here.
 # ---------------------------------------------------------------------------
-ready_contract="${tmp}/ready-contract.md"
-cat > "$ready_contract" <<'EOF'
-# Acceptance Contract — fixture (all sensors reachable)
-
-## Sensors
-
-### Computational
-- shell-true: `true`
-- shell-echo: `echo hello`
-
-EOF
-
-set +e
-out_ready="$(bash "$HELPER" --mode readiness "$ready_contract" 2>/dev/null)"
-ready_code=$?
-set -e
-
-if [ "$ready_code" -eq 0 ]; then
-  pass "readiness with reachable binaries → exit 0"
-else
-  err "readiness with reachable binaries → exit ${ready_code} (expected 0)"
-fi
-
-echo "$out_ready" | grep -q '^status: ready' && pass "ready contract → status: ready" || err "ready contract did not produce status: ready"
-echo "$out_ready" | grep -q 'reachable: true' && pass "ready contract → reachable: true" || err "ready contract did not report reachable: true"
-echo "$out_ready" | grep -q '^failures: \[\]' && pass "ready contract → failures: []" || err "ready contract did not produce empty failures"
-
-# Now a contract with one missing binary
-broken_contract="${tmp}/broken-contract.md"
-cat > "$broken_contract" <<'EOF'
-# Acceptance Contract — fixture (one missing binary)
-
-## Sensors
-
-### Computational
-- shell-true: `true`
-- bogus-bin: `definitely-not-a-real-binary-zzz arg1 arg2`
-
-EOF
-
-set +e
-out_broken="$(bash "$HELPER" --mode readiness "$broken_contract" 2>/dev/null)"
-broken_code=$?
-set -e
-
-if [ "$broken_code" -eq 4 ]; then
-  pass "readiness with missing binary → exit 4"
-else
-  err "readiness with missing binary → exit ${broken_code} (expected 4)"
-fi
-
-echo "$out_broken" | grep -q '^status: not-ready' && pass "broken contract → status: not-ready" || err "broken contract did not produce status: not-ready"
-
-# DoD #5 — structured failure block: every required field present
-for field in 'sensor:' 'command:' 'expected: "on-PATH"' 'actual: "missing"' 'reason: "binary not found:'; do
-  if echo "$out_broken" | grep -q "$field"; then
-    pass "failure block contains: ${field}"
-  else
-    err "failure block missing required field: ${field}"
-  fi
-done
-
-# Failure block must reference the bogus sensor by name
-echo "$out_broken" | grep -q 'sensor: "bogus-bin"' && pass "failure block names the missing sensor" || err "failure block missing sensor name"
 
 # Missing contract path → exit 3
 set +e

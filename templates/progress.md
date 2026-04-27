@@ -40,6 +40,10 @@
         coupling_signal: "<tech-spec-overlap | sensor-evidence-overlap | both>"
     change_set:
       "<path>": "<one-line intent>"
+- schedule_next:
+    sensors: ["<sensor-id>"]                    # optional; explicit ids
+    tiers: ["cheap"]                            # at least one of sensors / tiers must be non-empty
+    reason: "<must cite at least one signal source — sensor id, criterion id, Tech-Spec section, or runs: history entry>"
 - notes: "<free text — keep tight>"
 
 <!-- Subsequent cycles append below this line, one `## Cycle <N>` block per cycle. -->
@@ -67,3 +71,12 @@
 > - `citing_criteria` is an alternative to `citing_criterion`, used when
 >   a cycle batches multiple coupled criteria. Exactly one of the two
 >   fields MUST be populated per cycle.
+> - `schedule_next` is the Validator's per-cycle scheduling decision —
+>   added in v0.8.0 by sensor-cost-tiering Part 4. Persisted verbatim
+>   from the Validator's verdict, it tells the coordinator which
+>   sensors / tiers to run in cycle `<N+1>` (lag-by-one). At least one
+>   of `sensors:` or `tiers:` MUST be non-empty; `reason:` MUST cite
+>   at least one signal source by name (sensor id, criterion id,
+>   Tech-Spec section, or `runs:` history entry from a per-sensor
+>   file). Empty / missing `schedule_next` is a malformed verdict.
+>   Source PRD: `.vibeflow/prds/sensor-cost-tiering.md`.

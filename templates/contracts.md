@@ -17,5 +17,18 @@
 - references:
     - "acceptance-contract.md#<criterion id>"
 - cycle: <N>
+- schedule_next:
+    sensors: ["<sensor-id>"]                    # optional; explicit ids
+    tiers: ["cheap"]                            # at least one of sensors / tiers must be non-empty
+    reason: "<must cite at least one signal source — sensor id, criterion id, Tech-Spec section, or runs: history entry>"
 
 <!-- Subsequent contracts append below this line, one `## Contract <id>` block per consensus reached. -->
+
+> Schema notes:
+>
+> - `schedule_next` mirrors the Validator's per-cycle decision verbatim
+>   (added in v0.8.0 by sensor-cost-tiering Part 4). When consensus is
+>   reached on a sub-objective, the scheduling decision active at that
+>   cycle is captured here for audit. At least one of `sensors:` or
+>   `tiers:` MUST be non-empty; `reason:` MUST cite at least one signal
+>   source. Source PRD: `.vibeflow/prds/sensor-cost-tiering.md`.

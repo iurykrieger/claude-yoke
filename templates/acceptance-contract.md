@@ -25,13 +25,17 @@ can decide pass/fail. The Then clauses are drafted from the task
 file's *Validation* section (full description) with the
 *Acceptance criterion* as the binary observable check.
 
+`Sensors:` entries reference sensor ids declared in the **Sensors
+registry** below; the per-sensor command, class and tier live in
+`.yoke/sensors/<sensor-id>.md`, never inline here.
+
 ### Scenario 1 — <name, mirroring task <slug>-s01-t01>
 Task: <slug>-s01-t01
 Given <context>
 When <action>
 Then <observable outcome — drafted from the task file's Validation section>
 Fixture: <path | none>
-Sensors: [<sensor name from the Sensors section below>]
+Sensors: [<sensor-id>]
 
 ### Scenario 2 — <name, mirroring task <slug>-s01-t02>
 Task: <slug>-s01-t02
@@ -39,14 +43,14 @@ Given <context>
 When <action>
 Then <observable outcome>
 Fixture: <path | none>
-Sensors: [<sensor name>]
+Sensors: [<sensor-id>]
 
 ## Functional requirements
 
 Measurable, observable. Each FR maps to a concrete sensor or fixture.
 
-- [ ] **FR-1** — <requirement>. Sensor: <name>.
-- [ ] **FR-2** — <requirement>. Sensor: <name>.
+- [ ] **FR-1** — <requirement>. Sensor: <sensor-id>.
+- [ ] **FR-2** — <requirement>. Sensor: <sensor-id>.
 
 ## Applicable policies
 
@@ -55,27 +59,47 @@ and canonical-memory path.
 
 - **<policy id>** (<source>) — canonical: `<path>`. Applies to: <scope>.
 
-## Sensors
+## Sensors registry
 
-### Computational
+> **Sensors are first-class persistent artifacts** in
+> `.yoke/sensors/<sensor-id>.md`, defined using `templates/sensor.md`.
+> This section lists every sensor id used by this contract, with the
+> metadata needed to materialize the per-sensor file.
+> `/yoke:ack-sensors --mode upsert` reads this registry and
+> creates / updates `.yoke/sensors/<sensor-id>.md` files from
+> `templates/sensor.md`; author edits to existing sensor files (caveats,
+> calibration notes, explicit `tier:` overrides, `runs:` history) are
+> preserved on update.
+>
+> **Tier default is class-based**: `computational` → `cheap`;
+> `inferential` → `expensive`. To override, set `tier:` explicitly in
+> `.yoke/sensors/<sensor-id>.md`. Heavy computational sensors (Playwright,
+> browser automation) MUST set `tier: expensive` — the class-based default
+> is a starting point, not a substitute for author judgment.
+>
+> Source PRD: `.vibeflow/prds/sensor-cost-tiering.md`.
 
-Discovered from the host project's `CLAUDE.md` (sections `## Testing`,
-`## Linting`, `## Build`) plus any added by the Validator during
-drafting. **Each bullet's first backticked segment is the runnable
-command.** `hooks/verify-acceptance.sh` parses these.
+```yaml
+sensors:
+  - id: <sensor-id>
+    command: <shell command>
+    class: <computational | inferential>
+  - id: <sensor-id-2>
+    command: <shell command>
+    class: <computational | inferential>
+```
 
-- linter: `<command>`
-- type-check: `<command>`
-- structural: `<command>`
-- unit: `<command>`
+### Inferential sensors — calibration metadata
 
-### Inferential
-
-Sprint-3 placeholder. Inferential sensors with full calibration metadata
-ship in Sprint 5+. When added, each entry carries:
+Inferential sensors carry calibration metadata in their per-sensor file's
+body (`## Calibration notes` section). When registering an inferential
+sensor here, ensure the per-sensor file also captures:
 
 - `prompt`: `<path>`
 - `model_calibrated_against`: `<model id>`
 - `calibrated_at`: `<iso8601>`
 - `known_false_positives`: `<rate or count>`
 - `known_false_negatives`: `<rate or count>`
+
+`hooks/verify-acceptance.sh` parses the registry and the per-sensor files
+to execute the contract.
