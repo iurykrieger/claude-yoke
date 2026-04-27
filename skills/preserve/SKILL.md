@@ -220,12 +220,87 @@ Git strategy: <commit-push | commit-push-pr | commit-only>
 
 For each proposed entity, resolve `impact_level` in this order:
 
+#### 3.2.0 Semantic-overlap rewrite (Orchestrator handoff only)
+
+When invoked with `--from-orchestrator`, after running
+`canonization-criteria.sh` to obtain the deterministic-floor candidate
+list, run a **semantic-overlap rewrite** over that YAML before any
+impact-level resolution. This is an inferential step (LLM judgment
+with structured output) that recognises contracts which resolve the
+same ambiguity with different surface prose, so the deterministic
+floor's `occurrences:` counter reflects topic-equivalence rather
+than byte-identity. It is the implementation of sprint-contract
+-promotion s01-t02.
+
+The rewrite is performed by
+`<plugin_dir>/lib/canonical-memory/semantic-overlap-rewrite.sh`.
+Its inputs are the cascade YAML (the deterministic floor's stdout)
+and a verdicts file produced by an LLM judge. Its output is a YAML
+of the same shape — the same fields downstream consumers read; only
+`occurrences:` and `reason:` may differ, plus an additive top-level
+`notes:` entry on contradictions.
+
+Per-group rules, applied in order:
+
+1. **Group candidates by topic-equivalence (LLM judgment).** For
+   every group of candidates whose `occurrences:` counter is ≥ 2
+   under the deterministic floor, the LLM judge evaluates whether
+   the contracts in the group genuinely resolve the same ambiguity.
+   The judgment is a binary per-group decision: the group is
+   *cohesive* (the LLM can write a single rationale that captures
+   all member contracts' `decision:` fields) or *split* (the prose
+   collision was superficial; member contracts resolve different
+   ambiguities).
+2. **Splits decrement the count.** Every member of a split group is
+   re-emitted with its `occurrences:` reduced to 1. The group is
+   dissolved.
+3. **Cohesive groups merge.** Members of a cohesive group are
+   merged into one emitted candidate; that candidate's
+   `occurrences:` stays at the group's collective count and its
+   `reason:` is replaced by the LLM's rationale (which MUST
+   reference all originating contracts).
+4. **Hard-contradiction respect.** If two members of a group carry
+   `decision:` fields whose plain-text content directly contradicts
+   (e.g., one contract says "use single quotes", another says "use
+   double quotes" for the same selector context), the group is
+   *split* — never coalesced — and a new top-level note is added to
+   the cascade output: `notes:` gains an entry citing the
+   contradiction. The existing `non-contradiction` criterion
+   (cascade filter #5) consumes this note and routes the impact
+   class to `regulatory`-equivalent escalation per
+   [[yoke-pattern-model-c-governance]], surfacing as a Trigger 5
+   ratification request rather than an auto-merge.
+5. **No new candidates.** The semantic layer never invents a
+   candidate the deterministic floor did not admit. A topic that
+   appears once in archives is never promoted to `occurrences: 2`
+   by semantic recognition alone — that would defeat the
+   deterministic floor's reproducibility property.
+
+The verdicts file is the load-bearing decoupling point: at runtime
+`/yoke:preserve` produces it from a live LLM judge against the
+configured model (`claude-opus-4-7[1m]`, recorded in
+`model_calibrated_against:` on any concept this run promotes); the
+unit test `tests/canonical-memory/semantic-overlap-rewrite.test.sh`
+supplies a canned file so the YAML-rewriting logic is provable
+independent of LLM behaviour. The live LLM smoke is gated behind
+`YOKE_RUN_LIVE_LLM_SMOKE=1` and is informational only, not part of
+the binding acceptance signal.
+
+After the rewrite, the resulting YAML feeds steps 1–3 below verbatim.
+
+#### 3.2.1 Impact-level resolution
+
 1. **Orchestrator handoff** — when invoked with `--from-orchestrator`
    passing a `.yoke/<task-slug>/` path, read the candidate list emitted
    by
-   `bash <plugin_dir>/lib/canonical-memory/canonization-criteria.sh --working-memory <task-path>`.
+   `bash <plugin_dir>/lib/canonical-memory/canonization-criteria.sh --working-memory <task-path>`
+   (and rewritten by the semantic-overlap layer per 3.2.0 above).
    Each candidate already carries an `impact:` field (one of
-   `low | medium | high | regulatory`). Honor it directly.
+   `low | medium | high | regulatory`). Honor it directly. When the
+   rewrite emitted a top-level `notes:` entry citing a hard
+   contradiction, the impact class for the affected candidates is
+   forced to `regulatory`-equivalent (synchronous human ratification
+   per Model C — never auto-merge).
 2. **Explicit input** — when the structured input or the user
    provides an `impact_level`, honor it.
 3. **Keyword heuristic** — for free-form / manual writes without an
@@ -305,6 +380,35 @@ For each `create`:
    filename convention (`actors/repo-name.md`, `topics/YYYY-MM-category-slug.md`,
    etc.).
 
+#### 4.1.1 Sprint-contract promotion path
+
+When a candidate carries `kind: sprint-contract-promotion` (the cascade
+flag set by `canonization-criteria.sh` after the semantic-overlap
+rewrite in 3.2.0 for contracts that pass cohesive judgment), the write
+is routed through the dedicated helper
+
+```
+<plugin_dir>/lib/canonical-memory/write-promoted-concept.sh
+```
+
+instead of the generic step-1..7 path above. This is the implementation
+of sprint-contract-promotion s01-t03 — materialising a cascade-admitted
+candidate as a `concepts/<llm-summarized-slug>.md` entity with the full
+mandatory rippability frontmatter, the `tags: [kind/contract,
+yoke-framework]` floor, and a bidirectional backlink into the
+host-project actor under `actors/<host-actor>.md`.
+
+The helper reads the host-actor name via
+`<plugin_dir>/lib/working-memory/host-actor.sh::wm_host_actor_name`
+(field `host.actor_name` in `.yoke/config.yaml`; default = kebab-case
+of `host.project_name`; first-use seeding writes the default into the
+config). It enforces the slug-collision retry rule (5 attempts; exits
+non-zero on exhaustion per FR-6) and creates the host-project actor
+file from `templates/canonical/actor/_template.md` when absent (FR-7).
+
+The actor-create + concept-create pair is one Phase-6 PR so Model C
+governs the write atomically — never as two separate commits.
+
 ### 4.2 Update existing entities
 
 1. Read the existing file.
@@ -345,6 +449,31 @@ Section creation: when the reverse-link target needs a body section
 (e.g., `## Discussions` on an actor), add the section in the right
 place (before `## Expected Bidirectional Links` or before the last
 horizontal rule).
+
+### 5.1 Eager bidirectional-link check after sprint-contract promotion
+
+After Phase 4.1.1 has materialised a `kind: sprint-contract-promotion`
+candidate (i.e. when the staged write set includes a new
+`concepts/<slug>.md` whose `tags:` contains both `kind/contract` and
+`yoke-framework`, plus an `actors/<host-actor>.md` create-or-append),
+the skill MUST invoke
+
+```
+bash <plugin_dir>/lib/sensors/contract-promotion-bidirectional.sh \
+    --canonical-memory "$MEMORY_PATH"
+```
+
+against the staged canonical-memory state and abort the Phase 6 PR
+open (and revert the staged writes) if the sensor exits non-zero. The
+sensor enforces the bidirectional-link invariant
+([[yoke-pattern-memory-model]]) symmetrically — every promoted
+concept's `applies_to:` actor must back-reference the concept via a
+bare `[[<slug>]]` wikilink, and every actor wikilink to a `kind/contract`
+concept must round-trip through that concept's `applies_to:`. This
+eager check is the companion to the lazy / observability surface
+exposed via `bash lib/sensors/ack-sensors.sh --mode readiness --sensor
+contract-promotion-bidirectional`. Source: sprint-contract-promotion
+s01-t04 (FR-4 / FR-9 / Scenario 4).
 
 ## Phase 6 — Publish
 
@@ -486,6 +615,14 @@ Verbs: `creates`, `updates`, `links`, `compresses`.
 - `agents/orchestrator.md` — runtime canonize-mode invocation.
 - `lib/canonical-memory/canonization-criteria.sh` — Model C classifier
   (repurposed in Phase 3.2).
+- `lib/canonical-memory/semantic-overlap-rewrite.sh` — Phase 3.2.0
+  semantic-overlap layer (sprint-contract-promotion s01-t02).
+- `lib/canonical-memory/write-promoted-concept.sh` — Phase 4.1.1
+  sprint-contract-promotion write helper (s01-t03); materialises a
+  promoted concept entity + bidirectional actor backlink.
+- `lib/working-memory/host-actor.sh` — `wm_host_actor_name` resolver
+  used by Phase 4.1.1 to read the host-project actor name from
+  `.yoke/config.yaml::host.actor_name`.
 - `lib/canonical-memory/resolve-memory.sh` — Part 1 resolution lib.
 - `templates/canonical/<type>/_template.md` — bedrock entity templates
   with Yoke rippability extension.
