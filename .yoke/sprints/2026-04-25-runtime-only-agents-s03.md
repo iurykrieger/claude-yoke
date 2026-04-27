@@ -1,4 +1,7 @@
-# Spec: runtime-only-agents — Part 3 (skill rewrites: implement + cleanup)
+# Sprint 03 of 06: runtime-only-agents
+
+> Migrated from: # Spec: runtime-only-agents — Part 3 (skill rewrites: implement + cleanup)
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25 from
 > `.vibeflow/prds/runtime-only-agents.md`. Part 3 of 6.

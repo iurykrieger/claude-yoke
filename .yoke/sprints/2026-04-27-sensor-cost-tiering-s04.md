@@ -1,4 +1,7 @@
-# Spec: Sensor Cost Tiering — Part 4: Validator scheduling reads sensor files
+# Sprint 04 of 05: Sensor Cost Tiering
+
+> Migrated from: # Spec: Sensor Cost Tiering — Part 4: Validator scheduling reads sensor files
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-27 (revised 2026-04-27)
 > Source PRD: `.vibeflow/prds/sensor-cost-tiering.md`

@@ -1,4 +1,7 @@
-# Spec: Sensor Cost Tiering — Part 5: Coordinator two-phase + run-history persistence + pattern doc
+# Sprint 05 of 05: Sensor Cost Tiering
+
+> Migrated from: # Spec: Sensor Cost Tiering — Part 5: Coordinator two-phase + run-history persistence + pattern doc
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-27
 > Source PRD: `.vibeflow/prds/sensor-cost-tiering.md`

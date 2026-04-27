@@ -1,4 +1,7 @@
-# Spec: runtime-only-agents — Part 4 (decisions and patterns)
+# Sprint 04 of 06: runtime-only-agents
+
+> Migrated from: # Spec: runtime-only-agents — Part 4 (decisions and patterns)
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25 from
 > `.vibeflow/prds/runtime-only-agents.md`. Part 4 of 6.

@@ -1,4 +1,7 @@
-# Spec: Framework tests rewrite — Part 6 (wipe + CI rewrite + docs)
+# Sprint 06 of 06: Framework tests rewrite
+
+> Migrated from: # Spec: Framework tests rewrite — Part 6 (wipe + CI rewrite + docs)
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25 from
 > .vibeflow/prds/framework-tests-rewrite.md

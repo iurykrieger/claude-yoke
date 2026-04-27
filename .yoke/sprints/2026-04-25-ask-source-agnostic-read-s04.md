@@ -1,4 +1,7 @@
-# Spec: `/yoke:ask` source-agnostic — Part 4 / Doctrine update
+# Sprint 04 of 06: `/yoke:ask` source-agnostic
+
+> Migrated from: # Spec: `/yoke:ask` source-agnostic — Part 4 / Doctrine update
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25
 > PRD: `.vibeflow/prds/ask-source-agnostic-read.md`

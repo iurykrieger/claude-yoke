@@ -1,4 +1,7 @@
-# Spec: runtime-background-agents — Part 1 (background spawning)
+# Sprint 01 of 03: runtime-background-agents
+
+> Migrated from: # Spec: runtime-background-agents — Part 1 (background spawning)
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-26
 > Source: `.vibeflow/prds/runtime-background-agents.md`

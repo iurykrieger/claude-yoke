@@ -1,4 +1,7 @@
-# Spec: `/yoke:ask` source-agnostic — Part 3 / Test suite alignment
+# Sprint 03 of 06: `/yoke:ask` source-agnostic
+
+> Migrated from: # Spec: `/yoke:ask` source-agnostic — Part 3 / Test suite alignment
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25
 > PRD: `.vibeflow/prds/ask-source-agnostic-read.md`

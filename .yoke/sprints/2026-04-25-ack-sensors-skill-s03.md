@@ -1,4 +1,7 @@
-# Spec: Inferential `semantic-judge` subagent (Part 3 of 4)
+# Sprint 03 of 04: Inferential `semantic-judge` subagent
+
+> Migrated from: # Spec: Inferential `semantic-judge` subagent (Part 3 of 4)
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25 from `.vibeflow/prds/ack-sensors-skill.md`
 

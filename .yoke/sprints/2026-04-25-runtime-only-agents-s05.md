@@ -1,4 +1,7 @@
-# Spec: runtime-only-agents — Part 5 (manifesto, diagram, version, CHANGELOG)
+# Sprint 05 of 06: runtime-only-agents
+
+> Migrated from: # Spec: runtime-only-agents — Part 5 (manifesto, diagram, version, CHANGELOG)
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25 from
 > `.vibeflow/prds/runtime-only-agents.md`. Part 5 of 6.

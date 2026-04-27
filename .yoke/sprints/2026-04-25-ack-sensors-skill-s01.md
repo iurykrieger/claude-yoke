@@ -1,4 +1,7 @@
-# Spec: `/yoke:ack-sensors` skill — catalog + readiness modes (Part 1 of 4)
+# Sprint 01 of 04: `/yoke:ack-sensors` skill — catalog + readiness modes
+
+> Migrated from: # Spec: `/yoke:ack-sensors` skill — catalog + readiness modes (Part 1 of 4)
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25 from `.vibeflow/prds/ack-sensors-skill.md`
 

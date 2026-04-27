@@ -1,4 +1,7 @@
-# Spec: runtime-only-agents — Part 6 (smoke tests)
+# Sprint 06 of 06: runtime-only-agents
+
+> Migrated from: # Spec: runtime-only-agents — Part 6 (smoke tests)
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25 from
 > `.vibeflow/prds/runtime-only-agents.md`. Part 6 of 6.

@@ -1,4 +1,7 @@
-# Spec: Framework tests rewrite — Part 1 (foundation)
+# Sprint 01 of 06: Framework tests rewrite
+
+> Migrated from: # Spec: Framework tests rewrite — Part 1 (foundation)
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25 from
 > .vibeflow/prds/framework-tests-rewrite.md

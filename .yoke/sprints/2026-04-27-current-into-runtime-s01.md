@@ -1,4 +1,7 @@
-# Spec: Move `.yoke/.current` into `.yoke/runtime/` — Part 1 (functional)
+# Sprint 01 of 02: Move `.yoke/.current` into `.yoke/runtime/`
+
+> Migrated from: # Spec: Move `.yoke/.current` into `.yoke/runtime/` — Part 1 (functional)
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-27. Atomic functional cut
 > + all impacted tests. Budget revised to ≤ 8 files for atomicity (the

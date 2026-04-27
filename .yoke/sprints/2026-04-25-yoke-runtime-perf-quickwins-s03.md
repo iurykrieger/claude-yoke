@@ -1,4 +1,7 @@
-# Spec: Yoke Runtime Perf Quick Wins — Part 3: Tiered Model Pinning
+# Sprint 03 of 03: Yoke Runtime Perf Quick Wins
+
+> Migrated from: # Spec: Yoke Runtime Perf Quick Wins — Part 3: Tiered Model Pinning
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25 from
 > `.vibeflow/prds/yoke-runtime-perf-quickwins.md`.

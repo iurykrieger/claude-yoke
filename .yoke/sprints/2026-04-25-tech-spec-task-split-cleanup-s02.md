@@ -1,4 +1,7 @@
-# Spec: Tech Spec Task Split — Cleanup Part 2 — Other spec-phase skills
+# Sprint 02 of 03: Tech Spec Task Split — Cleanup
+
+> Migrated from: # Spec: Tech Spec Task Split — Cleanup Part 2 — Other spec-phase skills
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25
 > PRD: `.vibeflow/prds/tech-spec-task-split.md`

@@ -1,4 +1,7 @@
-# Spec: Framework tests rewrite — Part 4 (runtime tests)
+# Sprint 04 of 06: Framework tests rewrite
+
+> Migrated from: # Spec: Framework tests rewrite — Part 4 (runtime tests)
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25 from
 > .vibeflow/prds/framework-tests-rewrite.md

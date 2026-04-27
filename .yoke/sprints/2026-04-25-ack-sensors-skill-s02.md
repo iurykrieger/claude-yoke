@@ -1,4 +1,7 @@
-# Spec: Validator parallel computational sensor execution (Part 2 of 4)
+# Sprint 02 of 04: Validator parallel computational sensor execution
+
+> Migrated from: # Spec: Validator parallel computational sensor execution (Part 2 of 4)
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25 from `.vibeflow/prds/ack-sensors-skill.md`
 

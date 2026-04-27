@@ -1,4 +1,7 @@
-# Spec: Additional sensor discoverers — `package.json`, `Makefile`, `pyproject.toml` (Part 4 of 4)
+# Sprint 04 of 04: Additional sensor discoverers — `package.json`, `Makefile`, `pyproject.toml`
+
+> Migrated from: # Spec: Additional sensor discoverers — `package.json`, `Makefile`, `pyproject.toml` (Part 4 of 4)
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25 from `.vibeflow/prds/ack-sensors-skill.md`
 

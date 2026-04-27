@@ -1,4 +1,7 @@
-# Spec: runtime-background-agents — Part 3 (cycle status snapshots)
+# Sprint 03 of 03: runtime-background-agents
+
+> Migrated from: # Spec: runtime-background-agents — Part 3 (cycle status snapshots)
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-26
 > Source: `.vibeflow/prds/runtime-background-agents.md`

@@ -1,4 +1,7 @@
-# Spec: `/yoke:ask` source-agnostic — Part 5 / Repo CLAUDE.md + main docs
+# Sprint 05 of 06: `/yoke:ask` source-agnostic
+
+> Migrated from: # Spec: `/yoke:ask` source-agnostic — Part 5 / Repo CLAUDE.md + main docs
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25
 > PRD: `.vibeflow/prds/ask-source-agnostic-read.md`

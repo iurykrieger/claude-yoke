@@ -1,4 +1,7 @@
-# Spec: phase-persona-rebalance — Part 1 of 2 (Spec-phase persona split)
+# Sprint 01 of 02: phase-persona-rebalance
+
+> Migrated from: # Spec: phase-persona-rebalance — Part 1 of 2 (Spec-phase persona split)
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25
 > Source PRD: `.vibeflow/prds/phase-persona-rebalance.md`

@@ -1,4 +1,7 @@
-# Spec: Framework tests rewrite — Part 5 (project artifacts & docs)
+# Sprint 05 of 06: Framework tests rewrite
+
+> Migrated from: # Spec: Framework tests rewrite — Part 5 (project artifacts & docs)
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25 from
 > .vibeflow/prds/framework-tests-rewrite.md

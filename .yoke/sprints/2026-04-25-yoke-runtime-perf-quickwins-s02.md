@@ -1,4 +1,7 @@
-# Spec: Yoke Runtime Perf Quick Wins — Part 2: Generator Persona — Plan-First + Batched Coupled Criteria
+# Sprint 02 of 03: Yoke Runtime Perf Quick Wins
+
+> Migrated from: # Spec: Yoke Runtime Perf Quick Wins — Part 2: Generator Persona — Plan-First + Batched Coupled Criteria
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25 from
 > `.vibeflow/prds/yoke-runtime-perf-quickwins.md`.

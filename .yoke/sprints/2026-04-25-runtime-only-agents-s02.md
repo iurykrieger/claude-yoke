@@ -1,4 +1,7 @@
-# Spec: runtime-only-agents — Part 2 (skill rewrites: spec phases + ask)
+# Sprint 02 of 06: runtime-only-agents
+
+> Migrated from: # Spec: runtime-only-agents — Part 2 (skill rewrites: spec phases + ask)
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25 from
 > `.vibeflow/prds/runtime-only-agents.md`. Part 2 of 6.

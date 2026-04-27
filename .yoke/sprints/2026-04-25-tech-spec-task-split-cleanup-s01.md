@@ -1,4 +1,7 @@
-# Spec: Tech Spec Task Split — Cleanup Part 1 — Runtime helper + subagents
+# Sprint 01 of 03: Tech Spec Task Split — Cleanup
+
+> Migrated from: # Spec: Tech Spec Task Split — Cleanup Part 1 — Runtime helper + subagents
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25
 > PRD: `.vibeflow/prds/tech-spec-task-split.md`

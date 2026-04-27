@@ -1,4 +1,7 @@
-# Spec: phase-persona-rebalance — Part 2 of 2 (Generator subagent persona)
+# Sprint 02 of 02: phase-persona-rebalance
+
+> Migrated from: # Spec: phase-persona-rebalance — Part 2 of 2 (Generator subagent persona)
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25
 > Source PRD: `.vibeflow/prds/phase-persona-rebalance.md`

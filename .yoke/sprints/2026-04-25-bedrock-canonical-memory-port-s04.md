@@ -1,4 +1,7 @@
-# Spec: Bedrock canonical-memory port — Part 4: `/yoke:preserve` replaces `/yoke:canonize`
+# Sprint 04 of 06: Bedrock canonical-memory port
+
+> Migrated from: # Spec: Bedrock canonical-memory port — Part 4: `/yoke:preserve` replaces `/yoke:canonize`
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25
 > Source PRD: `.vibeflow/prds/bedrock-canonical-memory-port.md`

@@ -1,4 +1,7 @@
-# Spec: Sensor Cost Tiering — Part 2: `/yoke:ack-sensors` upsert mode
+# Sprint 02 of 05: Sensor Cost Tiering
+
+> Migrated from: # Spec: Sensor Cost Tiering — Part 2: `/yoke:ack-sensors` upsert mode
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-27 (revised 2026-04-27)
 > Source PRD: `.vibeflow/prds/sensor-cost-tiering.md`

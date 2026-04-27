@@ -1,4 +1,7 @@
-# Spec: Sensor Cost Tiering — Part 3: Tier-aware sensor execution
+# Sprint 03 of 05: Sensor Cost Tiering
+
+> Migrated from: # Spec: Sensor Cost Tiering — Part 3: Tier-aware sensor execution
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-27 (revised 2026-04-27)
 > Source PRD: `.vibeflow/prds/sensor-cost-tiering.md`

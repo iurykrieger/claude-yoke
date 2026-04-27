@@ -1,4 +1,7 @@
-# Spec: Tech Spec Task Split — Part 1 — Working-memory layout + bash scaffold
+# Sprint 01 of 03: Tech Spec Task Split
+
+> Migrated from: # Spec: Tech Spec Task Split — Part 1 — Working-memory layout + bash scaffold
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25
 > PRD: `.vibeflow/prds/tech-spec-task-split.md`

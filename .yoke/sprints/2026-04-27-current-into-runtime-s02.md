@@ -1,4 +1,7 @@
-# Spec: Move `.yoke/.current` into `.yoke/runtime/` — Part 2 (doc alignment)
+# Sprint 02 of 02: Move `.yoke/.current` into `.yoke/runtime/`
+
+> Migrated from: # Spec: Move `.yoke/.current` into `.yoke/runtime/` — Part 2 (doc alignment)
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-27. Pure prose alignment
 > across five skill SKILL.md files; ships after Part 1 lands.

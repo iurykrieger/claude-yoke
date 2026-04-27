@@ -1,4 +1,7 @@
-# Spec: Framework tests rewrite — Part 3 (memory tests)
+# Sprint 03 of 06: Framework tests rewrite
+
+> Migrated from: # Spec: Framework tests rewrite — Part 3 (memory tests)
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25 from
 > .vibeflow/prds/framework-tests-rewrite.md

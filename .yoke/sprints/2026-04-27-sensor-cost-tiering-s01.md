@@ -1,4 +1,7 @@
-# Spec: Sensor Cost Tiering — Part 1: Working-memory layout
+# Sprint 01 of 05: Sensor Cost Tiering
+
+> Migrated from: # Spec: Sensor Cost Tiering — Part 1: Working-memory layout
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-27 (revised 2026-04-27)
 > Source PRD: `.vibeflow/prds/sensor-cost-tiering.md`

@@ -1,4 +1,7 @@
-# Spec: runtime-background-agents — Part 2 (skill-owned inferential sensors)
+# Sprint 02 of 03: runtime-background-agents
+
+> Migrated from: # Spec: runtime-background-agents — Part 2 (skill-owned inferential sensors)
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-26
 > Source: `.vibeflow/prds/runtime-background-agents.md`

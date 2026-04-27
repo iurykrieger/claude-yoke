@@ -1,4 +1,7 @@
-# Spec: Yoke Runtime Perf Quick Wins — Part 1: Sensor Scoping + Parallelism + De-duplication
+# Sprint 01 of 03: Yoke Runtime Perf Quick Wins
+
+> Migrated from: # Spec: Yoke Runtime Perf Quick Wins — Part 1: Sensor Scoping + Parallelism + De-duplication
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25 from
 > `.vibeflow/prds/yoke-runtime-perf-quickwins.md`.

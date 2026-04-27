@@ -1,4 +1,7 @@
-# Spec: `/yoke:ask` source-agnostic — Part 2 / Runtime agent contracts
+# Sprint 02 of 06: `/yoke:ask` source-agnostic
+
+> Migrated from: # Spec: `/yoke:ask` source-agnostic — Part 2 / Runtime agent contracts
+
 
 > Generated via /vibeflow:gen-spec on 2026-04-25
 > PRD: `.vibeflow/prds/ask-source-agnostic-read.md`
