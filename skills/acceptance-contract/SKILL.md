@@ -40,7 +40,8 @@ the Generator captures intent, you express measurable rigor:
 - Refuse "works correctly". Every scenario must be decidable by a
   fixture or sensor.
 - Insist on calibrated sensors and binary acceptance criteria.
-- Cover every Tech-Spec task with at least one BDD scenario.
+- Cover every `### Task <ID>` anchor (inside the per-sprint runtime
+  bundle file) with at least one BDD scenario.
 - Treat applicable regulatory policies as non-negotiable until
   Compliance ratifies otherwise.
 
@@ -57,16 +58,21 @@ the Generator captures intent, you express measurable rigor:
 - Verify `wm_spec_path "$slug"` exists AND is approved. Abort
   otherwise: "Tech Spec missing or unapproved at <path>. Run
   `/yoke:tech-spec` first."
-- Read the task list via `wm_list_task_paths "$slug"`. **Abort
+- Read the sprint list via `wm_list_sprint_paths "$slug"`. **Abort
   non-zero if it returns zero paths** — "Tech Spec missing or
   unapproved at <path>. Run `/yoke:tech-spec` first." (a slug with
-  an approved spec but no task files means stages 2/3 of
+  an approved spec but no sprint files means stages 2/3 of
   `/yoke:tech-spec` did not complete).
-- For each path returned by `wm_list_task_paths`, read the
+- For each path returned by `wm_list_sprint_paths`, read the
   frontmatter and **abort non-zero if any file lacks
-  `status: approved`** — "Task <path> not approved (frontmatter
+  `status: approved`** — "Sprint <path> not approved (frontmatter
   status != approved). Run `/yoke:tech-spec` and approve via
-  Trigger 2." This is the partial-approval guard: the binding
+  Trigger 2." Then enumerate every `### Task <ID>` anchor inside the
+  sprint file body (deterministic regex; one task per anchor); these
+  anchors are what the BDD scenarios in step 4 map onto. A sprint
+  file with zero `### Task <ID>` anchors is malformed — abort with
+  the same partial-approval message and instruct the user to re-run
+  Trigger 2. This is the partial-approval guard: the binding
   artifact's input pre-conditions are unambiguous.
 - If `wm_acceptance_contract_path "$slug"` already exists: offer overwrite (replace in place — same path) or abort. No `-v2.md` shadowing — the per-task slug already provides versioning across tasks.
 
@@ -90,10 +96,13 @@ with empty sensors.
   (read-only) — overall objective, sprint preambles, contracts /
   dependencies / out-of-scope feed the Contract's preamble and
   scope.
-- Read **every** path returned by `wm_list_task_paths "$slug"`
-  (read-only) — each task file's *Validation* section is the
-  primary input to that task's BDD scenario, and the *Acceptance
-  criterion* feeds the scenario's Then clauses.
+- Read **every** path returned by `wm_list_sprint_paths "$slug"`
+  (read-only) — each sprint file's body contains one `### Task <ID>`
+  subsection per task with the four inline labels (`**Story:**`,
+  `**Technical implementation:**`, `**Validation:**`, `**Acceptance
+  criterion:**`). The `**Validation:**` label is the primary input
+  to that task's BDD scenario; the `**Acceptance criterion:**` label
+  feeds the scenario's Then clauses.
 - Read `templates/acceptance-contract.md` for artifact shape.
 - For applicable regulatory policies (PCI-DSS, LGPD, HIPAA, etc.) and
   prior sensor calibrations: invoke `/yoke:ask`. Never read canonical
@@ -108,15 +117,20 @@ Acceptance Contract at `wm_acceptance_contract_path "$slug"` (i.e.,
 
 - Header with `PRD:`, `Spec:` paths and approval state.
 - **Binding statement** (verbatim from the template).
-- **BDD scenarios** — exactly **one scenario per task file**
-  returned by `wm_list_task_paths`. Each scenario carries:
-  - `Task: <task-id>` line referencing the task file (e.g.
-    `Task: 2026-04-25-foo-s01-t02`) — this is the 1:1 anchor
-    between the Contract and the per-task body.
+- **BDD scenarios** — exactly **one scenario per `### Task <ID>`
+  anchor** found across every sprint file returned by
+  `wm_list_sprint_paths`. Each scenario carries:
+  - `Task: <task-id>` line referencing the anchor inside its sprint
+    file (e.g. `Task: 2026-04-25-foo-s01-t02`, resolving to
+    `.yoke/sprints/2026-04-25-foo-s01.md#task-2026-04-25-foo-s01-t02`)
+    — this is the 1:1 anchor between the Contract and the per-task
+    subsection. The `<task-id>` value is the unmodified anchor
+    string lifted from the sprint file body (e.g.
+    `### Task <slug>-s01-t02`).
   - `Given` / `When` / `Then` blocks — derive the *Then* clauses
-    primarily from the task file's *Validation* section (which is
-    where the validation description lives), supplemented by the
-    task's *Acceptance criterion*.
+    primarily from the `**Validation:**` inline label of the task
+    anchor, supplemented by the `**Acceptance criterion:**` inline
+    label.
   - `Fixture:` and `Sensors:` lines (every scenario must be
     decidable by at least one sensor or fixture — non-negotiable
     per `patterns/acceptance-contract.md`).
@@ -131,9 +145,11 @@ Acceptance Contract at `wm_acceptance_contract_path "$slug"` (i.e.,
   calibration metadata (model id, calibration date, rubric) ships
   in Sprint 5+.
 
-The scenario count MUST equal the task-file count. Drafts where the
-two diverge are rejected — the 1:1 mapping is the granularity gain
-the upstream split delivers.
+The scenario count MUST equal the total number of `### Task <ID>`
+anchors across every sprint file. Drafts where the two diverge are
+rejected — the 1:1 mapping is the granularity gain the upstream
+split delivers, now expressed as anchor-based addressing inside
+sprint runtime bundles instead of standalone task files.
 
 ### 5. Trigger 3 — ratification (binding)
 
@@ -214,10 +230,12 @@ rejected (no `Status: ratified` is written) and the skill exits cleanly.
 - `.yoke/runtime/.current` exists and points at a valid slug.
 - `.yoke/prds/<slug>.md` exists and is approved.
 - `.yoke/specs/<slug>.md` exists and is approved.
-- `.yoke/tasks/<slug>-s*-t*.md` is non-empty AND every task file
+- `.yoke/sprints/<slug>-s*.md` is non-empty AND every sprint file
   carries `status: approved` in its frontmatter (Part 2's `approve`
   flow flips them all together; partial approval is a fail-closed
-  pre-condition).
+  pre-condition). Each sprint file body must carry ≥ 1 `### Task
+  <ID>` anchor — these are the anchors the Contract's BDD scenarios
+  map onto.
 
 ## Output contract
 
