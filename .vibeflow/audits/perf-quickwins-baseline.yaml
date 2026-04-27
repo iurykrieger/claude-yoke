@@ -1,9 +1,0 @@
-baseline:
-  serial_ns: 3434194000
-  parallel_ns: 1257442000
-  ratio_pct: 36
-  target_ratio_pct: 70
-  fixture_sensors: 3
-  fixture_per_sensor_sleep_s: 1
-  measured_at: "2026-04-27T18:04:40Z"
-  recorded_by: tests/perf-quickwins-part-1.test.sh

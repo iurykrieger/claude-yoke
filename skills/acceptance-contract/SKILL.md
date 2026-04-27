@@ -244,9 +244,9 @@ rejected (no `Status: ratified` is written) and the skill exits cleanly.
 
 ## See also
 
-- `.vibeflow/patterns/acceptance-contract.md`.
-- `.vibeflow/patterns/sensors.md`.
-- `.vibeflow/patterns/human-triggers.md` (Trigger 3).
+- `concepts/yoke-pattern-acceptance-contract`.
+- `concepts/yoke-pattern-sensors`.
+- `concepts/yoke-pattern-human-triggers` (Trigger 3).
 - `templates/acceptance-contract.md`.
 - `templates/approval-menu.md` (shared menu shape, detection rule, fallback;
   binding statement rendered before the menu, not inside it).

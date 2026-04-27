@@ -234,7 +234,7 @@ done
 # ------------------------------------------------------------------
 # Baseline numbers archived (PRD instrumentation obligation).
 # ------------------------------------------------------------------
-audit_dir=".vibeflow/audits"
+audit_dir=".yoke/runtime/audits"
 mkdir -p "$audit_dir"
 cat > "$audit_dir/perf-quickwins-baseline.yaml" <<EOF
 baseline:

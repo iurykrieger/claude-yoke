@@ -34,7 +34,7 @@ Make a project Yoke-ready by:
 ## Pre-conditions
 
 - The current directory is the root of a git repository. Bootstrap aborts otherwise.
-- `gh` CLI installed and authenticated. **Hard-fails with install instructions if missing** — no degraded mode (per `.vibeflow/decisions.md`).
+- `gh` CLI installed and authenticated. **Hard-fails with install instructions if missing** — no degraded mode (per `concepts/yoke-decision-*`).
 - bash 4 or newer. macOS users need `brew install bash`.
 - A host `CLAUDE.md` (created from `templates/project-claude-md.md` if absent — never overwritten if present).
 

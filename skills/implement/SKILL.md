@@ -245,7 +245,7 @@ For each cycle (numbered starting at 1):
    sensor-cost-tiering — cheap sensors fire every cycle (shift-left
    on actionable feedback), expensive sensors fire only when
    pre-convergence failure would yield actionable signal. Source PRD:
-   `.vibeflow/prds/sensor-cost-tiering.md`. Both phases respect the
+   `.yoke/prds/2026-04-27-sensor-cost-tiering.md`. Both phases respect the
    `runtime.inferential_sensor_concurrency` cap and the deferred-
    sensors queue when tier filtering authorizes inferential judges.
 
@@ -331,7 +331,7 @@ reporting.
 Canonize-mode never reuses the per-cycle consult/monitor model —
 Model C governance writes stay top-tier, even when consult/monitor
 were pinned to a smaller class. Per
-`.vibeflow/patterns/model-c-governance.md`, canonization decides
+`concepts/yoke-pattern-model-c-governance`, canonization decides
 canonical-memory writes — mismatching the canonize model is an R4
 defect that the Part-3 smoke gates against.
 
@@ -391,7 +391,7 @@ intact for the user to arbitrate, resume, or manually re-canonize.
   --reason infeasibility`; canonize handoff fires.
 
 The Trigger-4 packet is non-coalescable with Triggers 1, 2, 3, 5 —
-see `.vibeflow/patterns/human-triggers.md`.
+see `concepts/yoke-pattern-human-triggers`.
 
 ## Pre-conditions
 
@@ -462,9 +462,9 @@ see `.vibeflow/patterns/human-triggers.md`.
 
 ## See also
 
-- `.vibeflow/patterns/ralph-loop.md`.
-- `.vibeflow/patterns/roles.md`.
-- `.vibeflow/patterns/model-c-governance.md` — termination-time
+- `concepts/yoke-pattern-ralph-loop`.
+- `concepts/yoke-pattern-roles`.
+- `concepts/yoke-pattern-model-c-governance` — termination-time
   write protocol.
 - `agents/generator.md`, `agents/validator.md`,
   `agents/orchestrator.md`.

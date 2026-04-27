@@ -2,7 +2,7 @@
 # append-runs.sh — append a per-cycle run entry to each executed sensor's
 # `.yoke/sensors/<id>.md` `runs:` history, applying the N=20 retention cap.
 #
-# Source PRD: .vibeflow/prds/sensor-cost-tiering.md
+# Source PRD: .yoke/prds/2026-04-27-sensor-cost-tiering.md
 #
 # Usage:
 #   bash lib/sensors/append-runs.sh <snapshot-yaml> <cycle> <criterion>

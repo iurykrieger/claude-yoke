@@ -79,4 +79,4 @@
 >   at least one signal source by name (sensor id, criterion id,
 >   Tech-Spec section, or `runs:` history entry from a per-sensor
 >   file). Empty / missing `schedule_next` is a malformed verdict.
->   Source PRD: `.vibeflow/prds/sensor-cost-tiering.md`.
+>   Source PRD: `.yoke/prds/2026-04-27-sensor-cost-tiering.md`.

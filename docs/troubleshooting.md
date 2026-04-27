@@ -26,7 +26,7 @@ of `/yoke:status` and the relevant `.yoke/*.md` files.
 ### `/yoke:bootstrap` says "gh not authenticated"
 
 - Run `gh auth login`. Yoke does not have a degraded mode in v1.0 (per
-  `.vibeflow/decisions.md`); `gh` is hard-required.
+  `concepts/yoke-decision-*`); `gh` is hard-required.
 
 ## Phase 1 / Phase 2
 

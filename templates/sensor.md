@@ -7,7 +7,7 @@ caveats and run history. Acceptance Contracts reference sensors by `id`;
 they no longer inline the command, class or tier.
 
 Created and refreshed by `/yoke:ack-sensors --mode upsert` (Part 2 of
-sensor-cost-tiering — see .vibeflow/prds/sensor-cost-tiering.md). Read
+sensor-cost-tiering — see .yoke/prds/2026-04-27-sensor-cost-tiering.md). Read
 by `hooks/verify-acceptance.sh` (Part 3) and by `agents/validator.md`
 (Part 4). Run-history entries are appended by `skills/implement/SKILL.md`
 (Part 5).

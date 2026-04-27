@@ -18,7 +18,7 @@
 #                        reformulate-tech-spec | accept-trade-off | abort
 #
 # Trigger-4 schema is non-coalescable with Triggers 1, 2, 3, 5 — see
-# .vibeflow/patterns/human-triggers.md.
+# concepts/yoke-pattern-human-triggers.
 #
 # Usage:
 #   escalate.sh --reason <reason> [--category <cat>]

@@ -57,9 +57,9 @@ nothing on disk.
   (cat, grep, clone, pull) are prohibited. The Orchestrator may
   raise a sprint-contract divergence (Trigger-4 candidate) if it
   observes a bypass.
-- **Doctrine docs** (`.vibeflow/conventions.md`,
-  `.vibeflow/patterns/{memory-model,roles,phase-flow,ralph-loop}.md`,
-  `.vibeflow/index.md`) updated so the Generator/Validator/Orchestrator
+- **Doctrine docs** (`concepts/yoke-conventions`,
+  `concepts/yoke-pattern-*`,
+  `projects/claude-yoke`) updated so the Generator/Validator/Orchestrator
   read path and the working-memory file list reflect the no-trace
   contract.
 - **Repo + user docs** (`CLAUDE.md`, `docs/architecture.md`,
@@ -111,7 +111,7 @@ the Orchestrator back to a proper subagent.
 - **`/yoke:implement` spawns 3 runtime subagents in parallel per cycle** — single concurrent Task batch in one assistant turn (previously sequential). At loop termination, issues a final Orchestrator-only Task call with `mode=canonize` for the canonization handoff.
 - **`/yoke:ask` is a thin direct-call skill** — invokes `lib/canonical-memory/query.sh` directly and writes its own trace to `.yoke/query-trace.md`. The "Orchestrator skill in mediator mode" concept is retired.
 - **`/yoke:canonize` is repositioned as a manual escape hatch** — primary canonization runs automatically inside `/yoke:implement` at loop termination via the Orchestrator subagent. The skill exists for manual re-runs (after model upgrades, or after a failed auto-canonize).
-- Pattern docs and decision log updated to match: `roles.md`, `ralph-loop.md`, `memory-model.md`, `plugin-structure.md`, `phase-flow.md`, `index.md`, `conventions.md`, `model-c-governance.md`, `sensors.md`, `acceptance-contract.md`. Four new decision entries dated 2026-04-25 in `.vibeflow/decisions.md`.
+- Pattern docs and decision log updated to match: `roles.md`, `ralph-loop.md`, `memory-model.md`, `plugin-structure.md`, `phase-flow.md`, `index.md`, `conventions.md`, `model-c-governance.md`, `sensors.md`, `acceptance-contract.md`. Four new decision entries dated 2026-04-25 in `concepts/yoke-decision-*`.
 - Manifesto (`yoke.md`) §10, §11, §12, §13, §15, §16, §19 updated to reflect the new topology and the *consult live, canonize on termination* canonization stance.
 - `docs/architecture.md` refreshed with the new 3-subagent topology and an updated diagram.
 - All sprint smoke tests (`tests/smoke/sprint-{2,3,4,5}.test.sh`) updated to assert the new topology; sprint-1 and sprints 6-8 untouched.
@@ -123,15 +123,15 @@ the Orchestrator back to a proper subagent.
 
 ### Architectural invariants (new in v1.1)
 
-- *Skills deliberate; subagents adapt.* — Skills handle deterministic dialogue; subagents handle runtime adaptation. Codified in `.vibeflow/decisions.md`.
+- *Skills deliberate; subagents adapt.* — Skills handle deterministic dialogue; subagents handle runtime adaptation. Codified in `concepts/yoke-decision-*`.
 - *Consult live, canonize on termination.* — Canonical memory is read freely during the runtime loop (Orchestrator consult mode) but written only at loop termination. Mid-loop writes are forbidden.
 
 ## [1.0.0] — 2026-04-25 — First stable release
 
 Sprint 8 of an 8-sprint plan. **Yoke v1.0 is feature-complete and
 ready for marketplace publication.** See
-`.vibeflow/specs/yoke-v1-sprint-8.md` and
-`.vibeflow/audits/yoke-v1-sprint-8-audit.md`.
+`.yoke/specs/2026-04-25-yoke-v1-sprint-8.md` and
+`discussions/yoke-audit-yoke-v1-sprint-8-audit-*.md`.
 
 ### What's new in 1.0.0
 
@@ -159,7 +159,7 @@ ready for marketplace publication.** See
 - **Adversarial canonical-memory audit** (manifesto §17 anticipated extension).
 - **Post-deploy production-signal observation** (manifesto §17).
 - **Inferential drift-sensing detector** (semantic obsolescence; v1.0 is metadata-only).
-- **Yoke-on-Yoke** (recursive bootstrap; v1.0 was built manually per `.vibeflow/decisions.md`).
+- **Yoke-on-Yoke** (recursive bootstrap; v1.0 was built manually per `concepts/yoke-decision-*`).
 - **Per-task-class hard-bound profiles** (PRD Open Question 4; v1.0 ships single profile).
 - **Local cron / daemon backends for drift sensing** (documented in `docs/scheduling-strategy.md`; v1.0 ships only GitHub Actions backend).
 
@@ -169,7 +169,7 @@ Audits across Sprints 1–7 accumulated 11 pitfall items for `/vibeflow:teach`
 canonization. The most urgent — **deferred-anti-scope smoke convention**
 — fired in 5 consecutive sprint audits and is documented inline in each
 sprint smoke. Other queued items live in
-`.vibeflow/audits/yoke-v1-sprint-{N}-audit.md` files for future ratification.
+`discussions/yoke-audit-yoke-v1-sprint-*-audit-*.md` files for future ratification.
 
 ### Manual verification for first-time users
 
@@ -184,8 +184,8 @@ Before announcing v1.0.0 publicly:
 ## [0.7.0] — 2026-04-25
 
 Sprint 7 of an 8-sprint plan. **Phase 6 drift sensing now operational.**
-See `.vibeflow/specs/yoke-v1-sprint-7.md` and
-`.vibeflow/audits/yoke-v1-sprint-7-audit.md`.
+See `.yoke/specs/2026-04-25-yoke-v1-sprint-7.md` and
+`discussions/yoke-audit-yoke-v1-sprint-7-audit-*.md`.
 
 ### Added
 - `/yoke:drift-sense` (`skills/drift-sense/SKILL.md`) — real implementation. Three modes (`--target codebase`, `--target canonical-memory`, `--target traces`, plus convenience `--target all`). Findings emitted as structured YAML. Runs in Orchestrator Canonizer-mode context (mode declaration `[orchestrator:canonizer drift-sense]`). Drift-sense propositions go through Model C — no auto-merging.
@@ -204,8 +204,8 @@ See `.vibeflow/specs/yoke-v1-sprint-7.md` and
 ## [0.6.0] — 2026-04-25
 
 Sprint 6 of an 8-sprint plan. **Yoke is now minimally usable end-to-end
-for small projects.** See `.vibeflow/specs/yoke-v1-sprint-6.md` and
-`.vibeflow/audits/yoke-v1-sprint-6-audit.md`.
+for small projects.** See `.yoke/specs/2026-04-25-yoke-v1-sprint-6.md` and
+`discussions/yoke-audit-yoke-v1-sprint-6-audit-*.md`.
 
 ### Added
 - `hooks/check-hard-bounds.sh` — real implementation. Enforces cycles_max (default 8), timeout_seconds (default 14400 = 4h), and token_budget (default 200000). Per-project overrides under `overrides.hard_bounds:` in `.yoke/config.yaml`. Reaching any bound invokes `escalate.sh` and exits 10 (loop pauses, never aborts silently).
@@ -232,8 +232,8 @@ for small projects.** See `.vibeflow/specs/yoke-v1-sprint-6.md` and
 
 ## [0.5.0] — 2026-04-25
 
-Sprint 5 of an 8-sprint plan. See `.vibeflow/specs/yoke-v1-sprint-5.md` and
-`.vibeflow/audits/yoke-v1-sprint-5-audit.md`.
+Sprint 5 of an 8-sprint plan. See `.yoke/specs/2026-04-25-yoke-v1-sprint-5.md` and
+`discussions/yoke-audit-yoke-v1-sprint-5-audit-*.md`.
 
 ### Added
 - `skills/orchestrator/SKILL.md` — Orchestrator skill with three explicit modes (Mediator / Runtime coordinator / Canonizer). Sole writer of canonical memory. Mode declarations (`[orchestrator:mediator|runtime-coordinator|canonizer]`) are written to `.yoke/query-trace.md` for audit and future canonization signal. Resolves PRD Open Question 1 with single-skill layout.
@@ -250,17 +250,17 @@ Sprint 5 of an 8-sprint plan. See `.vibeflow/specs/yoke-v1-sprint-5.md` and
 - `agents/orchestrator.md` — placeholder removed per PRD v0 amendment. The Orchestrator is a *skill* now (`skills/orchestrator/SKILL.md`); having both files would confuse maintainers and the placeholder's own header explicitly anticipated this Sprint-5 deletion.
 
 ### Notes
-- Resolves **PRD v0 amendment** for the Orchestrator at the codebase level: the Orchestrator is now a skill that invokes the four agent subagents via the Task tool. Risk R1 (subagent depth) is fully sidestepped. Pattern docs (`.vibeflow/decisions.md`, `roles.md`, `plugin-structure.md`, `model-c-governance.md`) still need a `/vibeflow:teach` round to ratify the amendment textually.
+- Resolves **PRD v0 amendment** for the Orchestrator at the codebase level: the Orchestrator is now a skill that invokes the four agent subagents via the Task tool. Risk R1 (subagent depth) is fully sidestepped. Pattern docs (`concepts/yoke-decision-*`, `roles.md`, `plugin-structure.md`, `model-c-governance.md`) still need a `/vibeflow:teach` round to ratify the amendment textually.
 - v0.5.0 ships only the **low-impact** Model C path. Medium-impact (veto window) and high-impact (synchronous ratification) paths land in Sprint 6.
 - Tests use `--dry-run` to avoid PR creation against real repos. Real-flow validation requires `gh` authenticated against a test canonical-memory repo.
 
 ## [0.4.0] — 2026-04-25
 
-Sprint 4 of an 8-sprint plan. See `.vibeflow/specs/yoke-v1-sprint-4.md` and
-`.vibeflow/audits/yoke-v1-sprint-4-audit.md`.
+Sprint 4 of an 8-sprint plan. See `.yoke/specs/2026-04-25-yoke-v1-sprint-4.md` and
+`discussions/yoke-audit-yoke-v1-sprint-4-audit-*.md`.
 
 ### Added
-- `agents/implementation.md` — full Implementation Agent runtime instance (memory scope `task`; persona, behaviors, restrictions per `.vibeflow/patterns/roles.md` and `ralph-loop.md`). Distinct from the Generator.
+- `agents/implementation.md` — full Implementation Agent runtime instance (memory scope `task`; persona, behaviors, restrictions per `concepts/yoke-pattern-roles` and `ralph-loop.md`). Distinct from the Generator.
 - `agents/validation.md` — full Validation Agent runtime instance. Emits structured JSON verdicts (`criterion` / `status` / `location` / `fix_instruction` / `sensor` / `evidence`). Distinct from the Validator.
 - `/yoke:implement` (`skills/implement/SKILL.md`) — Phase 4 basic ralph loop, real implementation. Orchestrator-skill in runtime-coordinator mode; spawns subagents via the Task tool (PRD v0 amendment — no agent-spawning-agent). Pre-flight + cycle loop + contradiction check + persistence + stop check.
 - `lib/ralph-loop/orchestrate.sh` — three deterministic subcommands: `preflight` (verifies pre-conditions; exit 3 / 4 / 0), `append-contract` (appends a YAML fragment to `.yoke/contracts.md`), `check-contradiction` (heuristic textual contradiction detection between sprint contracts and the Acceptance Contract; exit 10 on detection).
@@ -272,15 +272,15 @@ Sprint 4 of an 8-sprint plan. See `.vibeflow/specs/yoke-v1-sprint-4.md` and
 ### Notes
 - Sprint 4 is **pre-Sprint-6**: no hard-bound enforcement. Tests must wrap with external `timeout 600`. Sprint 6 ships hard bounds and the formal Trigger-4 escalation packet.
 - The agentic parts of the loop (Implementation Agent ↔ Validation Agent dialogue via Claude Code's Task tool) require runtime to validate; this sprint ships the deterministic scaffolding around them.
-- The PRD's v0 amendment (Orchestrator-as-skill) is exercised at the contract level by `/yoke:implement` invoking subagents via Task. Backporting the amendment to pattern docs (`.vibeflow/decisions.md`, `roles.md`, `plugin-structure.md`, `model-c-governance.md`) remains required before Sprint 5.
+- The PRD's v0 amendment (Orchestrator-as-skill) is exercised at the contract level by `/yoke:implement` invoking subagents via Task. Backporting the amendment to pattern docs (`concepts/yoke-decision-*`, `roles.md`, `plugin-structure.md`, `model-c-governance.md`) remains required before Sprint 5.
 
 ## [0.3.0] — 2026-04-25
 
-Sprint 3 of an 8-sprint plan. See `.vibeflow/specs/yoke-v1-sprint-3.md` and
-`.vibeflow/audits/yoke-v1-sprint-3-audit.md`.
+Sprint 3 of an 8-sprint plan. See `.yoke/specs/2026-04-25-yoke-v1-sprint-3.md` and
+`discussions/yoke-audit-yoke-v1-sprint-3-audit-*.md`.
 
 ### Added
-- `agents/validator.md` — full Validator subagent definition (persona, behaviors, memory scope, allowed tools, restrictions per `.vibeflow/patterns/roles.md`). Functional objective opposite the Generator's: measurable rigor.
+- `agents/validator.md` — full Validator subagent definition (persona, behaviors, memory scope, allowed tools, restrictions per `concepts/yoke-pattern-roles`). Functional objective opposite the Generator's: measurable rigor.
 - `/yoke:acceptance-contract` (`skills/acceptance-contract/SKILL.md`) — Phase 3, real implementation. Aborts on missing/unapproved PRD or Tech Spec; pauses for Trigger-3 ratification with the binding statement printed verbatim.
 - `lib/sensors/discover-from-claude-md.sh` — bash 4 parser that extracts the first backticked command from each bullet under `## Testing`, `## Linting`, `## Build` sections (case-insensitive). Emits structured YAML; falls back to a `notes:` entry when nothing is found so the Validator asks the user.
 - `hooks/verify-acceptance.sh` — runs the computational sensors declared in `.yoke/acceptance-contract.md` and emits per-sensor results (`pass` / `fail` / `skip`) with command, exit code, output excerpt, and reason. Sensors whose binary is missing report `skip`, not `fail`.
@@ -297,11 +297,11 @@ Sprint 3 of an 8-sprint plan. See `.vibeflow/specs/yoke-v1-sprint-3.md` and
 
 ## [0.2.0] — 2026-04-25
 
-Sprint 2 of an 8-sprint plan. See `.vibeflow/specs/yoke-v1-sprint-2.md` and
-`.vibeflow/audits/yoke-v1-sprint-2-audit.md`.
+Sprint 2 of an 8-sprint plan. See `.yoke/specs/2026-04-25-yoke-v1-sprint-2.md` and
+`discussions/yoke-audit-yoke-v1-sprint-2-audit-*.md`.
 
 ### Added
-- `agents/generator.md` — full Generator subagent definition (persona, behaviors, memory scope, allowed tools, restrictions per `.vibeflow/patterns/roles.md`).
+- `agents/generator.md` — full Generator subagent definition (persona, behaviors, memory scope, allowed tools, restrictions per `concepts/yoke-pattern-roles`).
 - `/yoke:discover` (`skills/discover/SKILL.md`) — Phase 1, real implementation. Forked from [pe-menezes/vibeflow:discover](https://github.com/pe-menezes/vibeflow), namespaced under `/yoke:*`, switched to Yoke's PRD shape, wires the Generator subagent.
 - `/yoke:tech-spec` (`skills/tech-spec/SKILL.md`) — Phase 2, real implementation. Forked from [pe-menezes/vibeflow:gen-spec](https://github.com/pe-menezes/vibeflow), aborts on missing/unapproved PRD.
 - `/yoke:ask` (`skills/ask/SKILL.md`) — basic mediated query, text grep over a cloned canonical-memory repo at `~/.cache/yoke/canonical/<slug>/`, with empty-state UX.
@@ -316,11 +316,11 @@ Sprint 2 of an 8-sprint plan. See `.vibeflow/specs/yoke-v1-sprint-2.md` and
 
 ## [0.1.0] — 2026-04-24
 
-Sprint 1 of an 8-sprint plan. See `.vibeflow/specs/yoke-v1-sprint-1.md`.
+Sprint 1 of an 8-sprint plan. See `.yoke/specs/2026-04-25-yoke-v1-sprint-1.md`.
 
 ### Added
 - Plugin manifest: `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`.
-- Full directory layout per `.vibeflow/patterns/plugin-structure.md`:
+- Full directory layout per `concepts/yoke-pattern-plugin-structure`:
   `skills/` (nine slash-command folders, only `bootstrap` implemented),
   `agents/` (five subagent placeholders),
   `hooks/` (four skeletons),

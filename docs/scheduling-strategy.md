@@ -1,7 +1,7 @@
 # Scheduling strategy — Phase 6 drift sensing
 
 Phase 6 (drift sensing) is the only Yoke phase that runs **outside the
-change lifecycle**. Per `.vibeflow/patterns/phase-flow.md`, it observes
+change lifecycle**. Per `concepts/yoke-pattern-phase-flow`, it observes
 three targets continuously: the host project's codebase, canonical
 memory, and historical working-memory traces. This document records the
 v1.0 scheduling decision and the documented fallback paths.

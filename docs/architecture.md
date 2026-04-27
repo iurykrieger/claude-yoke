@@ -4,7 +4,7 @@
 > source is `yoke.md` (the manifesto). When in doubt, read the manifesto.
 >
 > **Refreshed for v1.1.0** — runtime-only-agents refactor (decision
-> 2026-04-25 in `.vibeflow/decisions.md`). Spec phases are skill-only;
+> 2026-04-25 in `concepts/yoke-decision-*`). Spec phases are skill-only;
 > runtime spawns three subagents in parallel.
 
 ## Three pillars

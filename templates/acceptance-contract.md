@@ -77,7 +77,7 @@ and canonical-memory path.
 > browser automation) MUST set `tier: expensive` — the class-based default
 > is a starting point, not a substitute for author judgment.
 >
-> Source PRD: `.vibeflow/prds/sensor-cost-tiering.md`.
+> Source PRD: `.yoke/prds/2026-04-27-sensor-cost-tiering.md`.
 
 ```yaml
 sensors:

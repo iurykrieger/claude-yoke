@@ -31,4 +31,4 @@
 >   reached on a sub-objective, the scheduling decision active at that
 >   cycle is captured here for audit. At least one of `sensors:` or
 >   `tiers:` MUST be non-empty; `reason:` MUST cite at least one signal
->   source. Source PRD: `.vibeflow/prds/sensor-cost-tiering.md`.
+>   source. Source PRD: `.yoke/prds/2026-04-27-sensor-cost-tiering.md`.

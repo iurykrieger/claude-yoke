@@ -3,7 +3,7 @@
 > Shared menu shape rendered at the end of the three blocking-gate skills:
 > `/yoke:discover` (Trigger 1), `/yoke:tech-spec` (Trigger 2),
 > `/yoke:acceptance-contract` (Trigger 3). Triggers 4 and 5 are explicitly
-> **excluded** from this template — see `.vibeflow/patterns/human-triggers.md`
+> **excluded** from this template — see `concepts/yoke-pattern-human-triggers`
 > ("coalescing triggers is an anti-pattern").
 >
 > Status: Trigger 1 adopts this template in Yoke v0.x (Spec
@@ -72,7 +72,7 @@ files. Triggers 1 and 3 explicitly do not render this block; the
 condition is `artifact_label == "Tech Spec"` (every other host
 passes a different `artifact_label` and hence skips this block).
 Forking the template per trigger is the anti-pattern called out in
-`.vibeflow/patterns/human-triggers.md` ("shape is shared, semantics
+`concepts/yoke-pattern-human-triggers` ("shape is shared, semantics
 are distinct"); a conditional block honors that rule because the
 condition fires on input shape, not on trigger semantics.
 
@@ -240,7 +240,7 @@ If `language` is unknown, render in English as the default.
   `/yoke:canonize` (Trigger 5). Those triggers carry distinct decision
   spaces (4-way arbitration; Model C contextual authority) that do not
   fit the 4-option shape. Coalescing them is an anti-pattern documented
-  in `.vibeflow/patterns/human-triggers.md`.
+  in `concepts/yoke-pattern-human-triggers`.
 - This template does not record audit-log entries directly. Each blocking
   gate retains its own audit log surface; the menu is purely the
   user-facing prompt.

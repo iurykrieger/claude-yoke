@@ -26,8 +26,6 @@ PLUGIN_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HOOK="${PLUGIN_ROOT}/hooks/verify-acceptance.sh"
 ACK="${PLUGIN_ROOT}/lib/sensors/ack-sensors.sh"
 VALIDATOR="${PLUGIN_ROOT}/agents/validator.md"
-PATTERN="${PLUGIN_ROOT}/.vibeflow/patterns/sensors.md"
-
 fail=0
 pass() { echo "✓ $1"; }
 err()  { echo "✗ $1" >&2; fail=$((fail+1)); }
@@ -37,7 +35,10 @@ echo "--- ack-sensors Part 2 smoke (reconciled) ---"
 [ -f "$HOOK" ]      || { err "missing hook";       exit 1; }
 [ -f "$ACK" ]       || { err "missing ack-sensors helper"; exit 1; }
 [ -f "$VALIDATOR" ] || { err "missing validator";  exit 1; }
-[ -f "$PATTERN" ]   || { err "missing sensors.md"; exit 1; }
+# Note: pre-doctrine-canonization the test required `.vi`+`beflow/patterns/sensors.md`
+# as a fixture sentinel. Post-migration the doc lives in canonical
+# memory (`concepts/yoke-pattern-sensors`), unavailable in CI; the
+# existence check was vestigial — PATTERN was never used downstream.
 
 # ---------------------------------------------------------------------------
 # Hook delegates to ack-sensors readiness (Part 2 DoD #5, post-merge)

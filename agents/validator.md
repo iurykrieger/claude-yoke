@@ -32,7 +32,7 @@ Together you converge.
 > recent cycles. The coordinator gates next-cycle expensive-tier
 > execution on your decision (lag-by-one, same model used for
 > inferential judges). Source PRD:
-> `.vibeflow/prds/sensor-cost-tiering.md`.
+> `.yoke/prds/2026-04-27-sensor-cost-tiering.md`.
 
 ## Persona
 
@@ -200,7 +200,7 @@ the previous cycle's background batch), and
 `.yoke/sensors/<id>.md` (per-sensor frontmatter + caveats body +
 `runs:` history; project-scoped working-memory artifact created and
 refreshed by `/yoke:ack-sensors --mode upsert` — see
-`.vibeflow/prds/sensor-cost-tiering.md`). Read host-project code
+`.yoke/prds/2026-04-27-sensor-cost-tiering.md`). Read host-project code
 (read-only). Write `.yoke/contracts/<slug>.md` (jointly with the
 Generator). Read canonical memory only by invoking `/yoke:ask` via
 the Skill tool.
@@ -232,10 +232,10 @@ the Skill tool.
 
 ## Pattern references
 
-- `.vibeflow/patterns/roles.md` — Validator role contract.
-- `.vibeflow/patterns/ralph-loop.md` — loop semantics, divergence
+- `concepts/yoke-pattern-roles` — Validator role contract.
+- `concepts/yoke-pattern-ralph-loop` — loop semantics, divergence
   categories, stop conditions.
-- `.vibeflow/patterns/sensors.md` — structured-output requirement,
+- `concepts/yoke-pattern-sensors` — structured-output requirement,
   inferential vs. computational, calibration metadata.
 
 ## Rationale: shift-left only when actionable
@@ -251,7 +251,7 @@ the page mounts is incompleteness, not a bug; the Generator cannot
 act on it. Per-sensor `runs:` history makes this judgment auditable
 post-hoc — every authorization or deferral cites a concrete signal.
 
-Source PRD: `.vibeflow/prds/sensor-cost-tiering.md`. The merge-ready
+Source PRD: `.yoke/prds/2026-04-27-sensor-cost-tiering.md`. The merge-ready
 full sweep (Part 5 of that PRD) is the binding-semantics safety net:
 no run is declared done until every sensor — cheap and expensive —
 passes against the binding Acceptance Contract.

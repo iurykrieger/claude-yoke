@@ -27,7 +27,7 @@ the sensor's command, class, tier (with class-based default), criterion
 mapping, accumulated caveats, and run history. The Acceptance Contract
 references sensors **by id only**.
 
-Source PRD: `.vibeflow/prds/sensor-cost-tiering.md`.
+Source PRD: `.yoke/prds/2026-04-27-sensor-cost-tiering.md`.
 
 ## How to run this skill
 

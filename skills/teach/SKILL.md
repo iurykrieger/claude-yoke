@@ -22,7 +22,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Skill, WebFetch, mcp__plugin
 > graphify extraction pipeline (Phases 4–5 in upstream) is replaced
 > with direct entity classification using `entities/{type}.md`.
 > Graphify integration is deferred to a future Yoke sprint per
-> `.vibeflow/specs/bedrock-canonical-memory-port-part-5.md` anti-scope.
+> `.yoke/specs/2026-04-25-bedrock-canonical-memory-port-part-5.md` anti-scope.
 
 You are a **fetcher and classifier**. Your job:
 
@@ -225,9 +225,9 @@ Memory: <name> @ <path>
 
 ## See also
 
-- `.vibeflow/patterns/memory-model.md` — `/yoke:preserve` is the
+- `concepts/yoke-pattern-memory-model` — `/yoke:preserve` is the
   single write entry; `/yoke:teach` routes through it.
-- `.vibeflow/patterns/model-c-governance.md` — impact-class routing
+- `concepts/yoke-pattern-model-c-governance` — impact-class routing
   applies to teach-driven writes too.
 - `skills/confluence-to-markdown/SKILL.md` — Confluence adapter
   (3-layer fallback: MCP → REST → browser DOM).

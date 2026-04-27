@@ -19,7 +19,7 @@
 #       Idempotent — running it twice with no contract changes produces
 #       no file modifications.
 #
-#       Source PRD: .vibeflow/prds/sensor-cost-tiering.md
+#       Source PRD: .yoke/prds/2026-04-27-sensor-cost-tiering.md
 #
 # Usage:
 #   bash lib/sensors/ack-sensors.sh [--mode catalog | readiness | upsert] [<contract>]

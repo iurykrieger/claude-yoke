@@ -97,10 +97,10 @@ There is no continuous port. Per-skill mapping in
 
 - Manifesto: `yoke.md`
 - Implementation plan: `yoke-implementation-plan.md`
-- PRD: `.vibeflow/prds/yoke-v1.md`
-- Sprint specs: `.vibeflow/specs/yoke-v1-sprint-{1..8}.md`
-- Sprint audits: `.vibeflow/audits/yoke-v1-sprint-{1..8}-audit.md`
-- Architecture, conventions, decisions, patterns: `.vibeflow/`
+- PRD: `.yoke/prds/2026-04-25-yoke-v1.md`
+- Sprint specs: `.yoke/specs/2026-04-25-yoke-v1-sprint-{1..8}.md`
+- Sprint audits: `discussions/yoke-audit-yoke-v1-sprint-{1..8}-*.md`
+- Architecture, conventions, decisions, patterns: canonical memory + `.yoke/`
 
 ## Contributing
 

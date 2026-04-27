@@ -192,7 +192,7 @@ wm_trigger4_packet_path()  { printf '%s/.trigger4-packet.yaml' "$WM_RUNTIME_DIR"
 # `hooks/verify-acceptance.sh` and `agents/validator.md`; appended to by
 # `skills/implement/SKILL.md` after each cycle.
 #
-# Source PRD: .vibeflow/prds/sensor-cost-tiering.md
+# Source PRD: .yoke/prds/2026-04-27-sensor-cost-tiering.md
 wm_sensors_dir() { printf '%s' "$WM_SENSORS_DIR"; }
 
 # wm_sensor_path "<sensor-id>"
