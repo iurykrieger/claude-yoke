@@ -117,6 +117,68 @@ consecutive cycles, the skill invokes
 `lib/ralph-loop/escalate.sh --reason sensor-failure --sensor <id>`
 and pauses the loop.
 
+### Cost tiering, sensor persistence, and Validator-owned scheduling
+
+Sensors are first-class persistent artifacts in
+`.yoke/sensors/<id>.md` (project-scoped working memory). Each
+per-sensor file carries `id`, `command`, `class` (computational |
+inferential), `tier` (cheap | expensive — class-based default when
+omitted), `applies_to: [<criterion-id>...]`, and a `runs:` history.
+The Acceptance Contract's `## Sensors registry` block + `Sensors:
+[<id>]` references in scenarios are the contract-side declaration;
+`/yoke:ack-sensors --mode upsert <contract>` materializes the per-
+sensor files from the registry. Source PRD:
+`.vibeflow/prds/sensor-cost-tiering.md`.
+
+**Class-based default tier.** Computational sensors default to
+`tier: cheap`; inferential sensors default to `tier: expensive`.
+Authors override via explicit `tier:` per sensor — heavy
+computational sensors (Playwright, browser automation) MUST set
+`tier: expensive` explicitly.
+
+**Two-phase per-cycle execution.** Within each Phase-4 cycle, the
+coordinator (`/yoke:implement`) runs sensors in two phases:
+
+- **Phase A** (after the Generator's diff): cheap sensors fire
+  synchronously via `hooks/verify-acceptance.sh --tier cheap
+  --criterion <last-target>`. Cheap-tier feedback is in-loop —
+  shift-left preserved on actionable feedback.
+- **Phase B** (cycle boundary, after Phase A): expensive sensors
+  fire only when authorized by cycle `<N-1>`'s `schedule_next` —
+  same lag-by-one model used for inferential judges. Cycle 1 has
+  no prior `schedule_next`; coordinator runs Phase A only by
+  default. From cycle 2 onward, the Validator's per-cycle verdict
+  may include `tier:expensive` in `schedule_next.tiers` (or specific
+  expensive sensor ids in `schedule_next.sensors`), gating Phase B.
+
+The merge-ready convergence sweep (`hooks/verify-acceptance.sh
+--concurrency 1 --tier all`) ignores `schedule_next` and runs the
+**full sensor suite across all tiers**. No run is declared done
+while any sensor — cheap or expensive — fails. This is the binding-
+semantics safety net.
+
+**Run-history persistence.** After Phase A (always) and Phase B
+(when authorized), the coordinator invokes
+`bash lib/sensors/append-runs.sh <snapshot> <cycle> <criterion>`
+to append one entry to each executed sensor's `runs:` list:
+`{cycle, started_at, status, criterion, evidence_snippet}`. The
+list is capped at the most recent **N=20** entries; oldest roll
+off on overflow. Sensors that did not run (Phase B skipped, or
+filtered out by `--criterion`) are not touched. The persisted
+history is the durable record the Validator reads next cycle when
+emitting `schedule_next` — flake patterns, recent failures, and
+green streaks become first-class scheduling signals.
+
+**Rationale (shift-left only when actionable).** Cheap sensors
+still run every cycle — the convention from
+`conventions.md:18-22` and `## Cross-cutting principles > Shift
+feedback left` is upheld where feedback is **actionable**.
+Expensive sensors are gated **only** because pre-convergence
+failures are not actionable feedback: a failing Playwright run
+three cycles before the page mounts is incompleteness, not a bug;
+the Generator cannot act on it. Per-sensor `runs:` history makes
+this judgment auditable post-hoc.
+
 ### Calibration drift management
 Inferential sensors degrade as the underlying model changes. They carry:
 - `calibrated_against: <model id>`
@@ -182,6 +244,7 @@ above a threshold triggers Orchestrator-mediated review of the sensor.
 - Letting inferential sensors live without calibration metadata — invisible obsolescence the moment the model changes.
 - Treating sensor verbosity as noise — the verbosity is the contract; silencing it removes the back-pressure mechanism.
 - A failing sensor that the Validator ignores ("flaky") — either the sensor is wrong (fix it) or the implementation is wrong (fix it). There is no third option.
+- Running all expensive sensors every cycle when the feature is mid-assembly — failures are incompleteness signals, not bug signals; the Generator cannot act on them. Use cost tiering + Validator-owned `schedule_next` to defer expensive sensors to cycles where their feedback is actionable.
 
 ## Implementation Mapping
 

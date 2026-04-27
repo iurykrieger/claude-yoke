@@ -9,6 +9,20 @@
 #                             either a "Scenario N" heading or an "FR-N"
 #                             functional-requirement bullet in the contract.
 #                             Default (no flag): full-suite run.
+#   --tier <cheap|expensive|all>
+#                             Filter executed sensors by cost tier (sensor-
+#                             cost-tiering Part 3). Tier is resolved per
+#                             sensor by reading `.yoke/sensors/<id>.md`
+#                             frontmatter (with class-based default —
+#                             computational → cheap, inferential →
+#                             expensive). Orthogonal to `--criterion`;
+#                             both filters combine by intersection. Only
+#                             meaningful for new-format contracts (`## Sensors
+#                             registry`); old-format contracts have no tier
+#                             metadata and reject `--tier cheap|expensive`.
+#                             Default (no flag) preserves current full-suite
+#                             behavior; `--tier all` is explicit and
+#                             equivalent.
 #   --concurrency <N>         Override sensor parallelism. <N> must be a
 #                             positive integer. Default resolves from
 #                             .yoke/config.yaml's runtime.sensor_concurrency,
@@ -23,25 +37,27 @@
 #                        (i.e., .yoke/acceptance-contracts/<slug>.md, where <slug>
 #                        comes from .yoke/.current).
 #
-# v0.3.0 supports only "shell command" sensor types (e.g. `npm test`,
-# `pytest`). Richer sensor types (structural fixtures, inferential
-# semantic judges with rubrics) ship in later sprints.
+# Sensor source-of-truth (sensor-cost-tiering Part 1+):
 #
-# Sensors are extracted from the "## Sensors > ### Computational" section
-# of the Acceptance Contract; the Validator (Sprint 3) writes them in this
-# shape:
+#   * **New format** — contract uses `## Sensors registry` block + `Sensors:
+#     [<id>]` references. Each sensor's command/class/tier lives in
+#     `.yoke/sensors/<id>.md`. Read by this hook when the contract has the
+#     registry section.
+#   * **Old format** — contract uses inline `## Sensors > ### Computational`
+#     block:
 #
-#   ## Sensors
+#       ## Sensors
 #
-#   ### Computational
-#   - linter: `npm run lint`
-#   - type-check: `mypy --strict`
-#   - structural: `pytest tests/contracts/`
-#   - unit: `pytest tests/unit/`
+#       ### Computational
+#       - linter: `npm run lint`
+#       - type-check: `mypy --strict`
 #
-# Each bullet's first backticked segment is the command Yoke will run.
+#     Read by this hook when the registry section is absent. No tier
+#     metadata; `--tier cheap|expensive` is rejected against old-format
+#     contracts with a structured violation pointing at `/yoke:ack-sensors
+#     --mode upsert <contract>`.
 #
-# Per-criterion mapping (used by --criterion):
+# Per-criterion mapping (used by --criterion, both formats):
 #   - Scenario blocks carry `Sensors: [name1, name2, ...]`.
 #   - FR bullets carry `Sensor: name.` (single sensor).
 #
@@ -59,7 +75,10 @@
 #   0 — verification ran (regardless of individual sensor outcomes)
 #   2 — usage error
 #   3 — Acceptance Contract not found
-#   4 — Acceptance Contract has no Sensors > Computational section
+#   4 — Acceptance Contract has no sensor section (neither old nor new
+#       format), or `--tier cheap|expensive` was passed against an
+#       old-format contract, or a referenced `.yoke/sensors/<id>.md` is
+#       missing or malformed under tier filtering.
 
 set -euo pipefail
 
@@ -72,6 +91,7 @@ source "${hook_dir}/../lib/working-memory/paths.sh"
 
 contract=""
 filter_criterion=""
+filter_tier="all"
 explicit_concurrency=""
 fragments_dir=""
 
@@ -83,6 +103,24 @@ while [ $# -gt 0 ]; do
         echo "Error: --criterion requires a value." >&2
         exit 2
       fi
+      shift 2
+      ;;
+    --tier)
+      filter_tier="${2:-}"
+      case "$filter_tier" in
+        cheap|expensive|all) ;;
+        "")
+          echo "Error: --tier requires a value." >&2
+          exit 2
+          ;;
+        *)
+          # Structured violation per sensors.md back-pressure.
+          echo "Error: unknown --tier value '${filter_tier}'." >&2
+          echo "  expected: cheap | expensive | all" >&2
+          echo "  correction: re-run with --tier cheap, --tier expensive, --tier all, or omit the flag." >&2
+          exit 2
+          ;;
+      esac
       shift 2
       ;;
     --concurrency)
@@ -199,7 +237,17 @@ if [ -f "$ack_sensors" ]; then
   fi
 fi
 
-# --- sensor block extraction ------------------------------------------------
+# --- contract format detection ----------------------------------------------
+# New format (sensor-cost-tiering Part 1+) puts sensor metadata in
+# `.yoke/sensors/<id>.md` files and references them from the contract via a
+# `## Sensors registry` block + `Sensors: [<id>]` lines in scenarios.
+# Old format keeps inline bullets under `## Sensors > ### Computational`.
+# Both formats are supported here; new format is preferred when present.
+contract_format=""
+if grep -qE '^## Sensors registry[[:space:]]*$' "$contract"; then
+  contract_format="new"
+fi
+
 sensors_block=$(awk '
   /^## Sensors[[:space:]]*$/ { in_sensors = 1; next }
   in_sensors && /^## / && !/^## Sensors/ { in_sensors = 0 }
@@ -208,8 +256,23 @@ sensors_block=$(awk '
   in_sensors && in_comp { print }
 ' "$contract")
 
-if [ -z "$sensors_block" ]; then
-  echo "Error: Acceptance Contract has no '## Sensors > ### Computational' section." >&2
+if [ -z "$contract_format" ] && [ -n "$sensors_block" ]; then
+  contract_format="old"
+fi
+
+if [ -z "$contract_format" ]; then
+  echo "Error: Acceptance Contract has no sensor section." >&2
+  echo "  expected: '## Sensors registry' (new format) or '## Sensors > ### Computational' (old format)" >&2
+  echo "  correction: add a registry block or run \`/yoke:ack-sensors --mode upsert ${contract}\`." >&2
+  exit 4
+fi
+
+# Tier filtering requires the new format (sensor files have tier metadata).
+if [ "$filter_tier" != "all" ] && [ "$contract_format" = "old" ]; then
+  echo "Error: --tier ${filter_tier} requires the new contract format with '## Sensors registry'." >&2
+  echo "  expected: contract with '## Sensors registry' and per-sensor files in .yoke/sensors/" >&2
+  echo "  actual: contract uses old-format inline '## Sensors > ### Computational' block" >&2
+  echo "  correction: migrate the contract to the new format and run \`/yoke:ack-sensors --mode upsert ${contract}\`." >&2
   exit 4
 fi
 
@@ -304,15 +367,92 @@ EOF
 export -f run_one_sensor
 
 # --- build sensor pair list (name|command) and apply --criterion filter ----
+# Parallel map: sensor_tier[<name>] = cheap|expensive|"" (empty for old
+# format / unresolved). Used by the --tier filter below.
+declare -A sensor_tier=()
+
 sensor_pairs=()
-while IFS= read -r line; do
-  [ -z "$line" ] && continue
-  if [[ "$line" =~ ^[[:space:]]*-[[:space:]]+([^:]+):[[:space:]]*\`([^\`]+)\` ]]; then
-    sensor_name=$(echo "${BASH_REMATCH[1]}" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
-    command_str="${BASH_REMATCH[2]}"
-    sensor_pairs+=("${sensor_name}|${command_str}")
-  fi
-done <<< "$sensors_block"
+if [ "$contract_format" = "old" ]; then
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    if [[ "$line" =~ ^[[:space:]]*-[[:space:]]+([^:]+):[[:space:]]*\`([^\`]+)\` ]]; then
+      sensor_name=$(echo "${BASH_REMATCH[1]}" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
+      command_str="${BASH_REMATCH[2]}"
+      sensor_pairs+=("${sensor_name}|${command_str}")
+    fi
+  done <<< "$sensors_block"
+else
+  # New format: extract registered ids from `## Sensors registry` YAML
+  # block and load command + class + tier from each `.yoke/sensors/<id>.md`.
+  registry_ids=$(awk '
+    /^## Sensors registry/ { in_section = 1; next }
+    in_section && /^## / { in_section = 0 }
+    in_section && /^```yaml[[:space:]]*$/ { in_block = 1; next }
+    in_section && /^```[[:space:]]*$/ && in_block { in_block = 0 }
+    in_block && /^[[:space:]]*-[[:space:]]+id:/ {
+      v = $0
+      sub(/^[[:space:]]*-[[:space:]]+id:[[:space:]]*/, "", v)
+      sub(/[[:space:]]+$/, "", v)
+      print v
+    }
+  ' "$contract")
+
+  while IFS= read -r id; do
+    [ -z "$id" ] && continue
+    sensor_file=".yoke/sensors/${id}.md"
+    if [ ! -f "$sensor_file" ]; then
+      # Skip silently when --tier is `all` (or omitted) and we are
+      # processing a registered sensor whose file is missing — readiness
+      # mode is the right place to surface that. But surface a hard
+      # failure when the user explicitly asked for tier filtering, since
+      # tier resolution requires the file.
+      if [ "$filter_tier" != "all" ]; then
+        echo "Error: sensor file missing for registered id '${id}'." >&2
+        echo "  expected: ${sensor_file}" >&2
+        echo "  actual: file not found" >&2
+        echo "  correction: run \`/yoke:ack-sensors --mode upsert ${contract}\`." >&2
+        exit 4
+      fi
+      continue
+    fi
+
+    fm=$(awk '
+      BEGIN { count = 0 }
+      /^---[[:space:]]*$/ { count++; if (count == 2) exit; next }
+      count == 1 { print }
+    ' "$sensor_file")
+
+    sensor_command=$(printf '%s\n' "$fm" \
+      | awk -F': ' '/^command:/ { sub(/^command:[[:space:]]*/, "", $0); print $0; exit }')
+    sensor_class=$(printf '%s\n' "$fm" \
+      | awk -F': ' '/^class:/ { sub(/^class:[[:space:]]*/, "", $0); print $0; exit }')
+    sensor_tier_val=$(printf '%s\n' "$fm" \
+      | awk -F': ' '/^tier:/ { sub(/^tier:[[:space:]]*/, "", $0); print $0; exit }')
+
+    if [ -z "$sensor_command" ] || [ -z "$sensor_class" ]; then
+      if [ "$filter_tier" != "all" ]; then
+        echo "Error: sensor file '${sensor_file}' is malformed." >&2
+        echo "  expected: command and class fields populated in frontmatter" >&2
+        echo "  actual: command='${sensor_command}', class='${sensor_class}'" >&2
+        echo "  correction: edit ${sensor_file} or re-run \`/yoke:ack-sensors --mode upsert ${contract}\`." >&2
+        exit 4
+      fi
+      continue
+    fi
+
+    # Class-based default when tier is absent.
+    if [ -z "$sensor_tier_val" ]; then
+      if [ "$sensor_class" = "inferential" ]; then
+        sensor_tier_val="expensive"
+      else
+        sensor_tier_val="cheap"
+      fi
+    fi
+
+    sensor_pairs+=("${id}|${sensor_command}")
+    sensor_tier["$id"]="$sensor_tier_val"
+  done <<< "$registry_ids"
+fi
 
 if [ -n "$filter_criterion" ]; then
   allowed=$(sensors_for_criterion "$filter_criterion" || true)
@@ -329,6 +469,23 @@ if [ -n "$filter_criterion" ]; then
       done
     done <<< "$allowed"
   fi
+  if [ "${#filtered_pairs[@]}" -gt 0 ]; then
+    sensor_pairs=("${filtered_pairs[@]}")
+  else
+    sensor_pairs=()
+  fi
+fi
+
+# --- apply --tier filter (new format only; old format errors out earlier) --
+if [ "$filter_tier" != "all" ] && [ "${#sensor_pairs[@]}" -gt 0 ]; then
+  filtered_pairs=()
+  for pair in "${sensor_pairs[@]}"; do
+    name="${pair%%|*}"
+    pair_tier="${sensor_tier[$name]:-}"
+    if [ "$pair_tier" = "$filter_tier" ]; then
+      filtered_pairs+=("$pair")
+    fi
+  done
   if [ "${#filtered_pairs[@]}" -gt 0 ]; then
     sensor_pairs=("${filtered_pairs[@]}")
   else
