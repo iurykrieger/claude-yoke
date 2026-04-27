@@ -48,7 +48,7 @@ and you propose alternatives when the proposed structure is wrong.
 ## The 3-stage blueprint
 
 This skill is a **blueprint wrapping agentic nodes** per
-`.vibeflow/conventions.md`:
+`concepts/yoke-conventions`:
 
 1. **Stage 1 — LLM (sprint index draft).** You (Generator persona)
    draft `.yoke/specs/<slug>.md` end-to-end: overall objective,
@@ -105,7 +105,7 @@ prose.
 After reading the PRD, evaluate three engineering checks:
 
 1. **Stack fit confirmed?** Does the PRD's proposed solution fit the
-   stack named in `.vibeflow/index.md` without major upgrades or
+   stack named in `projects/claude-yoke` without major upgrades or
    substitutions?
 2. **Framework / library choices named with trade-offs?** For every
    non-trivial dependency the spec will introduce, is there a named
@@ -118,7 +118,7 @@ After reading the PRD, evaluate three engineering checks:
 
 **If all 3 pass:** proceed to stage 1 (step 4).
 **If not:** ask 1-2 targeted questions before drafting (e.g., "PRD
-proposes feature X but the stack in `.vibeflow/index.md` is Y —
+proposes feature X but the stack in `projects/claude-yoke` is Y —
 confirm framework choice and trade-off?", or "scope items A–E look
 like 3 sprints — confirm split?").
 
@@ -354,11 +354,11 @@ skill exits cleanly.
 
 ## See also
 
-- `.vibeflow/patterns/phase-flow.md` (Phase 2).
-- `.vibeflow/patterns/roles.md` (Generator persona).
-- `.vibeflow/patterns/human-triggers.md` (Trigger 2; shared-menu rule).
-- `.vibeflow/patterns/memory-model.md` (working-memory archive layout).
-- `.vibeflow/conventions.md` ("blueprints wrapping agentic nodes",
+- `concepts/yoke-pattern-phase-flow` (Phase 2).
+- `concepts/yoke-pattern-roles` (Generator persona).
+- `concepts/yoke-pattern-human-triggers` (Trigger 2; shared-menu rule).
+- `concepts/yoke-pattern-memory-model` (working-memory archive layout).
+- `concepts/yoke-conventions` ("blueprints wrapping agentic nodes",
   "progressive disclosure").
 - `templates/spec.md`, `templates/task.md`.
 - `templates/approval-menu.md` (shared menu shape, detection rule,

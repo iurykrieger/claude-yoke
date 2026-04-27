@@ -147,7 +147,7 @@ For each entity file:
   `ratified_at`, `model_calibrated_against`, `last_validated`,
   `traceability`, `impact_level`).
 - Flag entries missing any of the 5 rippability fields — these are
-  pruning candidates per `.vibeflow/conventions.md` "Minimalist
+  pruning candidates per `concepts/yoke-conventions` "Minimalist
   canonical memory with mandatory traceability".
 
 ### 2.5 Stale content (rippability)
@@ -209,8 +209,8 @@ to keep `--all` output readable.
 
 ## See also
 
-- `.vibeflow/patterns/memory-model.md` — read-only role.
-- `.vibeflow/patterns/phase-flow.md` — phase labels.
+- `concepts/yoke-pattern-memory-model` — read-only role.
+- `concepts/yoke-pattern-phase-flow` — phase labels.
 - `lib/working-memory/paths.sh` — working-memory paths.
 - `lib/canonical-memory/resolve-memory.sh` — memory resolution.
 - `skills/compress/SKILL.md` — alignment maintenance (the skill that

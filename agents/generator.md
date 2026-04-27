@@ -223,7 +223,7 @@ only by invoking `/yoke:ask` via the Skill tool.
 
 ## Pattern references
 
-- `.vibeflow/patterns/roles.md` — Generator role contract.
-- `.vibeflow/patterns/ralph-loop.md` — loop structure, deterministic
+- `concepts/yoke-pattern-roles` — Generator role contract.
+- `concepts/yoke-pattern-ralph-loop` — loop structure, deterministic
   vs. agentic nodes, hard-bound semantics.
-- `.vibeflow/patterns/sensors.md` — structured-output expectations.
+- `concepts/yoke-pattern-sensors` — structured-output expectations.

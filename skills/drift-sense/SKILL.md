@@ -13,7 +13,7 @@ allowed-tools: Read, Write, Bash, Grep, Glob
 # /yoke:drift-sense — Phase 6 (continuous drift sensing)
 
 Phase 6 is the continuous, out-of-lifecycle observation layer. Per
-`.vibeflow/patterns/phase-flow.md`, it operates on three targets and
+`concepts/yoke-pattern-phase-flow`, it operates on three targets and
 emits structured findings that the Orchestrator (Canonizer mode) can
 turn into deprecation propositions via Model C.
 
@@ -149,10 +149,10 @@ sensing should be a high-signal channel, not a noisy one.
 
 ## See also
 
-- `.vibeflow/patterns/phase-flow.md` (Phase 6 section).
-- `.vibeflow/patterns/model-c-governance.md` — deprecation propositions.
-- `.vibeflow/patterns/sensors.md` — structured findings.
-- `.vibeflow/patterns/memory-model.md` — frontmatter metadata.
+- `concepts/yoke-pattern-phase-flow` (Phase 6 section).
+- `concepts/yoke-pattern-model-c-governance` — deprecation propositions.
+- `concepts/yoke-pattern-sensors` — structured findings.
+- `concepts/yoke-pattern-memory-model` — frontmatter metadata.
 - `lib/canonical-memory/staleness-check.sh`.
 - `lib/canonical-memory/trace-analyzer.sh`.
 - `.github/workflows/yoke-drift-sense.yml`.

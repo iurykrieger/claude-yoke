@@ -250,8 +250,8 @@ cleanly.
 
 ## See also
 
-- `.vibeflow/patterns/phase-flow.md` (Phase 1).
-- `.vibeflow/patterns/roles.md` (Generator persona).
-- `.vibeflow/patterns/human-triggers.md` (Trigger 1).
+- `concepts/yoke-pattern-phase-flow` (Phase 1).
+- `concepts/yoke-pattern-roles` (Generator persona).
+- `concepts/yoke-pattern-human-triggers` (Trigger 1).
 - `templates/prd.md`.
 - `templates/approval-menu.md` (shared menu shape, detection rule, fallback).

@@ -26,7 +26,7 @@ PLUGIN_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HOOK="${PLUGIN_ROOT}/hooks/verify-acceptance.sh"
 ACK="${PLUGIN_ROOT}/lib/sensors/ack-sensors.sh"
 VALIDATOR="${PLUGIN_ROOT}/agents/validator.md"
-PATTERN="${PLUGIN_ROOT}/.vibeflow/patterns/sensors.md"
+PATTERN="$(YOKE_PLUGIN_DIR="$PLUGIN_ROOT" bash "$PLUGIN_ROOT/lib/canonical-memory/registry.sh" path-of iury-brain 2>/dev/null)/concepts/yoke-pattern-sensors.md"
 
 fail=0
 pass() { echo "✓ $1"; }

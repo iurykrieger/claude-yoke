@@ -9,37 +9,57 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Yoke is being built sprint by sprint. **v0.1.0 (Sprint 1 — scaffolding +
-bootstrap) is the current shipped state.** The full plugin layout exists,
-but only `/yoke:bootstrap` is functionally implemented; the other eight
-slash commands are placeholders. See `.vibeflow/specs/yoke-v1-sprint-{1..8}.md`
-for the planned sprint-by-sprint build-out.
+Yoke is being built sprint by sprint. **v1.1.x is the current shipped
+state**; v1.2 dogfood is in flight — the framework's own design
+doctrine (patterns, decisions, conventions, audits) has been canonized
+into the registered Bedrock vault under `tags: [yoke-framework]` per
+the 2026-04-27 doctrine-canonization PRD. Project state lives in
+canonical memory at `projects/claude-yoke`; query it via `/yoke:ask`
+to see the current sprint, version, and active action items.
 
-The manifesto (`yoke.md`) and the implementation plan (`yoke-implementation-plan.md`)
-are the design source of truth. **Before proposing any file, module or command,
-check whether the decision is already fixed in the manifesto, the
-implementation plan, or `.vibeflow/decisions.md`.**
+The manifesto (`yoke.md`) and the implementation plan
+(`yoke-implementation-plan.md`) remain the design source of truth.
+**Before proposing any file, module or command, query
+`/yoke:ask "what does Yoke decide about <topic>?"`** — the canonized
+decision history (`concepts/yoke-decision-*`) is the authoritative
+record. The manifesto is the original design intent; canonical memory
+is the lived doctrine.
 
 ## Where things live
 
-- `.vibeflow/` — project knowledge: patterns, conventions, decisions, PRDs, specs, audits.
+- **Canonical memory** (registered Bedrock vault, query via `/yoke:ask`):
+  - `projects/claude-yoke` — project entity (status, version, action items)
+  - `actors/yoke-framework` — the framework as an actor
+  - `concepts/yoke-pattern-*` — pattern doctrine (9 entities)
+  - `concepts/yoke-decision-*` — decision log (30 entities, with bidirectional supersession)
+  - `concepts/yoke-conventions` — the MUST/MUST-NOT policy
+  - `discussions/yoke-audit-*` — after-action audit reports (52 entities)
+  - `fleeting/2026-04-27-yoke-*` — recent dogfood findings pending ratification
+- **`.yoke/`** — per-task working memory (versioned archives + gitignored runtime).
+  - `.yoke/prds/<slug>.md` — historical and current PRDs (one file per task)
+  - `.yoke/specs/<slug>.md` — historical and current Specs
+  - `.yoke/tasks/<slug>-s*-t*.md` — per-task technical implementations
+  - `.yoke/acceptance-contracts/<slug>.md` — binding contracts
+  - `.yoke/contracts/<slug>.md` — sprint contracts (refinements within the binding envelope)
+  - `.yoke/sensors/<sensor-id>.md` — per-sensor working artifacts
+  - `.yoke/runtime/` — gitignored: progress.md, snapshots, judge verdicts
 - `.claude-plugin/` — plugin manifest (`plugin.json`, `marketplace.json`).
-- `skills/`, `agents/`, `hooks/`, `templates/`, `lib/`, `docs/`, `tests/`, `examples/` — see `.vibeflow/patterns/plugin-structure.md` for the full layout and the manifesto-component → artifact mapping.
+- `skills/`, `agents/`, `hooks/`, `templates/`, `lib/`, `docs/`, `tests/`, `examples/` — query `/yoke:ask "describe the yoke plugin-structure pattern"` for the full layout.
 
 ## Working on this repo
 
-1. Read `.vibeflow/index.md` for project state before any non-trivial change.
-2. Follow `.vibeflow/conventions.md` exactly — the Don'ts list is non-negotiable.
-3. Pattern docs in `.vibeflow/patterns/` are the source of truth for HOW to implement each component.
-4. Decisions already fixed in `.vibeflow/decisions.md` or the manifesto are not re-decided in code — only refined.
+1. Query `/yoke:ask "what is the claude-yoke project?"` for current project state before any non-trivial change.
+2. Follow `concepts/yoke-conventions` (canonical memory) exactly — the Don'ts list is non-negotiable. Query via `/yoke:ask` for the live version.
+3. Pattern docs at `concepts/yoke-pattern-*` (canonical memory) are the source of truth for HOW to implement each component. Query via `/yoke:ask`.
+4. Decisions already fixed in `concepts/yoke-decision-*` (canonical memory) or the manifesto are not re-decided in code — only refined. Query via `/yoke:ask` for any specific decision.
 5. New trade-offs become input for canonical memory via Model C, not unilateral decisions.
 
 ## Sprint discipline
 
-- Each sprint has a spec at `.vibeflow/specs/yoke-v1-sprint-N.md`.
-- Use `/vibeflow:implement <spec>` to implement a sprint.
-- Use `/vibeflow:audit <spec>` to verify against DoD.
-- Each sprint produces an installable plugin version (0.1.0 → 1.0.0).
+- Sprint specs live at `.yoke/specs/<YYYY-MM-DD>-<slug>.md` (working memory archive). Past sprints retain git history; current sprints append.
+- Use `/yoke:implement <spec>` to drive Phase 4 (the runtime ralph loop).
+- Use `/yoke:tech-spec` for Phase 2 spec generation; `/yoke:acceptance-contract` for Phase 3 ratification.
+- Each sprint produces an installable plugin version (1.0.0 → 1.x → 2.0.0).
 - The manifesto and the plan are the architect's input; this file is the coding agent's runtime guidance.
 
 ## Testing
@@ -47,6 +67,7 @@ implementation plan, or `.vibeflow/decisions.md`.**
 <!-- Yoke parses this section to discover available sensors when Yoke is run on Yoke. -->
 
 - Smoke tests live under `tests/smoke/sprint-N.test.sh` (added per sprint).
+- Sensor self-tests live under `tests/sensors/<sensor-id>.test.sh`.
 - Pre-Sprint-6 smoke tests must use external `timeout 600` to guard against ralph-loop iterations without hard bounds.
 - Sprint 8 wires `tests/` into a CI workflow that gates every PR.
 
@@ -55,15 +76,18 @@ implementation plan, or `.vibeflow/decisions.md`.**
 <!-- Yoke parses this section to discover available sensors. -->
 
 - Bash scripts target bash 4+. Use `shellcheck` if available.
-- Markdown follows the conventions documented in `.vibeflow/conventions.md`.
+- Markdown follows the conventions documented in `concepts/yoke-conventions` (canonical memory).
 
 ## Build
 
 <!-- Yoke parses this section to discover available sensors. -->
 
 This is a plugin, not a compiled artifact. "Build" = the directory layout must
-match `.vibeflow/patterns/plugin-structure.md` exactly. Sprint 8 adds a CI gate
-that enforces this.
+match `concepts/yoke-pattern-plugin-structure` exactly (canonical memory).
+Sprint 8 adds a CI gate that enforces this. The
+`lib/sensors/no-vibeflow-refs.sh` sensor pins the legacy-doctrine-directory
+invariant — any reintroduction of the legacy doctrine directory in framework
+files trips the sensor.
 
 ---
 
@@ -154,4 +178,8 @@ The manifesto enumerates eight failure modes (Section 16). The most load-bearing
 2. Decisions already fixed in the manifesto are not re-decided in code — only refined.
 3. New trade-offs become input for canonical memory via Model C, not unilateral decisions.
 4. Do not introduce components that dilute the Generator/Validator/Orchestrator separation or remove named human gates.
-5. Yoke v1.0 is built **without** running Yoke on itself (manual bootstrap — see `.vibeflow/decisions.md`). v1.1+ may dogfood Yoke; that transition is planned but not active in v1.0.
+5. Yoke v1.0 is built **without** running Yoke on itself (manual bootstrap — see `concepts/yoke-decision-*` in canonical memory for the full decision history). v1.1 dogfooded the framework on itself for the first time on 2026-04-27; see the Migration history section below.
+
+## Migration history
+
+- **2026-04-27** — First end-to-end self-canonization run of Yoke on Yoke. The legacy `.vi`+`beflow/` directory was retired: 9 patterns migrated to `concepts/yoke-pattern-*`, 30 decisions split into individual `concepts/yoke-decision-*` entities (with bidirectional supersession), 1 conventions doc to `concepts/yoke-conventions`, 52 audit reports to `discussions/yoke-audit-*`, 12 PRDs and 53 specs migrated to `.yoke/prds/` and `.yoke/specs/` with date-prefixed slugs. The dogfood run surfaced 9 framework signals (8 captured during the loop, 1 surfaced during canonize-time cascade); 5 framework bug fixes shipped in the same change. Source PRD: `.yoke/prds/2026-04-27-yoke-doctrine-canonization.md`. Canonical-memory PR: `iurykrieger/brain#1` (merged at `fe0c24f`).

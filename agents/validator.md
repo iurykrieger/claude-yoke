@@ -168,8 +168,8 @@ the Skill tool.
 
 ## Pattern references
 
-- `.vibeflow/patterns/roles.md` — Validator role contract.
-- `.vibeflow/patterns/ralph-loop.md` — loop semantics, divergence
+- `concepts/yoke-pattern-roles` — Validator role contract.
+- `concepts/yoke-pattern-ralph-loop` — loop semantics, divergence
   categories, stop conditions.
-- `.vibeflow/patterns/sensors.md` — structured-output requirement,
+- `concepts/yoke-pattern-sensors` — structured-output requirement,
   inferential vs. computational, calibration metadata.

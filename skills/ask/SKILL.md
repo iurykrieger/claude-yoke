@@ -275,6 +275,6 @@ limit to the last 30 days.
 
 ## See also
 
-- `.vibeflow/patterns/memory-model.md` — the read-mediator role.
-- `.vibeflow/patterns/roles.md` — the canonical-memory read contract.
+- `concepts/yoke-pattern-memory-model` — the read-mediator role.
+- `concepts/yoke-pattern-roles` — the canonical-memory read contract.
 - `lib/canonical-memory/resolve-memory.sh` — memory resolution.

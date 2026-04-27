@@ -74,7 +74,7 @@ Active alongside Mode A on every cycle.
 - Read the Generator's `.yoke/runtime/progress.md` entry and the Validator's
   structured JSON verdicts for the current cycle.
 - Detect divergence categories per
-  `.vibeflow/patterns/ralph-loop.md`: quality / standards /
+  `concepts/yoke-pattern-ralph-loop`: quality / standards /
   canonical-policy violation, technical infeasibility, business-need
   conflict, sprint-contract attempting to modify the Acceptance
   Contract.
@@ -255,11 +255,11 @@ Yoke-native (not in upstream Bedrock).
 
 ## Pattern references
 
-- `.vibeflow/patterns/roles.md` — Orchestrator role contract.
-- `.vibeflow/patterns/model-c-governance.md` — write protocol;
+- `concepts/yoke-pattern-roles` — Orchestrator role contract.
+- `concepts/yoke-pattern-model-c-governance` — write protocol;
   impact classification; per-class PR behavior.
-- `.vibeflow/patterns/memory-model.md` — canonical-memory format;
+- `concepts/yoke-pattern-memory-model` — canonical-memory format;
   progressive disclosure.
-- `.vibeflow/patterns/ralph-loop.md` — runtime loop semantics;
+- `concepts/yoke-pattern-ralph-loop` — runtime loop semantics;
   divergence categories.
-- `.vibeflow/patterns/human-triggers.md` — Trigger-4 escalation.
+- `concepts/yoke-pattern-human-triggers` — Trigger-4 escalation.

@@ -35,7 +35,7 @@ approval. The PRD lands in `.yoke/prd.md`.
 > **Note (v0.1.0).** Phases 1–6 are not yet implemented in this release.
 > Sprint 1 ships only scaffolding + bootstrap. Subsequent sprints light up
 > the rest of the flow — see `CHANGELOG.md` and the sprint specs in
-> `.vibeflow/specs/`.
+> `.yoke/specs/`.
 
 ## 3. Next phases (preview)
 

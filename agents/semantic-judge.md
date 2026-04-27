@@ -142,12 +142,12 @@ applicable. `evidence` is non-empty in every status — including
 
 ## Pattern references
 
-- `.vibeflow/patterns/sensors.md` — calibration metadata,
+- `concepts/yoke-pattern-sensors` — calibration metadata,
   structured-output rule, two-class sensor model, and the
   "Parallel execution & acknowledgement" subsection that
   documents how the Validator spawns this subagent.
-- `.vibeflow/patterns/roles.md` — runtime subagents do not share
+- `concepts/yoke-pattern-roles` — runtime subagents do not share
   context. This subagent is the strictest expression of that rule.
-- `.vibeflow/conventions.md` — back-pressure (success non-silent
+- `concepts/yoke-conventions` — back-pressure (success non-silent
   inside a verdict, but conveyed as `evidence`), minimalist
   canonical memory (drift stays in working memory until promoted).

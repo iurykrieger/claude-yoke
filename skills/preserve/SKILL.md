@@ -473,15 +473,15 @@ Verbs: `creates`, `updates`, `links`, `compresses`.
 - Bypassing this skill to write canonical memory directly — bypass.
 - Auto-merging `high` or `regulatory` PRs — Model C violation.
 - Mid-loop writes from the runtime Orchestrator — canonization fires
-  only at loop termination per `.vibeflow/patterns/memory-model.md`.
+  only at loop termination per `concepts/yoke-pattern-memory-model`.
 - Updating an entity without bumping `updated_at` — silent breakage.
 - Creating an entity without populating the five rippability fields —
   unauditable entry.
 
 ## See also
 
-- `.vibeflow/patterns/memory-model.md` — single write point invariant.
-- `.vibeflow/patterns/model-c-governance.md` — impact classes + PR
+- `concepts/yoke-pattern-memory-model` — single write point invariant.
+- `concepts/yoke-pattern-model-c-governance` — impact classes + PR
   protocol.
 - `agents/orchestrator.md` — runtime canonize-mode invocation.
 - `lib/canonical-memory/canonization-criteria.sh` — Model C classifier

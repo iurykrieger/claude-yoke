@@ -19,7 +19,7 @@ traceability: ""
 > Orchestrator hydrates the rippability fields (`ratified_at`,
 > `model_calibrated_against`, `last_validated`, `traceability`,
 > `impact_level`) from the values seeded here, per
-> `.vibeflow/patterns/memory-model.md`. `model` and `traceability`
+> `concepts/yoke-pattern-memory-model`. `model` and `traceability`
 > are seeded empty and populated by the Generator persona during
 > stage 3; the canonical fields stay empty until `/yoke:preserve`
 > writes them under Model C.
@@ -32,7 +32,7 @@ traceability: ""
 
 <full description of how the task is implemented: files touched,
 functions added, data structures, contracts honored. Cite patterns
-from `.vibeflow/patterns/` by name when applicable.>
+from `concepts/yoke-pattern-*` by name when applicable.>
 
 ## Validation
 

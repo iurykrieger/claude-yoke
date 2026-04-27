@@ -1,9 +1,0 @@
-baseline:
-  serial_ns: 3266483000
-  parallel_ns: 1162444000
-  ratio_pct: 35
-  target_ratio_pct: 70
-  fixture_sensors: 3
-  fixture_per_sensor_sleep_s: 1
-  measured_at: "2026-04-25T23:56:49Z"
-  recorded_by: tests/smoke/perf-quickwins-part-1.test.sh
