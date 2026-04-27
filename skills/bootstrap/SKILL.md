@@ -116,9 +116,9 @@ Create:
   ```
   runtime/
   ```
-  Rationale: archive categories (`prds/`, `specs/`, `tasks/`, `acceptance-contracts/`, `contracts/`) are versioned by the host project. The runtime working directory (`runtime/`) is the single ephemeral surface — the per-worktree active-task pointer lives at `runtime/.current`, so one ignore rule covers all per-worktree state. See `lib/working-memory/paths.sh`.
+  Rationale: archive categories (`prds/`, `specs/`, `sprints/`, `acceptance-contracts/`, `contracts/`) are versioned by the host project. The runtime working directory (`runtime/`) is the single ephemeral surface — the per-worktree active-task pointer lives at `runtime/.current`, so one ignore rule covers all per-worktree state. See `lib/working-memory/paths.sh`.
 
-Do **not** pre-create archive category folders or any flat working-memory files (`prd.md`, `tech-spec.md`, etc.) — those are created lazily by `/yoke:discover` and downstream skills. After bootstrap completes, `.yoke/` contains exactly `config.yaml` and `.gitignore`.
+Do **not** pre-create archive category folders or any flat working-memory files (`prd.md`, `tech-spec.md`, etc.) — those are created lazily by `/yoke:discover` and downstream skills (`/yoke:tech-spec` creates `.yoke/sprints/<slug>-s<NN>.md` per the sprint-as-cycle PRD). After bootstrap completes, `.yoke/` contains exactly `config.yaml` and `.gitignore`.
 
 ### Step 6 — host `CLAUDE.md`
 
