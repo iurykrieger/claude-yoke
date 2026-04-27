@@ -180,6 +180,58 @@ wm_cycle_counter_path()    { printf '%s/.cycle-counter' "$WM_RUNTIME_DIR"; }
 wm_snapshots_dir()         { printf '%s/.snapshots' "$WM_RUNTIME_DIR"; }
 wm_trigger4_packet_path()  { printf '%s/.trigger4-packet.yaml' "$WM_RUNTIME_DIR"; }
 
+# wm_judge_verdict_dir "<slug>" "<cycle>"
+#   echoes .yoke/runtime/.judge-verdicts/cycle-<N>/ for the given cycle.
+#   Inferential-sensor verdicts written by semantic-judge agents spawned
+#   by /yoke:implement live here, one JSON file per criterion. The
+#   Validator reads from cycle <N-1> (Model A lag-by-one).
+wm_judge_verdict_dir() {
+    local slug="${1:-}"
+    local cycle="${2:-}"
+    if [[ -z "$slug" ]]; then
+        slug="$(wm_active_slug)" || return 1
+    else
+        wm_validate_slug "$slug" || return 1
+    fi
+    if [[ -z "$cycle" || ! "$cycle" =~ ^[0-9]+$ ]]; then
+        echo "wm: wm_judge_verdict_dir requires <slug> <cycle> (non-negative integer); got slug='$slug' cycle='$cycle'" >&2
+        return 1
+    fi
+    printf '%s/.judge-verdicts/cycle-%d' "$WM_RUNTIME_DIR" "$cycle"
+}
+
+# wm_judge_verdict_path "<slug>" "<cycle>" "<criterion-id>" "<sensor-id>"
+#   echoes .yoke/runtime/.judge-verdicts/cycle-<N>/<criterion>--<sensor>.json
+#   for the given (criterion, sensor) pairing. /yoke:implement passes
+#   this path to each spawned judge as the verdict-output target;
+#   the Validator reads cycle <N-1>'s files in cycle <N>.
+#
+# Why criterion + sensor (not criterion alone): patterns/sensors.md's
+# "Any-fail-wins aggregation" rule supports multiple inferential
+# sensors mapping to the same Acceptance Contract criterion. Keying
+# verdict files by criterion only would collide; pairing-keyed
+# filenames preserve every judge's verdict.
+#
+# Sanitization: a sensor id may contain `/` (e.g. `semantic-judge/voice`)
+# or other path-illegal characters; this helper rewrites every
+# non-`[A-Za-z0-9_.-]` byte to `_` so the basename is always safe.
+wm_judge_verdict_path() {
+    local slug="${1:-}"
+    local cycle="${2:-}"
+    local criterion="${3:-}"
+    local sensor="${4:-}"
+    if [[ -z "$criterion" || -z "$sensor" ]]; then
+        echo "wm: wm_judge_verdict_path requires <slug> <cycle> <criterion-id> <sensor-id>; got criterion='$criterion' sensor='$sensor'" >&2
+        return 1
+    fi
+    local dir
+    dir="$(wm_judge_verdict_dir "$slug" "$cycle")" || return 1
+    local safe_criterion safe_sensor
+    safe_criterion="${criterion//[^A-Za-z0-9_.-]/_}"
+    safe_sensor="${sensor//[^A-Za-z0-9_.-]/_}"
+    printf '%s/%s--%s.json' "$dir" "$safe_criterion" "$safe_sensor"
+}
+
 # --- runtime wipe -----------------------------------------------------------
 
 # Removes the contents of .yoke/runtime/ but keeps the directory itself.

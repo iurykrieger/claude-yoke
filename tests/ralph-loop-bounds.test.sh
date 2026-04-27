@@ -83,4 +83,129 @@ else
   err "(d) escalate.sh missing Trigger 4 reference"
 fi
 
+# ---------------------------------------------------------------------
+# (e) Background spawning — per-cycle Generator/Validator/Orchestrator
+#     batch declares run_in_background: true; canonize handoff stays
+#     foreground.
+# ---------------------------------------------------------------------
+skill_md="skills/implement/SKILL.md"
+
+if [ -f "$skill_md" ]; then
+  pass "(e) skills/implement/SKILL.md present"
+else
+  err "(e) skills/implement/SKILL.md missing"
+fi
+
+# Per-cycle batch section (between "Concurrent subagent batch" header
+# and "Sensor execution" header) declares run_in_background: true.
+batch_section=$(awk '/Concurrent subagent batch/,/Sensor execution/' "$skill_md")
+if echo "$batch_section" | grep -qE 'run_in_background:[[:space:]]*true'; then
+  pass "(e) per-cycle batch declares run_in_background: true"
+else
+  err "(e) per-cycle batch missing run_in_background: true directive"
+fi
+
+# Termination canonize handoff (between "Termination handoff" header
+# and "Termination paths" header) does NOT declare run_in_background:
+# true — the canonize call is foreground.
+canonize_section=$(awk '/Termination handoff/,/Termination paths/' "$skill_md")
+if echo "$canonize_section" | grep -qE 'run_in_background:[[:space:]]*true'; then
+  err "(e) canonize handoff incorrectly uses run_in_background: true"
+else
+  pass "(e) canonize handoff stays foreground (no run_in_background:true)"
+fi
+
+# ---------------------------------------------------------------------
+# (f) Cycle status snapshot — helper exists, SKILL.md invokes it once
+#     per cycle, output template references the required field labels.
+# ---------------------------------------------------------------------
+snapshot_helper="lib/ralph-loop/status-snapshot.sh"
+
+if [ -x "$snapshot_helper" ]; then
+  pass "(f) lib/ralph-loop/status-snapshot.sh exists and is executable"
+else
+  err "(f) lib/ralph-loop/status-snapshot.sh missing or not executable"
+fi
+
+# SKILL.md invokes the helper exactly once inside the cycle-loop body
+# (between "For each cycle" and the "Termination handoff" heading).
+cycle_body=$(awk '/^For each cycle/,/^### 3\. Termination handoff/' "$skill_md")
+helper_invocations=$(printf '%s\n' "$cycle_body" \
+  | grep -cE 'lib/ralph-loop/status-snapshot\.sh' \
+  || true)
+if [ "$helper_invocations" -eq 1 ]; then
+  pass "(f) SKILL.md invokes status-snapshot.sh exactly once per cycle"
+else
+  err "(f) SKILL.md status-snapshot.sh invocation count = $helper_invocations (expected 1)"
+fi
+
+# Helper output template references every field enumerated in DoD #3:
+# Cycle number, Generator/Validator/Orchestrator labels, judge: prefix,
+# Sensors line (with computational + inferential), Bounds line (with
+# cycles + elapsed).
+required_labels=(
+  'Cycle '
+  '- Generator:'
+  '- Validator:'
+  '- Orchestrator:'
+  '- judge:'
+  'Sensors:'
+  'computational'
+  'inferential'
+  'Bounds:'
+  'cycles'
+  'elapsed'
+)
+for label in "${required_labels[@]}"; do
+  if grep -qF -- "$label" "$snapshot_helper"; then
+    pass "(f) status-snapshot.sh template references: $label"
+  else
+    err "(f) status-snapshot.sh template missing: $label"
+  fi
+done
+
+# Integration smoke — run the helper against a synthetic runtime.
+SS_TMP=$(mktemp -d)
+mkdir -p "$SS_TMP/runtime/.snapshots" "$SS_TMP/runtime/.judge-verdicts/cycle-3"
+echo 3 > "$SS_TMP/runtime/.cycle-counter"
+echo $(($(date +%s) - 42)) > "$SS_TMP/runtime/.loop-start"
+cat > "$SS_TMP/runtime/.snapshots/cycle-3.yaml" <<'YAML'
+results:
+  - sensor: ruff
+    status: pass
+    exit_code: 0
+  - sensor: mypy
+    status: fail
+    exit_code: 1
+YAML
+# Verdict files use the (criterion, sensor) keying introduced by the
+# Part 2 cleanup — basename `<criterion>--<sensor>.json` so multiple
+# sensors per criterion don't collide.
+printf '%s\n' \
+  '{"criterion":"FR-1","status":"pass","sensor":"voice","evidence":"x"}' \
+  > "$SS_TMP/runtime/.judge-verdicts/cycle-3/FR-1--voice.json"
+echo "FR-2--api" > "$SS_TMP/runtime/.judge-verdicts/cycle-3/.failures.log"
+
+ss_out=$(bash "$snapshot_helper" "$SS_TMP/runtime" 2>&1)
+ss_exit=$?
+rm -rf "$SS_TMP"
+
+if [ "$ss_exit" -eq 0 ]; then
+  pass "(f) status-snapshot.sh exits 0 on synthetic input"
+else
+  err "(f) status-snapshot.sh exit_code=$ss_exit (expected 0)"
+fi
+
+if echo "$ss_out" | grep -qE '^### Cycle 3 ' \
+  && echo "$ss_out" | grep -q '^- Generator:' \
+  && echo "$ss_out" | grep -q '^- judge:FR-1--voice: done' \
+  && echo "$ss_out" | grep -q '^- judge:FR-2--api: failed' \
+  && echo "$ss_out" | grep -qE '^Sensors: 1/1/0 computational' \
+  && echo "$ss_out" | grep -qE '^Bounds:[[:space:]]+3/'; then
+  pass "(f) status-snapshot.sh emits structured block with cycle/agent/sensor/bounds"
+else
+  err "(f) status-snapshot.sh output malformed:
+$ss_out"
+fi
+
 harness::summary
