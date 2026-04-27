@@ -10,7 +10,8 @@
 #   ├── .gitignore                                 # versioned
 #   ├── prds/<slug>.md                             # versioned archive
 #   ├── specs/<slug>.md                            # versioned archive  (tech-spec-task-split sprint index)
-#   ├── tasks/<slug>-s<NN>-t<MM>.md                # versioned archive  (tech-spec-task-split per-task body)
+#   ├── tasks/<slug>-s<NN>-t<MM>.md                # versioned archive  (tech-spec-task-split per-task body — retiring; see sprint-as-cycle PRD)
+#   ├── sprints/<slug>-s<NN>.md                    # versioned archive  (sprint-as-cycle per-sprint runtime bundle — additive in sprint 1; replaces tasks/ in sprint 4)
 #   ├── acceptance-contracts/<slug>.md             # versioned archive
 #   ├── contracts/<slug>.md                        # versioned archive
 #   ├── sensors/<sensor-id>.md                     # versioned archive  (project-scoped; not slug-keyed)
@@ -29,6 +30,13 @@
 #   positive integers (sprint number / task-within-sprint number).
 #   Padding makes lexical sort equal positional order.
 #
+# Sprint-ID format (filename without .md inside sprints/):
+#   <slug>-s<NN>, where <NN> is a 2-digit zero-padded positive integer
+#   (sprint number 01..99). Padding makes lexical sort equal positional
+#   order in `wm_list_sprint_paths`. Per the sprint-as-cycle PRD, sprint
+#   files are runtime bundles consumed one-per-cycle by the ralph loop;
+#   tasks-as-files retire in sprint 4 of that PRD.
+#
 # Error contract: failures emit "wm: <message>" to stderr and return non-zero.
 # Callers should run with `set -euo pipefail` to honor failures.
 #
@@ -39,6 +47,8 @@
 #   spec="$(wm_spec_path)"                  # uses active slug when no arg
 #   t11="$(wm_task_path "$slug" 1 1)"       # .yoke/tasks/<slug>-s01-t01.md
 #   wm_list_task_paths "$slug"              # one path per line, sorted
+#   s03="$(wm_sprint_path "$slug" 3)"       # .yoke/sprints/<slug>-s03.md
+#   wm_list_sprint_paths "$slug"            # one sprint path per line, sorted
 
 # Idempotent re-source guard.
 if [[ -n "${_WM_PATHS_LOADED:-}" ]]; then
@@ -52,7 +62,16 @@ readonly WM_CURRENT_FILE="${WM_RUNTIME_DIR}/.current"
 readonly WM_SENSORS_DIR="${WM_ROOT}/sensors"
 readonly WM_SLUG_REGEX='^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9][a-z0-9-]{0,49}$'
 readonly WM_TASK_NUM_REGEX='^[1-9][0-9]{0,2}$'
-readonly WM_ARCHIVE_CATEGORIES=(prds specs tasks acceptance-contracts contracts)
+# Sprint number range: 1..99 (zero-padded to 2 digits in filenames).
+readonly WM_SPRINT_NUM_REGEX='^[1-9][0-9]?$'
+# Sprint-ID regex: <slug>-s<NN> where <NN> is exactly 2 zero-padded digits.
+# Padding to exactly 2 digits is what makes lexical sort equal positional
+# order in wm_list_sprint_paths.
+readonly WM_SPRINT_ID_REGEX='^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9][a-z0-9-]{0,49}-s[0-9]{2}$'
+# `sprints` is additive (sprint 1 of the sprint-as-cycle PRD); `tasks`
+# coexists during the migration window and is removed in sprint 4 of
+# the same PRD.
+readonly WM_ARCHIVE_CATEGORIES=(prds specs tasks sprints acceptance-contracts contracts)
 
 # --- slug validation --------------------------------------------------------
 
@@ -156,6 +175,75 @@ wm_list_task_paths() {
             printf '%s\n' "$f"
         done
     ) | sort
+}
+
+# --- sprint paths (additive; per the sprint-as-cycle PRD) -------------------
+#
+# Per the sprint-as-cycle PRD (.yoke/prds/2026-04-27-sprint-as-cycle.md), the
+# runtime atom shifts from a per-task file to a per-sprint runtime bundle
+# under .yoke/sprints/<slug>-s<NN>.md. Sprint 1 of that PRD adds these
+# helpers additively — wm_task_* helpers stay live until sprint 4 of the
+# same PRD removes them.
+#
+# Cites concepts/yoke-pattern-memory-model for the working-memory archive
+# layout invariants the new helpers must satisfy.
+
+# wm_sprint_path "<slug>" <sprint>
+#   echoes .yoke/sprints/<slug>-s<NN>.md (zero-padded to 2 digits) on
+#   success; emits a `wm:`-prefixed message and returns non-zero on any
+#   of: missing/invalid slug, non-numeric sprint, sprint <= 0, sprint > 99.
+wm_sprint_path() {
+    local slug="${1:-}"
+    local sprint="${2:-}"
+    if [[ -z "$slug" ]]; then
+        slug="$(wm_active_slug)" || return 1
+    else
+        wm_validate_slug "$slug" || return 1
+    fi
+    if [[ -z "$sprint" ]]; then
+        echo "wm: wm_sprint_path requires <slug> <sprint>; got slug='$slug' sprint=''" >&2
+        return 1
+    fi
+    if [[ ! "$sprint" =~ $WM_SPRINT_NUM_REGEX ]]; then
+        echo "wm: invalid sprint number: '$sprint' (expected positive integer 1..99)" >&2
+        return 1
+    fi
+    printf '%s/%s/%s-s%02d.md' "$WM_ROOT" "sprints" "$slug" "$sprint"
+}
+
+# wm_list_sprint_paths "<slug>"
+#   echoes one sprint-file path per line, lexically sorted (= positional
+#   order via the s<NN> suffix). Empty output when the slug has no
+#   sprint files. Exits non-zero only on slug-validation failure.
+wm_list_sprint_paths() {
+    local slug="${1:-}"
+    if [[ -z "$slug" ]]; then
+        slug="$(wm_active_slug)" || return 1
+    else
+        wm_validate_slug "$slug" || return 1
+    fi
+    local sprints_dir="${WM_ROOT}/sprints"
+    [[ -d "$sprints_dir" ]] || return 0
+    (
+        shopt -s nullglob
+        local f
+        for f in "${sprints_dir}/${slug}"-s*.md; do
+            printf '%s\n' "$f"
+        done
+    ) | sort
+}
+
+# wm_validate_sprint_id "<id>"
+#   exits 0 if <id> matches WM_SPRINT_ID_REGEX (i.e. <slug>-s<NN> with
+#   exactly 2 zero-padded digits in <NN>); exits non-zero with a
+#   `wm:`-prefixed diagnostic otherwise.
+wm_validate_sprint_id() {
+    local id="${1:-}"
+    if [[ "$id" =~ $WM_SPRINT_ID_REGEX ]]; then
+        return 0
+    fi
+    echo "wm: invalid sprint id: '$id' (expected <YYYY-MM-DD>-<kebab-slug>-s<NN> with NN zero-padded to 2 digits)" >&2
+    return 1
 }
 
 # --- collision detection ----------------------------------------------------
