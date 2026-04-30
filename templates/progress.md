@@ -1,8 +1,32 @@
+---
+slug: <slug>
+current_sprint: "01"
+completed_sprints: []
+total_sprints: <N>
+cycle_count: 0
+---
+
 # Progress
 
 > Written by the Implementation Agent at the end of every ralph-loop
 > cycle. The schema is YAML inside markdown for diff-friendliness.
-> The agent appends one block per cycle.
+> The agent appends one cycle block per cycle inside the active
+> sprint's H2 section.
+>
+> The frontmatter carries the sprint-walk pointer (sprint-as-cycle
+> PRD, 2026-04-27): `current_sprint:` (zero-padded 2 digits — the
+> sprint id whose file is the cycle's working set), `completed_sprints:`
+> (array of zero-padded sprint ids that have converged), `total_sprints:`
+> (count of sprint files for the active slug), `cycle_count:` (cycles
+> consumed in the active sprint, resets to 0 at sprint boundaries —
+> per-sprint hard bound is ≤ 8 per `concepts/yoke-pattern-ralph-loop`).
+>
+> Body shape: one `## Sprint <NN>` H2 per sprint, in sprint order.
+> Inside each sprint H2, one `### Cycle <C>` H3 per cycle in that
+> sprint. The cycle counter resets at every sprint boundary; the
+> H3 entries inside `## Sprint 02` start over at `### Cycle 1`. The
+> file remains a singleton — never split into per-sprint progress
+> files (PRD anti-scope).
 >
 > The optional `plan:` block (added in v0.7.0 by perf-quickwins Part 2)
 > records the Generator's plan-first reasoning before any edits land.
@@ -11,7 +35,9 @@
 > the files plus the intent. Older snapshots without `plan:` remain
 > valid — absent or null is treated as "not yet populated".
 
-## Cycle 0 — initial state
+## Sprint 01
+
+### Cycle 0 — initial state
 - timestamp: "<iso8601>"
 - next_step: "<plain-text description>"
 - files_touched: []
@@ -19,7 +45,7 @@
 - contract_consensus_reached: false
 - citing_criterion: ""
 
-## Cycle 1 — <short label>
+### Cycle 1 — <short label>
 - timestamp: "<iso8601>"
 - next_step: "<what the Implementation Agent decided>"
 - files_touched:
@@ -46,7 +72,13 @@
     reason: "<must cite at least one signal source — sensor id, criterion id, Tech-Spec section, or runs: history entry>"
 - notes: "<free text — keep tight>"
 
-<!-- Subsequent cycles append below this line, one `## Cycle <N>` block per cycle. -->
+<!-- Subsequent cycles inside this sprint append as further `### Cycle <C>` H3 entries below. When current_sprint: advances, append a new `## Sprint <NN>` H2 below this section. -->
+
+## Sprint 02
+
+<!-- Populated when current_sprint: advances to 02 and the first cycle of that sprint runs. cycle_count: resets to 0 at the boundary. -->
+
+<!-- One `## Sprint <NN>` H2 per sprint, in sprint order, until completed_sprints: length equals total_sprints:. -->
 
 > Schema notes:
 >

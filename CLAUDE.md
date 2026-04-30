@@ -66,10 +66,10 @@ is the lived doctrine.
 
 <!-- Yoke parses this section to discover available sensors when Yoke is run on Yoke. -->
 
-- Smoke tests live under `tests/smoke/sprint-N.test.sh` (added per sprint).
+- **Tests validate behavior, not specific implementations.** Test files are named for the behavior they assert (e.g., `tests/smoke/working-memory-migration.test.sh`, `tests/smoke/ralph-loop-sprint-walk.test.sh`). The legacy `tests/smoke/sprint-N.test.sh` convention is retired — sprint numbers are an implementation detail, behaviors are the binding contract.
 - Sensor self-tests live under `tests/sensors/<sensor-id>.test.sh`.
-- Pre-Sprint-6 smoke tests must use external `timeout 600` to guard against ralph-loop iterations without hard bounds.
-- Sprint 8 wires `tests/` into a CI workflow that gates every PR.
+- Smoke tests must use an internal watchdog (`sleep 600 && kill -TERM $$ &`) to guard against ralph-loop iterations or background subagents without hard bounds.
+- `tests/` runs in CI on every PR (workflow `.github/workflows/tests.yml`).
 
 ## Linting
 

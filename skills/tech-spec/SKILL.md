@@ -2,13 +2,14 @@
 name: tech-spec
 description: >
   Phase 2 — Technical specification. Turns an approved PRD into a Spec
-  divided into sprints with delivery objectives; each sprint has a
-  list of tasks rendered as one-line stories anchored on stable task
-  IDs. The skill drives a 3-stage blueprint (LLM drafts the sprint
-  index, bash scaffolds empty per-task files, LLM fills each task
-  one-by-one) and saves to `.yoke/specs/<slug>.md` plus
-  `.yoke/tasks/<slug>-s<NN>-t<MM>.md`. Pauses for Trigger 2 approval,
-  which marks the spec **and** every task file `Status: approved`.
+  divided into sprints with delivery objectives; each sprint is
+  rendered as a self-contained runtime bundle (sprint objective +
+  sprint DoD + tasks-as-anchors + functional acceptance criteria +
+  sensors). The skill drives a 3-stage blueprint (LLM drafts the
+  sprint index, bash scaffolds empty per-sprint files, LLM fills each
+  sprint file one-by-one) and saves to `.yoke/specs/<slug>.md` plus
+  `.yoke/sprints/<slug>-s<NN>.md`. Pauses for Trigger 2 approval,
+  which marks the spec **and** every sprint file `Status: approved`.
 argument-hint: ""
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash
 ---
@@ -22,13 +23,15 @@ file describing the technical implementation and validation in full.
 > **Lineage.** Forked structurally from
 > [vibeflow:gen-spec](https://github.com/pe-menezes/vibeflow), one-time
 > at Yoke v0.2.0; refreshed in v1.1.0 to drive dialogue inline (no
-> subagent spawn); refreshed again in the `tech-spec-task-split`
-> rollout (Part 2) to produce a sprint index plus per-task files via
-> a 3-stage blueprint. Adaptations: namespaced under `/yoke:*`,
-> blueprint stages bracketed by deterministic bash, per-task LLM
-> calls scoped to a single empty task file, routes canonical-memory
-> queries through `/yoke:ask`. Per-skill mapping in `docs/lineage.md`
-> at Sprint 8.
+> subagent spawn); refreshed in the `tech-spec-task-split` rollout
+> (Part 2) to produce a sprint index plus per-task files via a
+> 3-stage blueprint; refreshed again in the `sprint-as-cycle` rollout
+> (sprint 3) to consolidate per-task files into per-sprint runtime
+> bundles — one ralph cycle = one sprint file. Adaptations:
+> namespaced under `/yoke:*`, blueprint stages bracketed by
+> deterministic bash, per-sprint LLM calls scoped to a single empty
+> sprint file, routes canonical-memory queries through `/yoke:ask`.
+> Per-skill mapping in `docs/lineage.md` at Sprint 8.
 
 ## Your role (Senior Engineer persona, inline)
 
@@ -52,24 +55,29 @@ This skill is a **blueprint wrapping agentic nodes** per
 
 1. **Stage 1 — LLM (sprint index draft).** You (Generator persona)
    draft `.yoke/specs/<slug>.md` end-to-end: overall objective,
-   sprints with delivery objectives, ordered task lists rendered as
-   one-line stories anchored on stable task IDs, contracts,
-   dependencies, out-of-scope. **No inline task body** — each task is
-   only a one-liner here.
+   sprints with delivery objectives and a per-sprint reference to
+   `.yoke/sprints/<slug>-s<NN>.md`, contracts, dependencies,
+   out-of-scope. The spec carries **no inline task entries** — task
+   bodies live inside the per-sprint runtime bundle file produced in
+   stage 3.
 2. **Stage 2 — bash (deterministic scaffold).** You invoke
-   `lib/working-memory/scaffold-tasks.sh "$(wm_spec_path "$slug")"`.
-   This script parses the task IDs from the spec, creates one empty
-   `.yoke/tasks/<slug>-s<NN>-t<MM>.md` per ID, and seeds each with
-   the YAML frontmatter stub from `templates/task.md`. Pure bash;
-   zero LLM cost.
-3. **Stage 3 — LLM-per-task (fill).** For each empty task file (read
-   in lexical order via `wm_list_task_paths "$slug"`), you fill the
-   four required body sections — *Story*, *Technical implementation*,
-   *Validation*, *Acceptance criterion* — one task at a time. Each
-   per-task call carries **only** the sprint preamble (sprint name +
-   delivery objective lifted from the spec) plus the single empty
-   task file under work — never the entire spec, never sibling task
-   files. This directly serves *progressive disclosure*.
+   `lib/working-memory/scaffold-sprints.sh "$(wm_spec_path "$slug")"`.
+   This script parses the sprint headings from the spec, creates one
+   empty `.yoke/sprints/<slug>-s<NN>.md` per sprint id, and seeds
+   each with the YAML frontmatter stub plus the 5-H2 skeleton from
+   `templates/sprint.md`. Pure bash; zero LLM cost.
+3. **Stage 3 — LLM-per-sprint (fill).** For each empty sprint file
+   (read in lexical order via `wm_list_sprint_paths "$slug"`), you
+   fill the five required body sections — *Sprint objective*,
+   *Sprint DoD*, *Tasks* (each `### Task <ID>` subsection carries the
+   four inline labels `**Story:**`, `**Technical implementation:**`,
+   `**Validation:**`, `**Acceptance criterion:**`), *Functional
+   acceptance criteria* (criterion IDs only — never inline), and
+   *Sensors* (sensor IDs only — never inline). Each per-sprint call
+   carries **only** the sprint preamble (sprint name + delivery
+   objective lifted from the spec) plus the single empty sprint file
+   under work — never the entire spec, never sibling sprint files.
+   This directly serves *progressive disclosure*.
 
 The three stages are explicit so a future reader can audit the
 deterministic-vs-agentic boundary without re-deriving it from the
@@ -85,7 +93,7 @@ prose.
 - Verify `wm_prd_path "$slug"` exists AND is approved (header carries
   `Status: approved`). If missing or unapproved, abort: "PRD missing
   or unapproved at <path>. Run `/yoke:discover` first."
-- If `wm_spec_path "$slug"` already exists OR `wm_list_task_paths
+- If `wm_spec_path "$slug"` already exists OR `wm_list_sprint_paths
   "$slug"` returns any path: offer **overwrite** (delete + rewrite —
   see step 4) or **abort**. No `-v2.md` shadowing — the per-task slug
   already provides versioning across tasks.
@@ -94,8 +102,8 @@ prose.
 
 - Read the approved PRD at `wm_prd_path "$slug"` (read-only).
 - Read `templates/spec.md` for the sprint-index shape.
-- Read `templates/task.md` for the per-task body shape (you will use
-  it in stage 3 to know which sections to fill).
+- Read `templates/sprint.md` for the per-sprint runtime-bundle shape
+  (you will use it in stage 3 to know which sections to fill).
 - For topology templates, prior decisions, or applicable patterns from
   canonical memory, invoke `/yoke:ask`. Never read canonical memory
   directly.
@@ -129,23 +137,27 @@ Ensure `.yoke/specs/` exists (`mkdir -p "$(dirname "$(wm_spec_path
 (i.e., `.yoke/specs/<slug>.md`) matching `templates/spec.md`:
 
 - ≥ 1 sprint with a delivery objective (a coherent value increment).
-- ≥ 1 task per sprint, each rendered as a single line of the shape:
+- Each sprint rendered as a heading of the shape:
 
   ```
-  #### Task <slug>-s<NN>-t<MM> — <one-line story>
+  ### Sprint <NN> — <name>
+  **Delivery objective:** <one-paragraph delivery objective>
+
+  **Tasks:** see `.yoke/sprints/<slug>-s<NN>.md` `## Tasks` section.
   ```
 
-  where `<NN>` and `<MM>` are 2-digit zero-padded positive integers.
-  This shape is what `lib/working-memory/scaffold-tasks.sh` parses in
-  stage 2 — deviations break the scaffolder.
+  where `<NN>` is a 2-digit zero-padded positive integer (1..99).
+  This shape is what `lib/working-memory/scaffold-sprints.sh` parses
+  in stage 2 — deviations break the scaffolder.
 
-- **No inline task body** in the spec — the body lives in the
-  per-task file produced in stage 3 (per `templates/task.md`).
+- **No inline task entries** in the spec — task bodies live inside
+  the per-sprint runtime-bundle file produced in stage 3 (per
+  `templates/sprint.md`).
 - **Acceptance criterion per task is the load-bearing requirement.**
-  Every task file produced in stage 3 carries an explicit
-  *Acceptance criterion* section that is binary, observable, and
-  decidable. This is the contract Phase 3's BDD scenarios are drafted
-  against.
+  Every `### Task <ID>` subsection inside the per-sprint file produced
+  in stage 3 carries an explicit `**Acceptance criterion:**` inline
+  label that is binary, observable, and decidable. This is the
+  contract Phase 3's BDD scenarios are drafted against.
   - Examples that PASS the bar: "endpoint returns 200 with JWT in
     body", "linter exits 0 on src/auth/", "user can upload PDF and
     see it in the list within 3s".
@@ -165,53 +177,61 @@ Apply discipline: cut scope aggressively. Ship the smallest sprint
 that delivers value. Push speculative work to "Out of scope" or
 "Future".
 
-### 5. Stage 2 — Scaffold empty task files
+### 5. Stage 2 — Scaffold empty sprint files
 
-Invoke `lib/working-memory/scaffold-tasks.sh "$(wm_spec_path
+Invoke `lib/working-memory/scaffold-sprints.sh "$(wm_spec_path
 "$slug")"` via the `Bash` tool. The script:
 
-- Parses task-ID lines from the spec body using a deterministic regex.
-- Creates one `.yoke/tasks/<slug>-s<NN>-t<MM>.md` per task ID, seeded
-  from `templates/task.md` with substitutions for `<slug>`, `<N>`,
-  `<NN>`/`<MM>` (in `task_id`), and `<iso8601>` for `created_at`.
-- Refuses to overwrite any existing task file (exits non-zero with
+- Parses sprint-heading lines (`### Sprint <NN> — <name>`) from the
+  spec body using a deterministic regex.
+- Creates one `.yoke/sprints/<slug>-s<NN>.md` per sprint id, seeded
+  from `templates/sprint.md` with substitutions for `<slug>`, `<N>`,
+  `<NN>` (in `task_id` / `sprint`), and `<iso8601>` for `created_at`.
+- Refuses to overwrite any existing sprint file (exits non-zero with
   the conflict list — relevant only on a re-run, since pre-flight
   already cleared the slug or the user picked overwrite).
 
 If the script exits non-zero, surface its stderr verbatim and stop —
 do NOT proceed to stage 3.
 
-### 6. Stage 3 — Fill each task file (LLM-per-task)
+### 6. Stage 3 — Fill each sprint file (LLM-per-sprint)
 
-Read `wm_list_task_paths "$slug"` to enumerate the empty task files
-in lexical = positional order. For each task file, in order:
+Read `wm_list_sprint_paths "$slug"` to enumerate the empty sprint
+files in lexical = positional order. For each sprint file, in order:
 
 1. Lift the sprint preamble (sprint name + delivery objective) for
-   the task's containing sprint from `.yoke/specs/<slug>.md`.
-2. Read the empty task file (frontmatter only at this point).
-3. Construct a tight prompt: the sprint preamble + the empty task
-   file's current contents + the request to fill the four required
-   body sections — *Story*, *Technical implementation*, *Validation*,
-   *Acceptance criterion* — per `templates/task.md`. Carry **no
-   sibling task files**, **no full spec**, **no canonical memory**
+   this sprint from `.yoke/specs/<slug>.md`.
+2. Read the empty sprint file (frontmatter + 5-H2 skeleton at this
+   point).
+3. Construct a tight prompt: the sprint preamble + the empty sprint
+   file's current contents + the request to fill the five required
+   body sections — *Sprint objective*, *Sprint DoD*, *Tasks* (one
+   `### Task <ID>` subsection per task with the four inline labels
+   `**Story:**`, `**Technical implementation:**`, `**Validation:**`,
+   `**Acceptance criterion:**`), *Functional acceptance criteria*
+   (criterion IDs only — never inline), and *Sensors* (sensor IDs
+   only — never inline) — per `templates/sprint.md`. Carry **no
+   sibling sprint files**, **no full spec**, **no canonical memory**
    in this prompt.
-4. Generate the four body sections.
-5. Write the filled body back to the task file via the `Edit` or
-   `Write` tool. Validate post-write that the file contains all four
-   required headings (`## Story`, `## Technical implementation`,
-   `## Validation`, `## Acceptance criterion`). If a heading is
-   missing, treat it as a **stage-3 partial failure** (see below).
+4. Generate the five body sections.
+5. Write the filled body back to the sprint file via the `Edit` or
+   `Write` tool. Validate post-write that the file contains all five
+   required H2 headings in order (`## Sprint objective`, `## Sprint
+   DoD`, `## Tasks`, `## Functional acceptance criteria`, `##
+   Sensors`) and that every `### Task <ID>` subsection carries the
+   four inline labels. If any heading or label is missing, treat it
+   as a **stage-3 partial failure** (see below).
 
 #### Stage-3 partial failure recovery
 
-If any per-task generation fails — LLM error, missing heading,
-write error — exit the skill with a clear `wm:`-prefixed message
-naming the failed task file path:
+If any per-sprint generation fails — LLM error, missing heading or
+inline label, write error — exit the skill with a clear
+`wm:`-prefixed message naming the failed sprint file path:
 
 ```
 wm: stage-3 fill failed at <path>. Files filled before this point
 remain on disk in their partial state. To recover, re-run
-/yoke:tech-spec and pick `revise` (deletes spec + every task file
+/yoke:tech-spec and pick `revise` (deletes spec + every sprint file
 for this slug, then runs stages 1-3 from scratch).
 ```
 
@@ -220,7 +240,7 @@ Trigger 2.
 
 ### 7. Trigger 2 — Spec approval
 
-Display the drafted spec and the list of filled task files, then
+Display the drafted spec and the list of filled sprint files, then
 render the **shared approval menu** defined in
 `templates/approval-menu.md`. The menu is the surface for
 **Trigger 2 — Tech Spec approval**, which blocks Phase 3.
@@ -230,20 +250,21 @@ Inputs passed to the menu:
 - `artifact_path`: `wm_spec_path "$slug"` (resolves to
   `.yoke/specs/<slug>.md`).
 - `artifact_label`: `Tech Spec`. The menu template renders a
-  per-task summary block when this label is set (see the
+  per-sprint summary block when this label is set (see the
   "Tech-Spec-only block" section in `templates/approval-menu.md`).
 - `next_skill`: `/yoke:acceptance-contract`.
 - `language`: the language detected for the dialogue.
 - `binding_statement`: empty (Trigger 2 is not a binding gate;
   Trigger 3 carries the binding statement).
-- `task_summary`: an ordered list constructed from `wm_list_task_paths
-  "$slug"` — one entry per task file: `<task-id> — <story>
-  (<file-path>)`. The `<story>` comes from each task file's `# Task
-  <id> — <story>` heading (filled in stage 3).
+- `sprint_summary`: an ordered list constructed from
+  `wm_list_sprint_paths "$slug"` — one entry per sprint file:
+  `<sprint-id> — <name> (<file-path>)`. The `<name>` comes from each
+  sprint file's `# Sprint <NN> of <MM>: <name>` heading (filled in
+  stage 3).
 
-The menu renders, every time, in this order: (a) the per-task
+The menu renders, every time, in this order: (a) the per-sprint
 summary block (Tech-Spec-only), (b) the open-questions detection
-block (scans the spec **and every task file** for inline `TODO:` /
+block (scans the spec **and every sprint file** for inline `TODO:` /
 `TBD` / `FIXME:` / `<placeholder>` markers), then (c) the 4-option
 prompt mapping to internal verbs `approve_and_continue` / `approve` /
 `reject` / `revise`.
@@ -265,17 +286,17 @@ approval and stops (collapses to `approve`).
 When the user picks `revise`:
 
 1. Print a loud `wm:`-prefixed warning naming the spec path and
-   every task file path that will be deleted, plus the captured
+   every sprint file path that will be deleted, plus the captured
    feedback.
 2. Delete `.yoke/specs/<slug>.md` and every path returned by
-   `wm_list_task_paths "$slug"` for the active slug. Use plain `rm`
+   `wm_list_sprint_paths "$slug"` for the active slug. Use plain `rm`
    on each path; do NOT use `rm -rf` on directories.
 3. Re-run stages 1-3 from scratch with the captured feedback as
    additional context for stage 1 (Generator drafts an updated spec
    addressing the feedback).
 4. Re-render the Trigger 2 menu.
 
-Hand-edits to task files are NOT preserved across `revise`. The
+Hand-edits to sprint files are NOT preserved across `revise`. The
 warning makes this explicit.
 
 ## Recording approval
@@ -284,11 +305,11 @@ On `approve` or `approve_and_continue`:
 
 - Write `Status: approved`, `Approved by`, `Approved at` headers to
   `wm_spec_path "$slug"` (after the `Status:` line in the spec body).
-- Iterate `wm_list_task_paths "$slug"`. For each task file, set the
-  `status:` frontmatter field to `approved` (Edit tool). All task
-  files MUST flip together — partial-write failures (filesystem
-  errors, not LLM) abort the skill non-zero before chaining into
-  `/yoke:acceptance-contract`.
+- Iterate `wm_list_sprint_paths "$slug"`. For each sprint file, set
+  the `status:` frontmatter field to `approved` (Edit tool). All
+  sprint files MUST flip together — partial-write failures
+  (filesystem errors, not LLM) abort the skill non-zero before
+  chaining into `/yoke:acceptance-contract`.
 
 This atomic-at-bash-level approval is what makes
 `Status: approved` on the spec a **meaningful gate** — it covers the
@@ -300,7 +321,7 @@ On `approve` or `approve_and_continue`:
 
 - `wm_spec_path "$slug"` written with `Status: approved`,
   `Approved by`, `Approved at` headers.
-- Every `wm_list_task_paths "$slug"` entry has frontmatter
+- Every `wm_list_sprint_paths "$slug"` entry has frontmatter
   `status: approved`.
 - On `approve_and_continue` (after the open-questions warning, when
   applicable, returns `yes`): the skill invokes
@@ -328,7 +349,7 @@ skill exits cleanly.
 ## Output contract
 
 - Exit 0 with `.yoke/specs/<slug>.md` populated and approved AND
-  every `.yoke/tasks/<slug>-s*-t*.md` populated and `status: approved`.
+  every `.yoke/sprints/<slug>-s*.md` populated and `status: approved`.
 - Exit non-zero on missing `.current`, missing/unapproved PRD,
   scaffold script failure, stage-3 partial failure, partial approval
   write failure, user abort, or revise-loop exhaustion.
@@ -342,8 +363,8 @@ skill exits cleanly.
   `lib/working-memory/paths.sh`.
 - Do NOT skip stage 2 — the deterministic bash scaffolder is what
   bounds the LLM stages and keeps the artifact pair coherent.
-- Do NOT batch stage 3 (filling all tasks in one LLM call) — that
-  collapses progressive disclosure. One task per call.
+- Do NOT batch stage 3 (filling all sprints in one LLM call) — that
+  collapses progressive disclosure. One sprint per call.
 - Do NOT auto-approve.
 - Do NOT let any task have a vague acceptance criterion ("works
   correctly", "looks good") — every task's *Acceptance criterion*
@@ -360,7 +381,7 @@ skill exits cleanly.
 - `concepts/yoke-pattern-memory-model` (working-memory archive layout).
 - `concepts/yoke-conventions` ("blueprints wrapping agentic nodes",
   "progressive disclosure").
-- `templates/spec.md`, `templates/task.md`.
+- `templates/spec.md`, `templates/sprint.md`.
 - `templates/approval-menu.md` (shared menu shape, detection rule,
-  fallback, Tech-Spec-only per-task summary block).
-- `lib/working-memory/scaffold-tasks.sh` (stage 2).
+  fallback, Tech-Spec-only per-sprint summary block).
+- `lib/working-memory/scaffold-sprints.sh` (stage 2).

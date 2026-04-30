@@ -59,20 +59,52 @@ For the active slug, check which archive categories contain
 `<slug>.md`:
 
 - `prds/<slug>.md` exists → at least Phase 1 reached.
-- `specs/<slug>.md` plus at least one `tasks/<slug>-s*-t*.md` → Phase 2.
+- `specs/<slug>.md` plus at least one `sprints/<slug>-s*.md` → Phase 2.
 - `acceptance-contracts/<slug>.md` → Phase 3.
 - `contracts/<slug>.md` → Phase 4 has run.
 - a canonization marker (Sprint 8 wiring) → complete.
 
 Report the most-advanced phase as a single label.
 
-### 1.3 Runtime state
+### 1.3 Runtime state — sprint walk + cycle progress
 
-If `.yoke/runtime/` exists, report:
+If `.yoke/runtime/progress.md` exists, parse the frontmatter and
+report:
 
-- `cycle counter` (from `.yoke/runtime/.cycle-counter`).
+- `current_sprint:` — the sprint id currently being worked
+  (zero-padded 2 digits).
+- `completed_sprints:` — array of zero-padded sprint ids that have
+  converged.
+- `total_sprints:` — derived from `wm_list_sprint_paths "$slug" |
+  wc -l`.
+- `cycle_count:` — cycles consumed in the active sprint (resets at
+  sprint boundaries).
 - Latest snapshot file (from `.yoke/runtime/.snapshots/cycle-N.yaml`).
-- Hard-bound progress (cycles consumed vs cap, when configured).
+- Hard-bound progress for the active sprint
+  (`cycle_count` vs cap, when configured; ≤ 8 per sprint).
+
+#### Sprint-walk checklist
+
+Render the sprint walk as a vertical checklist driven by the
+contents of `wm_list_sprint_paths "$slug"`. For each sprint id, in
+sprint order:
+
+- `✓` — the id appears in `completed_sprints:`.
+- `→` — the id equals `current_sprint:` (in flight).
+- ` ` (blank box) — neither completed nor current (pending).
+
+```
+sprints:
+  ✓ 2026-04-27-foo-s01 — Foundations
+  ✓ 2026-04-27-foo-s02 — Migration
+  → 2026-04-27-foo-s03 — Consumer rewrites      (cycle 3 / 8)
+    2026-04-27-foo-s04 — Atomic switch
+```
+
+The sprint name comes from each sprint file's H1 (`# Sprint NN of
+MM: <name>` after the sprint-as-cycle migration; older files use
+the legacy `# Spec:` form). Cycles consumed appear in parentheses
+on the active sprint line only.
 
 ### 1.4 Drift findings (Sprint 7+)
 
@@ -171,8 +203,15 @@ that file; its rippability re-validation logic now lives here.
 ### Working memory
 - active task: <slug-or-none>
 - phase: <prd-only | tech-spec | acceptance-contract | contracts | complete>
-- runtime: <cycles N/M, latest snapshot path>
+- current_sprint: <NN> (active sprint id; cycle <C> / 8)
+- completed_sprints: [<NN>, ...]
+- runtime: <latest snapshot path>
 - drift: <findings or "no recent run">
+- sprints:
+    ✓ <slug>-s01 — <sprint-name>
+    ✓ <slug>-s02 — <sprint-name>
+    → <slug>-s03 — <sprint-name>      (cycle <C> / 8)
+      <slug>-s04 — <sprint-name>
 
 ---
 

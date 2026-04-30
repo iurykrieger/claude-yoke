@@ -13,30 +13,35 @@ One paragraph capturing what this Spec delivers, in technical terms.
 ## Sprints
 
 Each sprint has a delivery objective (what is shippable at the end)
-and an ordered task list. Each task is rendered as a one-line story
-anchored on a stable task ID. The full technical implementation and
-validation for each task lives in `.yoke/tasks/<task-id>.md` —
-**this file carries no inline task body**.
+and is rendered as a self-contained **sprint runtime bundle** at
+`.yoke/sprints/<slug>-s<NN>.md`. The sprint file is the cycle's
+working set during `/yoke:implement` (one ralph cycle = one sprint
+file as the working set, per the 2026-04-27 sprint-as-cycle PRD); it
+carries the per-task `### Task <ID>` subsections inline (with the
+four labels `**Story:**`, `**Technical implementation:**`,
+`**Validation:**`, `**Acceptance criterion:**`), the sprint
+acceptance-criterion ID list, and the sprint sensor ID list. **This
+file carries no inline task entries** — it lists the sprint headers
+and points at the per-sprint runtime bundle for the body.
 
-Task ID shape: `<slug>-s<NN>-t<MM>`, where `<slug>` matches the
-existing working-memory slug regex (`<YYYY-MM-DD>-<kebab-slug>`),
-`<NN>` is the sprint number zero-padded to 2 digits, and `<MM>` is
-the task number within the sprint zero-padded to 2 digits. Padding
-is what makes lexical sort = positional order in
-`wm_list_task_paths`.
+Sprint ID shape: `<slug>-s<NN>`, where `<slug>` matches the
+existing working-memory slug regex (`<YYYY-MM-DD>-<kebab-slug>`) and
+`<NN>` is the sprint number zero-padded to 2 digits. Padding is what
+makes lexical sort = positional order in `wm_list_sprint_paths`.
+Per the canonized supersession of the per-task-file zero-pad rule,
+the zero-pad invariant now applies to sprint IDs only; task IDs (now
+anchors inside sprint files) keep `t<MM>` zero-padding by convention
+but are not a filename concern.
 
 ### Sprint 1 — <name>
 **Delivery objective:** <what ships at the end of this sprint>
 
-#### Task <slug>-s01-t01 — <one-line story>
-#### Task <slug>-s01-t02 — <one-line story>
-#### Task <slug>-s01-t03 — <one-line story>
+**Tasks:** see `.yoke/sprints/<slug>-s01.md` `## Tasks` section.
 
 ### Sprint 2 — <name>
 **Delivery objective:** <…>
 
-#### Task <slug>-s02-t01 — <one-line story>
-#### Task <slug>-s02-t02 — <one-line story>
+**Tasks:** see `.yoke/sprints/<slug>-s02.md` `## Tasks` section.
 
 ## Contracts and interfaces
 
