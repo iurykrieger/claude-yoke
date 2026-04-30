@@ -1,6 +1,6 @@
 ---
 id: own-spec-4-sprints
-command: bash -c '[ "$(find .yoke/sprints -name "2026-04-27-sprint-as-cycle-s*.md" -type f | wc -l)" = "4" ]'
+command: bash -c '[ "$(find .yoke/sprints -name "2026-04-27-sprint-as-cycle-s*.md" -type f | wc -l | xargs)" = "4" ]'
 class: computational
 tier: cheap
 applies_to: []

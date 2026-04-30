@@ -1,6 +1,6 @@
 ---
 id: legacy-parts-residual-shape
-command: bash -c 'bash lib/sensors/legacy-parts-zero-residual.sh 2>/dev/null | head -1 | jq -e ".criterion and .status and .location and .fix_instruction and .sensor and .evidence"'
+command: bash -c 'output=$(bash lib/sensors/legacy-parts-zero-residual.sh 2>/dev/null); [ -z "$output" ] || echo "$output" | head -1 | jq -e ".criterion and .status and .location and .fix_instruction and .sensor and .evidence" >/dev/null'
 class: computational
 tier: cheap
 applies_to: []

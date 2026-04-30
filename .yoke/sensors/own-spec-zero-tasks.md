@@ -1,6 +1,6 @@
 ---
 id: own-spec-zero-tasks
-command: bash -c '[ "$(find .yoke/tasks -name "2026-04-27-sprint-as-cycle-s*-t*.md" -type f 2>/dev/null | wc -l)" = "0" ]'
+command: bash -c '[ "$(find .yoke/tasks -name "2026-04-27-sprint-as-cycle-s*-t*.md" -type f 2>/dev/null | wc -l | xargs)" = "0" ]'
 class: computational
 tier: cheap
 applies_to: []

@@ -1,6 +1,6 @@
 ---
 id: legacy-parts-residual-clean
-command: bash -c 'bash lib/sensors/legacy-parts-zero-residual.sh && [ "$(bash lib/sensors/legacy-parts-zero-residual.sh 2>/dev/null | wc -c)" = "0" ]'
+command: bash -c 'bash lib/sensors/legacy-parts-zero-residual.sh && [ "$(bash lib/sensors/legacy-parts-zero-residual.sh 2>/dev/null | wc -c | xargs)" = "0" ]'
 class: computational
 tier: cheap
 applies_to: []
