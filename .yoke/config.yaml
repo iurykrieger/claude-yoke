@@ -16,8 +16,8 @@ canonical_memory:
 
 overrides:
   # Hard bounds for the ralph loop (defaults baked into Yoke; uncomment to override)
-  # hard_bounds:
-  #   cycles_max: 8
+  hard_bounds:
+    cycles_max: 24            # 3 sprints * 8 cycles each
   #   timeout_seconds: 14400      # 4 hours
   #   token_budget: 200000
 

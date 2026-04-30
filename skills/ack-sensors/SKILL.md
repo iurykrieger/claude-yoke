@@ -29,6 +29,21 @@ references sensors **by id only**.
 
 Source PRD: `.yoke/prds/2026-04-27-sensor-cost-tiering.md`.
 
+## Pre-flight
+
+Before forwarding to the deterministic helper, enforce the v2.0.0
+hard break:
+
+```bash
+source <plugin_dir>/lib/yoke-prelude.sh && yoke_require_provider || exit 1
+```
+
+The helper aborts non-zero with a stderr diagnostic when
+`canonical_memory.provider` is missing or empty (unmigrated v1.x
+projects). Surface its stderr verbatim and exit before invoking
+`lib/sensors/ack-sensors.sh`. See Acceptance Contract Scenario 12 /
+FR-6.
+
 ## How to run this skill
 
 This skill is a thin wrapper: it forwards every argument to the

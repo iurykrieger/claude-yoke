@@ -46,6 +46,7 @@ at full-run termination.
 
 ### 1. Pre-flight (deterministic)
 
+- Enforce the v2.0.0 hard break: `source <plugin_dir>/lib/yoke-prelude.sh && yoke_require_provider || exit 1`. The helper aborts non-zero with a stderr diagnostic when `canonical_memory.provider` is missing or empty (unmigrated v1.x projects); surface its stderr verbatim and exit. See Acceptance Contract Scenario 12 / FR-6.
 - Source `lib/working-memory/paths.sh` and
   `lib/working-memory/cleanup.sh`. All paths below resolve through
   `wm_*_path` helpers; the active task slug comes from `.yoke/runtime/.current`
@@ -84,7 +85,7 @@ at full-run termination.
   `wm_contracts_path "$slug"` (`.yoke/contracts/<slug>.md`) from
   `templates/progress.md` and `templates/contracts.md` respectively if
   they don't exist (cycle 0 entries). The `query-trace` initialization
-  was retired in ask-source-agnostic-read Part 1 — `/yoke:ask` is now a
+  was retired in ask-source-agnostic-read Part 1 — `/yoke:search-canonical-memory` is now a
   pure read and emits no trace.
 - **Resolve per-role models (perf-quickwins Part 3).** Source
   `lib/runtime/agent-config.sh`. Compute:
@@ -180,7 +181,7 @@ sprint boundaries):
      - Current sprint contracts at `wm_contracts_path "$slug"`.
      - Last `verify-acceptance.sh` snapshot from
        `$(wm_snapshots_dir)/cycle-<N-1>.yaml` (if any).
-     - Canonical-memory context: invoke `/yoke:ask` via the Skill
+     - Canonical-memory context: invoke `/yoke:search-canonical-memory` via the Skill
        tool on demand (no on-disk handoff; the skill is a pure
        source-agnostic read).
 
@@ -194,7 +195,7 @@ sprint boundaries):
        `$(wm_snapshots_dir)/cycle-<N-1>.yaml`.
      - Current sprint contracts at `wm_contracts_path` and runtime
        progress at `wm_progress_path` (read-only).
-     - Canonical-memory context: invoke `/yoke:ask` via the Skill
+     - Canonical-memory context: invoke `/yoke:search-canonical-memory` via the Skill
        tool on demand.
 
      Emits structured JSON verdicts per criterion against the
@@ -208,7 +209,7 @@ sprint boundaries):
      - Current `wm_progress_path`, `wm_contracts_path`.
      - Last `verify-acceptance.sh` snapshot.
 
-     Consults canonical memory by invoking `/yoke:ask` via the Skill
+     Consults canonical memory by invoking `/yoke:search-canonical-memory` via the Skill
      tool when context is needed; reasons over the response inline.
      Monitors for Generator↔Validator divergence; on divergence
      invokes `lib/ralph-loop/escalate.sh` to emit the Trigger-4
@@ -424,9 +425,9 @@ defect that the Part-3 smoke gates against.
   reason
   (`merge-ready` | `divergence` | `contract-conflict` |
   `hard-bound` | `infeasibility`).
-- Orchestrator (in canonize mode) invokes `/yoke:preserve` via the
+- Orchestrator (in canonize mode) invokes `/yoke:canonize` via the
   Skill tool, passing the active task's `.yoke/<task-slug>/` path
-  and `--from-orchestrator`. `/yoke:preserve` invokes
+  and `--from-orchestrator`. `/yoke:canonize` invokes
   `lib/canonical-memory/canonization-criteria.sh` to apply the
   five-criterion cascade, reads each candidate's `impact_level`,
   and opens PRs per Model C.
@@ -435,7 +436,7 @@ defect that the Part-3 smoke gates against.
   synchronous human review without blocking the skill's exit.
 - This is the **only** canonical-memory write path during the loop.
   Mid-loop Orchestrator invocations (consult / monitor mode) never
-  invoke `/yoke:preserve`.
+  invoke `/yoke:canonize`.
 
 Exit with the loop's termination reason and a one-line summary of
 PRs opened (count + URLs).
@@ -482,11 +483,11 @@ infeasibility) and canonize failures preserve `.yoke/runtime/`
 intact for the user to arbitrate, resume, or manually re-canonize.
 
 - **All criteria pass** → loop returns MERGE-READY; canonize handoff
-  fires (Orchestrator invokes `/yoke:preserve` via the Skill tool).
+  fires (Orchestrator invokes `/yoke:canonize` via the Skill tool).
   On canonize success, `wm_runtime_cleanup` deletes the contents of
   `wm_runtime_dir` (the directory itself stays). Print:
   "Merge-ready. Canonization summary: <count> PRs opened."
-  `/yoke:preserve` can also be invoked manually for re-canonization
+  `/yoke:canonize` can also be invoked manually for re-canonization
   against canonical memory (e.g. after a model upgrade) — note that
   runtime working memory has been cleared by the cleanup step, so
   manual re-canonization re-evaluates canonical entries directly,
@@ -542,7 +543,7 @@ see `concepts/yoke-pattern-human-triggers`.
 - Do NOT let the subagents share context. Each Task call passes only
   the explicit inputs listed in step 2; communication is via
   working-memory files.
-- Do NOT invoke `/yoke:preserve` mid-loop. Canonization fires only
+- Do NOT invoke `/yoke:canonize` mid-loop. Canonization fires only
   at termination via the Orchestrator's canonize-mode handoff.
   Canonical-memory writes happen only in the termination handoff
   (step 3).
@@ -585,7 +586,7 @@ see `concepts/yoke-pattern-human-triggers`.
 - `lib/ralph-loop/orchestrate.sh`,
   `lib/ralph-loop/escalate.sh`,
   `lib/canonical-memory/canonization-criteria.sh` (invoked from
-  inside `/yoke:preserve`).
+  inside `/yoke:canonize`).
 - `skills/ask/SKILL.md` (canonical-memory reads — Part 3 of the
   bedrock canonical-memory port retired `query.sh`).
 - `skills/preserve/SKILL.md` (canonical-memory writes — Part 4

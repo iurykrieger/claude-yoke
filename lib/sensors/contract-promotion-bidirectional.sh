@@ -6,7 +6,7 @@
 # Implementation of sprint-contract-promotion s01-t04 — the standing-
 # guard check that the helper-time invariant guaranteed by
 # `lib/canonical-memory/write-promoted-concept.sh` continues to hold
-# after a `/yoke:preserve`, `/yoke:compress`, or hand edit.
+# after a `/yoke:canonize`, `/bedrock:compress`, or hand edit.
 #
 # Invariants asserted (per [[yoke-pattern-memory-model]]):
 #

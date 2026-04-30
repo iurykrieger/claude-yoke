@@ -7,8 +7,9 @@
 # and content substring.
 #
 # This is a deterministic filesystem-based check — it does NOT invoke
-# `/yoke:ask` (which requires LLM judgment in classification +
-# retrieval). The contract calls this an "inferential" sensor; the
+# `/yoke:search-canonical-memory` (which requires LLM judgment in
+# classification + retrieval). The contract calls this an
+# "inferential" sensor; the
 # implementation is "computational" because deterministic substring
 # matching against a known-good content set is sufficient evidence
 # that the entities are correctly canonized.

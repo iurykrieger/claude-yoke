@@ -46,10 +46,38 @@ this skill" provided at invocation to resolve.
 There is no other pre-condition. The skill is independent of host-project
 working-memory state and is callable from any directory.
 
+> **CRITICAL — never bail pre-emptively.** Whether the registry exists is
+> a deterministic property of the filesystem. **Do NOT infer from upstream
+> artifacts (PRDs, Specs, Acceptance Contracts) whether the canonical
+> memory is registered.** A Spec saying "create entities in the vault"
+> does NOT mean the vault is unregistered — it means the vault IS
+> registered and lacks specific entities. Always verify by running the
+> command in Phase 0.0 below; never short-circuit by reading the
+> Acceptance Contract or any other working-memory artifact.
+
+## Phase 0.0 — Verify the registry exists (deterministic, mandatory)
+
+Resolve the plugin directory from the "Base directory for this skill"
+header (= `<plugin_dir>/skills/ask`); compute `<plugin_dir>` as the
+absolute path to the parent of `skills/`. Run **exactly** this command
+before any other Phase-0 work:
+
+```bash
+PLUGIN_DIR=<absolute path to plugin_dir>
+test -f "$PLUGIN_DIR/memories.json" \
+  || { echo "No memory registered. Run /yoke:memory add <path> or re-run /yoke:bootstrap." ; exit 0 ; }
+```
+
+This is the **only** valid path to emitting "No memory registered".
+The deterministic existence check is the contract — every other
+reasoning path is a self-bug.
+
+If `test -f` succeeds, the registry exists. Continue to Phase 0.
+
 ## Phase 0 — Resolve the active memory
 
 ```bash
-source <plugin_dir>/lib/canonical-memory/resolve-memory.sh
+source "$PLUGIN_DIR/lib/canonical-memory/resolve-memory.sh"
 yoke_resolve_memory --memory "$EXPLICIT_NAME"   # or no flag
 ```
 
@@ -60,9 +88,11 @@ After this returns 0:
 
 Exit codes:
 
-- `3` — registry missing → emit the "no memory registered" message and exit 0
-- `5` — no resolution (registry empty / CWD outside / no default) →
-  print the registry listing per the resolver, exit 0
+- `3` — registry missing (Phase 0.0's gate already caught this; if
+  Phase 0 still emits 3, surface a `wm:`-prefixed self-bug message
+  and exit 0)
+- `5` — no resolution (registry exists but is empty / CWD outside /
+  no default) → print the registry listing per the resolver, exit 0
 - `0` — resolved → continue
 
 `MEMORY_PATH=$YOKE_MEMORY_PATH` is the **only** path used below. No
@@ -275,6 +305,6 @@ limit to the last 30 days.
 
 ## See also
 
-- `concepts/yoke-pattern-memory-model` — the read-mediator role.
-- `concepts/yoke-pattern-roles` — the canonical-memory read contract.
+- `.vibeflow/patterns/memory-model.md` — the read-mediator role.
+- `.vibeflow/patterns/roles.md` — the canonical-memory read contract.
 - `lib/canonical-memory/resolve-memory.sh` — memory resolution.

@@ -42,6 +42,21 @@ This skill **never** modifies any file under `.yoke/` or under any
 registered canonical memory. It only reads, globs, and greps. Smoke
 tests assert the read-only invariant.
 
+## Pre-flight
+
+Enforce the v2.0.0 hard break before reporting any status:
+
+```bash
+source <plugin_dir>/lib/yoke-prelude.sh && yoke_require_provider || exit 1
+```
+
+The helper aborts non-zero with a stderr diagnostic when
+`canonical_memory.provider` is missing or empty (unmigrated v1.x
+projects). Surface its stderr verbatim and exit. The status skill is a
+diagnostic, not a migration entry point — directing the user back to
+`/yoke:bootstrap` is the correct response on the hard-break path. See
+Acceptance Contract Scenario 12 / FR-6.
+
 ## Section 1 — Working memory (`--working-memory` / `--all`)
 
 Source `lib/working-memory/paths.sh`.
@@ -188,7 +203,7 @@ For each entity file:
 - Flag entities older than 15 days.
 - Compare `model_calibrated_against` to the current model
   (`claude-opus-4-7` in 2026-04). Flag entries calibrated against
-  retired models — they are candidates for `/yoke:compress` or a
+  retired models — they are candidates for `/bedrock:compress` or a
   rippability re-run.
 
 This subsection replaces the standalone
@@ -231,7 +246,7 @@ to keep `--all` output readable.
 | # | Rule |
 |---|---|
 | 1 | NEVER modify any file under `.yoke/` or under any registered canonical memory |
-| 2 | NEVER invoke another skill (e.g., never call `/yoke:preserve`, `/yoke:teach`, or `/yoke:compress` from here) |
+| 2 | NEVER invoke another skill (e.g., never call `/yoke:canonize`, `/bedrock:teach`, or `/bedrock:compress` from here) |
 | 3 | NEVER spawn subagents — read-only diagnostic |
 | 4 | ALWAYS resolve the active memory through Part 1's `resolve-memory.sh` |
 | 5 | Cap entity reads at 1k entities per memory — beyond that, sample uniformly and report sampling rate |
@@ -239,7 +254,7 @@ to keep `--all` output readable.
 
 ## Anti-patterns
 
-- Auto-fixing detected issues — that's `/yoke:compress`'s job.
+- Auto-fixing detected issues — that's `/bedrock:compress`'s job.
 - Writing the report to a file inside the memory — output to stdout
   only.
 - Failing on missing `.yoke/runtime/.current` — degrade to "no active task"

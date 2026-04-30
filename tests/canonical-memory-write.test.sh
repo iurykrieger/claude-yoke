@@ -1,31 +1,30 @@
 #!/usr/bin/env bash
 # tests/canonical-memory-write.test.sh
 #
-# Source-level invariants of the /yoke:preserve write protocol:
+# Source-level invariants of the /yoke:canonize write protocol (v2.0.0):
 #   (a) lib/canonical-memory/propose-write.sh does not exist
-#   (b) skills/canonize/ does not exist
-#   (c) skills/preserve/SKILL.md declares the four impact classes
-#       (low, medium, high, regulatory)
-#   (d) high never auto-merges
-#   (e) regulatory routes via CODEOWNERS
-#   (f) canonization-criteria.sh is referenced
-#   (g) the three git strategies (commit-push, commit-push-pr, commit-only)
-#       are honored
-#   (h) bidirectional linking is declared
-#   (i) all five rippability fields (ratified_at, model_calibrated_against,
-#       last_validated, traceability, impact_level) are present
-#   (j) agents/orchestrator.md invokes /yoke:preserve
-#   (k) no direct memory-path commit invocations exist outside skills/preserve/
+#   (b) skills/canonize/ exists (the new facade write surface)
+#   (c) skills/preserve/ has been extracted to the claude-bedrock peer
+#       plugin (must be absent in claude-yoke)
+#   (d) skills/canonize/SKILL.md references resolve-provider.sh
+#   (e) skills/canonize/SKILL.md dispatches via the configured provider's
+#       canonize verb (Skill tool with $YOKE_PROVIDER_CANONIZE_SKILL)
+#   (f) agents/orchestrator.md invokes /yoke:canonize
+#   (g) no direct memory-path commit invocations exist outside the
+#       extracted bedrock plugin (legacy regex against skills/preserve/)
 #
-# This is a doc-shape inspection. Real PR-opening flow is exercised in
-# host projects, not here.
+# This is a doc-shape inspection. The actual write protocol (impact
+# classes, rippability fields, git strategies, bidirectional linking)
+# lives in the claude-bedrock peer plugin's preserve skill and is
+# verified there. Cross-plugin integration is exercised in host
+# projects, not here.
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib/harness.sh"
 
 cd "$PLUGIN_ROOT"
 
 # ---------------------------------------------------------------------
-# (a) and (b) — single-write-point: prior write entries are gone
+# (a) propose-write.sh remains absent — single write point invariant
 # ---------------------------------------------------------------------
 if [ ! -f "lib/canonical-memory/propose-write.sh" ]; then
   pass "(a) propose-write.sh absent (single write point)"
@@ -33,109 +32,66 @@ else
   err "(a) propose-write.sh exists (must be absent — single write point invariant)"
 fi
 
-if [ ! -d "skills/canonize" ]; then
-  pass "(b) skills/canonize/ absent (single write point)"
+# ---------------------------------------------------------------------
+# (b) skills/canonize/ EXISTS — new facade write surface
+# ---------------------------------------------------------------------
+if [ -d "skills/canonize" ] && [ -f "skills/canonize/SKILL.md" ]; then
+  pass "(b) skills/canonize/SKILL.md present (write facade)"
 else
-  err "(b) skills/canonize/ exists (must be absent)"
-fi
-
-PRE="skills/preserve/SKILL.md"
-if [ ! -f "$PRE" ]; then
-  err "skills/preserve/SKILL.md missing"
-  harness::summary
+  err "(b) skills/canonize/SKILL.md missing — facade write surface required at v2.0.0"
 fi
 
 # ---------------------------------------------------------------------
-# (c) Four impact classes
+# (c) skills/preserve/ ABSENT — extracted to claude-bedrock
 # ---------------------------------------------------------------------
-for cls in low medium high regulatory; do
-  if grep -qE "\`${cls}\`" "$PRE"; then
-    pass "(c) preserve declares impact class \`${cls}\`"
-  else
-    err "(c) preserve missing impact class \`${cls}\`"
-  fi
-done
-
-# ---------------------------------------------------------------------
-# (d) high never auto-merges
-# ---------------------------------------------------------------------
-if grep -qE '`high` and `regulatory` writes \*\*never\*\* auto-merge|`high`.*never.*auto-merge|never.*auto-merge.*`high`' "$PRE"; then
-  pass "(d) preserve blocks auto-merge for high"
+if [ ! -d "skills/preserve" ]; then
+  pass "(c) skills/preserve/ absent (extracted to claude-bedrock peer plugin)"
 else
-  err "(d) preserve does not block auto-merge for high"
+  err "(c) skills/preserve/ exists (must be absent — extracted to claude-bedrock at v2.0.0)"
 fi
 
+CANON="skills/canonize/SKILL.md"
+[ -f "$CANON" ] || harness::summary
+
 # ---------------------------------------------------------------------
-# (e) Regulatory routes via CODEOWNERS
+# (d) canonize SKILL references the provider resolver
 # ---------------------------------------------------------------------
-if grep -qE 'regulatory.*CODEOWNERS|CODEOWNERS.*regulatory|Compliance via CODEOWNERS' "$PRE"; then
-  pass "(e) preserve routes regulatory via CODEOWNERS"
+if grep -q 'resolve-provider\.sh' "$CANON"; then
+  pass "(d) canonize references lib/canonical-memory/resolve-provider.sh"
 else
-  err "(e) preserve missing regulatory CODEOWNERS routing"
+  err "(d) canonize missing resolve-provider.sh reference"
 fi
 
 # ---------------------------------------------------------------------
-# (f) canonization-criteria.sh referenced
+# (e) canonize dispatches via the provider's canonize skill
 # ---------------------------------------------------------------------
-if grep -q 'canonization-criteria\.sh' "$PRE"; then
-  pass "(f) preserve invokes canonization-criteria.sh as the Model C classifier"
+if grep -qE 'YOKE_PROVIDER_CANONIZE_SKILL|provider.*canonize.*Skill' "$CANON"; then
+  pass "(e) canonize dispatches via provider's canonize skill"
 else
-  err "(f) preserve does not reference canonization-criteria.sh"
+  err "(e) canonize missing provider-skill dispatch"
 fi
 
 # ---------------------------------------------------------------------
-# (g) Three git strategies honored
+# (f) Orchestrator invokes /yoke:canonize
 # ---------------------------------------------------------------------
-for strat in commit-push commit-push-pr commit-only; do
-  if grep -qE "\`${strat}\`" "$PRE"; then
-    pass "(g) preserve honors git strategy \`${strat}\`"
-  else
-    err "(g) preserve missing git strategy \`${strat}\`"
-  fi
-done
-
-# ---------------------------------------------------------------------
-# (h) Bidirectional linking
-# ---------------------------------------------------------------------
-if grep -qiE 'bidirectional links?|bidirectional linking' "$PRE"; then
-  pass "(h) preserve declares bidirectional linking"
+if grep -q '/yoke:canonize' agents/orchestrator.md; then
+  pass "(f) orchestrator invokes /yoke:canonize via the Skill tool"
 else
-  err "(h) preserve missing bidirectional linking"
+  err "(f) orchestrator does not invoke /yoke:canonize"
 fi
 
 # ---------------------------------------------------------------------
-# (i) Five rippability fields enforced on create
-# ---------------------------------------------------------------------
-for field in ratified_at model_calibrated_against last_validated traceability impact_level; do
-  if grep -q "$field" "$PRE"; then
-    pass "(i) preserve references rippability field $field"
-  else
-    err "(i) preserve missing rippability field $field"
-  fi
-done
-
-# ---------------------------------------------------------------------
-# (j) Orchestrator invokes /yoke:preserve
-# ---------------------------------------------------------------------
-if grep -q '/yoke:preserve' agents/orchestrator.md; then
-  pass "(j) orchestrator invokes /yoke:preserve via the Skill tool"
-else
-  err "(j) orchestrator does not invoke /yoke:preserve"
-fi
-
-# ---------------------------------------------------------------------
-# (k) No direct memory-path commits outside skills/preserve/.
-# The regex matches the canonical-memory commit invocation pattern
-# (with optional surrounding double-quotes around the variable).
+# (g) No direct memory-path commits outside the (now-extracted) preserve
+# surface. After v2.0.0 the regex must return empty since claude-yoke
+# no longer owns any direct git-write-to-memory-vault calls.
 # ---------------------------------------------------------------------
 LEAKS=$(grep -rEln 'git -C "?\$MEMORY_PATH"? commit' agents/ skills/ lib/ tests/ 2>/dev/null \
-  | grep -v '^skills/preserve/' \
   | grep -v "^${BASH_SOURCE[0]#"$PLUGIN_ROOT/"}\$" || true)
 
 if [ -z "$LEAKS" ]; then
-  pass "(k) no direct memory commits outside skills/preserve/"
+  pass "(g) no direct memory commits anywhere in claude-yoke (write protocol lives in claude-bedrock)"
 else
-  err "(k) found direct memory commits outside skills/preserve/:"
+  err "(g) found direct memory commits in claude-yoke (should live only in claude-bedrock):"
   printf '%s\n' "$LEAKS" | sed 's/^/    /' >&2
 fi
 

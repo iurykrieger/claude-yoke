@@ -2,14 +2,14 @@
 # tests/skills-surface.test.sh
 #
 # Structural contract of every SKILL.md and the binding invariants of
-# the spec-phase skills + /yoke:ask:
+# the spec-phase skills + /yoke:search-canonical-memory:
 #
 #   (1) per-skill frontmatter — delimiters, name, description, allowed-tools
 #   (2) spec-phase skills (discover, tech-spec, acceptance-contract):
 #         - allowed-tools excludes Task
 #         - inline persona section
 #         - binding human-trigger prompt (Trigger 1/2/3 respectively)
-#   (3) /yoke:ask:
+#   (3) /yoke:search-canonical-memory:
 #         - allowed-tools excludes Task and Write (pure read)
 #         - declares the no-clone invariant
 #         - declares no-fabrication
@@ -121,41 +121,36 @@ for skill in "${!trigger_map[@]}"; do
 done
 
 # ---------------------------------------------------------------------
-# (3) /yoke:ask
+# (3) /yoke:search-canonical-memory — provider-agnostic read facade (v2.0.0)
+#     Replaces /yoke:ask. The legacy ask/ skill was migrated to the
+#     claude-bedrock peer plugin; substrate-specific invariants
+#     (no-clone, no-fabrication, 15-entity cap) live there now.
 # ---------------------------------------------------------------------
-ask="skills/ask/SKILL.md"
-if [ ! -f "$ask" ]; then
-  err "ask: SKILL.md missing"
+search="skills/search-canonical-memory/SKILL.md"
+if [ ! -f "$search" ]; then
+  err "search-canonical-memory: SKILL.md missing"
 else
-  ask_tools=$(fm_field_value "$ask" "allowed-tools")
+  search_tools=$(fm_field_value "$search" "allowed-tools")
 
-  if echo "$ask_tools" | grep -qw "Task"; then
-    err "ask: allowed-tools includes Task (must be pure read): $ask_tools"
+  if echo "$search_tools" | grep -qw "Task"; then
+    err "search-canonical-memory: allowed-tools includes Task (must be pure read): $search_tools"
   else
-    pass "ask: allowed-tools excludes Task"
+    pass "search-canonical-memory: allowed-tools excludes Task"
   fi
 
-  if echo "$ask_tools" | grep -qw "Write"; then
-    err "ask: allowed-tools includes Write (must be pure read): $ask_tools"
+  if echo "$search_tools" | grep -qw "Write"; then
+    err "search-canonical-memory: allowed-tools includes Write (must be pure read): $search_tools"
   else
-    pass "ask: allowed-tools excludes Write"
+    pass "search-canonical-memory: allowed-tools excludes Write"
   fi
 
-  grep -qiE 'never .*(clone|pull|fetch)' "$ask" \
-    && pass "ask: declares no-clone invariant" \
-    || err "ask: missing no-clone declaration"
+  grep -q 'resolve-provider.sh' "$search" \
+    && pass "search-canonical-memory: references resolve-provider.sh" \
+    || err "search-canonical-memory: missing resolve-provider.sh reference"
 
-  grep -qiE 'never fabricate|do not fabricate|never invent' "$ask" \
-    && pass "ask: declares no-fabrication rule" \
-    || err "ask: missing no-fabrication declaration"
-
-  grep -q 'resolve-memory.sh' "$ask" \
-    && pass "ask: references resolve-memory.sh" \
-    || err "ask: missing resolve-memory.sh reference"
-
-  grep -qE '15 entit|cap.*15|≤[[:space:]]*15|limit:?[[:space:]]*15' "$ask" \
-    && pass "ask: caps entity reads at 15" \
-    || err "ask: missing 15-entity cap"
+  grep -qE 'YOKE_PROVIDER_SEARCH_SKILL|provider.*search' "$search" \
+    && pass "search-canonical-memory: dispatches via provider search skill" \
+    || err "search-canonical-memory: missing provider-skill dispatch"
 fi
 
 harness::summary

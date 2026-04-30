@@ -44,7 +44,7 @@ Reads the canonical-memory repo via the cached path
   via `.yoke/config.yaml` `overrides.drift_sense.staleness_max_days`).
   Source for "consulted" is the entry's `last_validated` frontmatter
   field. (The per-task query-trace source was retired in
-  ask-source-agnostic-read Part 1 — `/yoke:ask` no longer emits a trace.)
+  ask-source-agnostic-read Part 1 — `/yoke:search-canonical-memory` no longer emits a trace.)
 - **Model drift:** items with `model_calibrated_against` ≠ the configured
   current model (env `YOKE_MODEL_ID` or default `claude-opus-4-7`).
 - **Contradictions:** items with `contradicts_with` referring to entries
@@ -77,6 +77,7 @@ workflow uses this.
 
 ### 1. Pre-flight
 
+- Enforce the v2.0.0 hard break: `source <plugin_dir>/lib/yoke-prelude.sh && yoke_require_provider || exit 1`. Drift-sense reads canonical memory in two of its three modes (`canonical-memory`, `traces`); refusing to run on an unmigrated v1.x project keeps the dispatch surface coherent. The helper aborts non-zero with a stderr diagnostic when `canonical_memory.provider` is missing or empty; surface its stderr verbatim. See Acceptance Contract Scenario 12 / FR-6.
 - Verify `.yoke/config.yaml` exists (warn if not — proceed in standalone mode without overrides).
 - Determine target mode from `--target` flag. Default: `all`.
 - Print mode declaration:

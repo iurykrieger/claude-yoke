@@ -4,9 +4,9 @@
 
 [![CI](https://github.com/iurykrieger/yoke/actions/workflows/ci.yml/badge.svg)](https://github.com/iurykrieger/yoke/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Yoke v1.1](https://img.shields.io/badge/yoke-v1.1.0-FFB000)](CHANGELOG.md)
+[![Yoke v2.0](https://img.shields.io/badge/yoke-v2.0.0-FFB000)](CHANGELOG.md)
 
-**Version:** 1.1.0
+**Version:** 2.0.0
 **Manifesto:** [`yoke.md`](https://github.com/iurykrieger/yoke/blob/main/yoke.md)
 **License:** MIT
 
@@ -31,67 +31,85 @@ together in the same direction. That is the central image of the framework.
 /plugin install yoke@yoke-marketplace
 ```
 
+Yoke v2.0.0 also requires a canonical-memory provider plugin (the
+reference one is `claude-bedrock`):
+
+```
+/plugin install claude-bedrock
+```
+
 See [`docs/installation.md`](docs/installation.md) for full pre-requisites
 (Claude Code with marketplace + Task-tool support, `gh` CLI, bash 4+,
-git 2.0+).
+git 2.0+) and
+[`docs/canonical-memory-setup.md`](docs/canonical-memory-setup.md) for
+the provider-selection surface.
 
 ## Quickstart
 
 ```
-/yoke:bootstrap                   # one-time per project
-/yoke:discover "<your idea>"      # Phase 1 — produces .yoke/prd.md
-/yoke:tech-spec                   # Phase 2 — produces .yoke/tech-spec.md
-/yoke:acceptance-contract         # Phase 3 — produces .yoke/acceptance-contract.md (binding)
+/yoke:bootstrap                   # one-time per project (selects canonical-memory provider)
+/yoke:discover "<your idea>"      # Phase 1 — produces .yoke/prds/<slug>.md
+/yoke:tech-spec                   # Phase 2 — produces .yoke/specs/<slug>.md
+/yoke:acceptance-contract         # Phase 3 — produces .yoke/acceptance-contracts/<slug>.md (binding)
 /yoke:implement                   # Phase 4 — adversarial ralph loop with hard bounds
-/yoke:canonize                    # Phase 5 — propose canonical-memory writes
+/yoke:canonize                    # Phase 5 — propose canonical-memory writes (provider-agnostic)
 /yoke:drift-sense                 # Phase 6 — continuous drift sensing (also runs daily via Actions)
 ```
 
-Plus support skills: `/yoke:ask` (mediated canonical-memory query) and
-`/yoke:status` (current task state).
+Plus support skills: `/yoke:search-canonical-memory "<query>"`
+(provider-agnostic canonical-memory read) and `/yoke:status` (current
+task state).
 
 Full walkthrough: [`docs/quickstart.md`](docs/quickstart.md).
 Architecture summary: [`docs/architecture.md`](docs/architecture.md).
 Worked example: [`examples/greenfield-payment-service/`](examples/greenfield-payment-service/).
 Trouble? See [`docs/troubleshooting.md`](docs/troubleshooting.md).
 
-## Status — v1.1.0
+## Status — v2.0.0
 
-This is the **runtime-only-agents refactor** of v1.0. All six manifesto
-phases remain operational; agent topology simplified to three runtime
-subagents (Generator, Validator, Orchestrator) spawned in parallel.
-Spec phases are now skill-only.
+This is the **pluggable canonical-memory** release. The single-vendor
+canonical-memory implementation that was forked into Yoke at Sprint 5
+has been extracted into a standalone peer plugin (`claude-bedrock`),
+and Yoke now dispatches reads and writes through two
+provider-agnostic facade verbs that resolve the active provider via
+the curated `providers.yaml` plus the host project's
+`.yoke/config.yaml :: canonical_memory.provider`.
 
 - ✅ **Phase 1–2 (binding spec)** — `/yoke:discover`, `/yoke:tech-spec` skills with embedded Generator persona; explicit human gates (Triggers 1, 2)
 - ✅ **Phase 3 (binding contract)** — `/yoke:acceptance-contract` skill with embedded Validator persona; sensor discovery from host `CLAUDE.md`; Trigger 3 binding ratification
 - ✅ **Phase 4 (adversarial loop)** — `/yoke:implement` spawns 3 runtime subagents in parallel per cycle; hard bounds; Trigger-4 escalation packet
-- ✅ **Phase 5 (canonization)** — auto-canonize at `/yoke:implement` loop termination via Orchestrator subagent; full Model C (low / medium / high / regulatory); `/yoke:canonize` as manual escape hatch
+- ✅ **Phase 5 (canonization)** — auto-canonize at `/yoke:implement` loop termination via Orchestrator subagent; full Model C (low / medium / high / regulatory); `/yoke:canonize` as the provider-agnostic write facade (replaces the v1.x write skill)
 - ✅ **Phase 6 (drift sensing)** — `/yoke:drift-sense` with daily GitHub Actions schedule
 - ✅ **Five distinct human triggers** — non-coalescable schemas
-- ✅ **Progressive disclosure** — subgraph queries via `/yoke:ask --subgraph-depth N` (thin skill calling `query.sh` directly)
-- ✅ **Skills deliberate; subagents adapt** — new architectural invariant codified in v1.1
+- ✅ **Pluggable canonical-memory** — `/yoke:search-canonical-memory` and `/yoke:canonize` resolve the active provider from `providers.yaml`; the reference Bedrock provider ships as `claude-bedrock`
+- ✅ **Hard-break migration** — every Yoke skill except `/yoke:bootstrap` aborts on missing `canonical_memory.provider`; `/yoke:bootstrap` migrates v1.x state automatically
+- ✅ **Skills deliberate; subagents adapt** — architectural invariant carried forward from v1.1
 
-What's planned for v1.1+:
+What's planned beyond v2.0.0:
 
 - Adversarial canonical-memory audit (manifesto §17)
 - Post-deploy production-signal observation (manifesto §17)
 - Inferential drift-sensing detector (semantic obsolescence)
 - Yoke-on-Yoke (recursive bootstrap)
+- Additional provider entries in `providers.yaml` beyond the Bedrock seed
 
 ## Lineage
 
-Yoke embeds skills derived from two upstream projects, forked one-time
-at the relevant sprint:
+Yoke embeds skills derived from one upstream project, plus dispatches
+into a peer plugin extracted from a second one:
 
-- **Vibeflow** — <https://github.com/pe-menezes/vibeflow>. Source for the
-  Generator's PRD and Tech Spec drafting skills (forked Sprint 2).
-- **Bedrock** — <https://github.com/iurykrieger/claude-bedrock>. Source for
-  the Orchestrator's canonical-memory primitives — read, write, graph
-  traversal (forked Sprint 5).
+- **Vibeflow** — <https://github.com/pe-menezes/vibeflow>. Source for
+  the Generator's PRD and Tech Spec drafting skills (forked Sprint 2).
+- **Bedrock** — <https://github.com/iurykrieger/claude-bedrock>. Source
+  for the canonical-memory primitives — read, write, graph traversal
+  (forked Sprint 5; **extracted out of Yoke at v2.0.0** into the
+  standalone `claude-bedrock` peer plugin and dispatched into via the
+  `bedrock` provider entry in `providers.yaml`).
 
-From the time of fork, those skills evolve autonomously inside Yoke.
-There is no continuous port. Per-skill mapping in
-[`docs/lineage.md`](docs/lineage.md).
+From the time of fork, those skills evolve autonomously inside Yoke
+(or, for Bedrock-derived material from v2.0.0 onward, autonomously
+inside `claude-bedrock`). There is no continuous port. Per-skill
+mapping in [`docs/lineage.md`](docs/lineage.md).
 
 ## Project documents
 

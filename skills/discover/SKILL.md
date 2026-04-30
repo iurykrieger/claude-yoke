@@ -22,7 +22,7 @@ dialogue with the user.
 > Yoke's PRD shape (product invariants / business context / constraints
 > / risks / open questions instead of Vibeflow's problem / audience /
 > solution shape), routes any canonical-memory queries through
-> `/yoke:ask`. Per-skill mapping recorded in `docs/lineage.md` at
+> `/yoke:search-canonical-memory`. Per-skill mapping recorded in `docs/lineage.md` at
 > Sprint 8.
 
 ## Your role (Product Manager persona, inline)
@@ -49,6 +49,7 @@ person.
 ### 1. Pre-flight
 
 - Verify `.yoke/config.yaml` exists. If not, abort with: "Run `/yoke:bootstrap` first."
+- Enforce the v2.0.0 hard break: `source <plugin_dir>/lib/yoke-prelude.sh && yoke_require_provider || exit 1`. The helper aborts non-zero with a stderr diagnostic when `canonical_memory.provider` is missing or empty (unmigrated v1.x projects); surface its stderr verbatim and exit. See Acceptance Contract Scenario 12 / FR-6.
 - Source the path helper: `source lib/working-memory/paths.sh`. Every working-memory path constructed below resolves through `wm_*_path` functions; never concatenate paths under `.yoke/` by hand.
 
 ### 2. Clarity evaluation (fast-track)
@@ -93,7 +94,7 @@ the described flow is too complex for v0.
 - What is explicitly OUT OF SCOPE?
 - Are there technical constraints?
 
-Use canonical memory (via `/yoke:ask`) when relevant to:
+Use canonical memory (via `/yoke:search-canonical-memory`) when relevant to:
 - Identify if something already solves part of the problem.
 - Point out existing patterns the solution should follow.
 - Alert if the idea conflicts with current architecture.
@@ -149,9 +150,9 @@ After slug confirmation, in this order:
 ### 6. Canonical memory consultation
 
 When you need organizational context — prior PRDs in similar domain,
-existing architecture patterns, team ownership — invoke `/yoke:ask`.
+existing architecture patterns, team ownership — invoke `/yoke:search-canonical-memory`.
 Do NOT read canonical memory directly (no `cat`, no `grep`, no
-cloning the substrate repo). All reads go through `/yoke:ask`.
+cloning the substrate repo). All reads go through `/yoke:search-canonical-memory`.
 
 ### 7. Trigger 1 — PRD approval
 
@@ -240,7 +241,7 @@ cleanly.
 - Do NOT skip the "challenge at least one point" rule — every PRD must
   push back on at least one vague assumption, missing scope, or
   unrealistic ambition.
-- Do NOT read canonical memory directly — must go via `/yoke:ask`.
+- Do NOT read canonical memory directly — must go via `/yoke:search-canonical-memory`.
 - Do NOT write to any flat working-memory path. All paths go through
   `lib/working-memory/paths.sh`.
 - Do NOT modify any other task's archive files (`specs/<other>.md`,

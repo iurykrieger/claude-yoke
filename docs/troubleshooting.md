@@ -8,12 +8,13 @@ of `/yoke:status` and the relevant `.yoke/*.md` files.
 
 ### `/plugin install yoke@yoke-marketplace` fails
 
-- **Confirm Claude Code is up to date.** Yoke v1.0 targets the
-  marketplace schema as of `vibeflow-claude` 1.10 and `claude-bedrock`
-  1.2. If your Claude Code is older than that, upgrade first.
+- **Confirm Claude Code is up to date.** Yoke v2.0.0 targets the
+  current marketplace schema and depends on the Skill tool being
+  available to subagents. Upgrade Claude Code first.
 - **Confirm `gh` CLI is installed and authenticated.** Yoke depends on
-  `gh` from Sprint-5 onward (canonical-memory PRs). Run `gh auth
-  status`. If unauthenticated, run `gh auth login`.
+  `gh` from Sprint-5 onward (canonical-memory PRs through the active
+  provider). Run `gh auth status`. If unauthenticated, run
+  `gh auth login`.
 - **bash 4 on macOS.** macOS ships bash 3 by default. Yoke's hooks and
   lib scripts target bash 4+. Install via Homebrew: `brew install
   bash`. Make sure the new bash is on your `$PATH` before
@@ -25,8 +26,64 @@ of `/yoke:status` and the relevant `.yoke/*.md` files.
 
 ### `/yoke:bootstrap` says "gh not authenticated"
 
-- Run `gh auth login`. Yoke does not have a degraded mode in v1.0 (per
-  `concepts/yoke-decision-*`); `gh` is hard-required.
+- Run `gh auth login`. Yoke does not have a degraded mode (per
+  `concepts/yoke-decision-*` in canonical memory); `gh` is hard-required.
+
+## Provider configuration (v2.0.0)
+
+### Provider not configured
+
+Symptom: any Yoke skill except `/yoke:bootstrap` aborts with the
+literal stderr line:
+
+```
+wm: canonical_memory.provider not configured. Run /yoke:bootstrap to migrate.
+```
+
+Cause: `.yoke/config.yaml` is missing, or it exists but the
+`canonical_memory.provider` key is unset / empty. v2.0.0's hard-break
+pre-flight (sourced from `lib/yoke-prelude.sh` by every eligible
+skill) refuses to run on an unmigrated project.
+
+Fix: run `/yoke:bootstrap` from the project root. Bootstrap detects
+v1.x state automatically and migrates the existing `url` / `name` /
+`default_branch` keys into the new schema as `config_passthrough`
+keys. See [`migration-v1-to-v2.md`](migration-v1-to-v2.md) for the
+end-to-end runbook.
+
+### Provider plugin missing
+
+Symptom: a skill dispatch fails with `Skill /bedrock:ask not found` or
+`Skill /<provider>:ask not found`.
+
+Cause: the peer plugin named in `providers.yaml :: <provider>.requires.plugin`
+is not installed. Yoke v2.0.0 itself does not ship the Bedrock backend
+— it's a separate plugin (`claude-bedrock`) that you install
+alongside Yoke.
+
+Fix: install the missing provider plugin. For the reference Bedrock
+provider:
+
+```bash
+claude plugin install claude-bedrock
+```
+
+Then re-run the failing command.
+
+### Provider name not registered
+
+Symptom: bootstrap aborts with `wm: provider '<name>' is not
+registered in providers.yaml.`, or `lib/canonical-memory/resolve-provider.sh`
+exits 5.
+
+Cause: the provider key you passed to `--provider` (or the value in
+`.yoke/config.yaml :: canonical_memory.provider`) does not match any
+entry under `providers:` in the plugin's `providers.yaml`.
+
+Fix: list the registered providers (`yq '.providers' /path/to/claude-yoke/providers.yaml`),
+then either pick a registered name or open a PR against `claude-yoke`
+adding the new provider entry per the schema in
+[`canonical-memory-setup.md`](canonical-memory-setup.md).
 
 ## Phase 1 / Phase 2
 
@@ -97,9 +154,12 @@ of `/yoke:status` and the relevant `.yoke/*.md` files.
   are already canonized).
 - Tune `.yoke/config.yaml` `overrides.canonization.repeatability_min`
   downward (default 3 → try 2) for more sensitive canonization.
-- Verify `/yoke:ask` works against your canonical-memory repo
-  (`/yoke:ask "anything"` should return entries or a clean empty-state
-  message).
+- Verify `/yoke:search-canonical-memory` works against your active
+  provider (`/yoke:search-canonical-memory "anything"` should return
+  entries or a clean empty-state message). The facade resolves the
+  provider via `lib/canonical-memory/resolve-provider.sh` and
+  dispatches to the provider's pinned `skills.search`; if that
+  resolution fails, the facade surfaces the error verbatim.
 
 ### `propose-write.sh` fails with "gh CLI not found"
 
@@ -140,24 +200,26 @@ of `/yoke:status` and the relevant `.yoke/*.md` files.
 
 ### "skill X is missing canonical-memory access"
 
-- All canonical-memory access goes through `/yoke:ask` invoked via the
-  Skill tool. The skill is source-agnostic — any caller (Generator,
-  Validator, Orchestrator, spec-phase skill, or ad-hoc human query)
-  can invoke it without an active task. If you suspect a subagent is
-  bypassing it, the v0 detection is declarative — the rule is stated
-  in each subagent's prompt; review during code-review.
-- Verify `/yoke:ask` resolves the active memory by running
-  `bash lib/canonical-memory/resolve-memory.sh --memory <name>` (or
-  with no flag for CWD/default resolution). The output is
-  `<name>\t<path>` on success.
+- All canonical-memory access goes through the two facade verbs
+  `/yoke:search-canonical-memory` (read) and `/yoke:canonize` (write),
+  invoked via the Skill tool. The facades are source-agnostic — any
+  caller (Generator, Validator, Orchestrator, spec-phase skill, or
+  ad-hoc human query) can invoke them without an active task. If you
+  suspect a subagent is bypassing them, the v0 detection is
+  declarative — the rule is stated in each subagent's prompt; review
+  during code-review.
+- Verify `/yoke:search-canonical-memory` resolves the active provider
+  by running `bash lib/canonical-memory/resolve-provider.sh` from the
+  host project root. The output is `<name>\t<search-skill>\t<canonize-skill>`
+  on success.
 
-### Where do I find the canonical-memory repo?
+### Where do I find the canonical-memory data?
 
-- Path: registered in `<plugin_dir>/memories.json` (one entry per
-  registered memory). Use `/yoke:memory list` to see all registered
-  memories; the entry's `path` field is the absolute filesystem path.
-  No clone cache exists — the resolution lib reads the registered path
-  directly.
+- Each provider owns its own substrate. For the Bedrock provider, run
+  `/bedrock:vaults list` to see registered vault paths. Yoke does not
+  maintain a vault registry of its own — that lived in
+  `<plugin_dir>/memories.json` in v1.x and was moved to the provider
+  plugin in v2.0.0.
 
 ### How do I reset Yoke for a clean test?
 
@@ -166,8 +228,9 @@ rm -rf .yoke/                                    # working memory
 /yoke:bootstrap                                  # re-init
 ```
 
-The canonical-memory repo at the registered path is **not** managed
-by Yoke — manage it with regular git.
+The provider's substrate (e.g. the Bedrock vault at the registered
+path) is **not** managed by Yoke — manage it via the provider's
+own commands.
 
 ### `/yoke:status` shows nothing
 

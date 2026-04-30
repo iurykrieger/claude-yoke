@@ -1,9 +1,0 @@
-{
-  "language": "en-US",
-  "git": {
-    "strategy": "commit-push-pr"
-  },
-  "query": {
-    "max_subgraph_calls": 3
-  }
-}

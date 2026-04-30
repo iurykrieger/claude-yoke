@@ -25,12 +25,15 @@ SKILL="skills/bootstrap/SKILL.md"
 [ -f "$SKILL" ] || { err "skills/bootstrap/SKILL.md missing"; harness::summary; }
 
 # ---------------------------------------------------------------------
-# (c) SKILL declares the registration step + host-repo invariant
+# (c) SKILL declares v2.0.0 provider-selection + host-repo invariants
+#     (v1.x's registry.sh-based registration step was removed when the
+#     canonical-memory registry concept was retired; provider selection
+#     replaces it.)
 # ---------------------------------------------------------------------
-if grep -q 'registry\.sh' "$SKILL" && grep -qiE 'register|registering' "$SKILL"; then
-  pass "(c) bootstrap SKILL declares registry.sh registration step"
+if grep -qE 'canonical_memory\.provider|--provider' "$SKILL"; then
+  pass "(c) bootstrap SKILL declares provider-selection step"
 else
-  err "(c) bootstrap SKILL does not declare registration step"
+  err "(c) bootstrap SKILL does not declare provider-selection step"
 fi
 
 if grep -qiE 'touches only|do not write outside|never overwritten if present' "$SKILL"; then

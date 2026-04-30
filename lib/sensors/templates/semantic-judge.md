@@ -53,7 +53,7 @@ Calibration drift values (`known_false_positives`,
 `.yoke/sensors/<sensor-name>.md` (working memory) — not in this
 template. The template ships with the initial calibration only;
 observed drift is appended locally and promoted to canonical via
-`/yoke:preserve` under Model C.
+`/yoke:canonize` under Model C.
 
 ## Spawn-time inputs
 
@@ -139,7 +139,7 @@ host_observations:
 
 The drift file is **working-memory** scope (task-local). It resets
 with each new task's `.yoke/`. Promotion to canonical memory happens
-only via `/yoke:preserve` under Model C — never automatically by
+only via `/yoke:canonize` under Model C — never automatically by
 this template or its subagent.
 
 ## Anti-patterns

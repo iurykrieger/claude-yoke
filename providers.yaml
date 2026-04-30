@@ -1,0 +1,44 @@
+# providers.yaml — curated registry of canonical-memory providers.
+#
+# Single source of truth that names every supported provider and pins
+# the two skill verbs (`search`, `canonize`) that `/yoke:search-canonical-memory`
+# and `/yoke:canonize` dispatch against. Resolved at runtime by
+# `lib/canonical-memory/resolve-provider.sh`.
+#
+# Adding a provider = PR to Yoke (trivial 4–6 lines of YAML). No dynamic
+# plugin discovery, no convention-based scanning, no local override.
+#
+# Schema (version 1):
+#   schema_version: 1
+#   providers:
+#     <provider-name>:
+#       description: "<one-line description>"
+#       requires:
+#         plugin: "<plugin-id-on-marketplace>"   # nullable for in-Yoke seed
+#         min_version: "<semver>"                # nullable
+#       skills:
+#         search: "<plugin>:<skill>"             # mandatory
+#         canonize: "<plugin>:<skill>"           # mandatory
+#       config_passthrough:                      # keys forwarded opaquely
+#         - <key-in-canonical_memory-block>      #   from .yoke/config.yaml
+#
+# References:
+# - PRD:  .yoke/prds/2026-04-30-pluggable-canonical-memory.md
+# - Spec: .yoke/specs/2026-04-30-pluggable-canonical-memory.md
+# - Acceptance Contract Scenario 1 / FR-2.
+# - Sprint 1 task 2026-04-30-pluggable-canonical-memory-s01-t01.
+
+schema_version: 1
+providers:
+  bedrock:
+    description: "Markdown frontmatter graph in a separate git repository (Yoke v1 reference implementation)"
+    requires:
+      plugin: claude-bedrock
+      min_version: "0.1.0"
+    skills:
+      search: "bedrock:ask"
+      canonize: "bedrock:teach"
+    config_passthrough:
+      - url
+      - name
+      - default_branch

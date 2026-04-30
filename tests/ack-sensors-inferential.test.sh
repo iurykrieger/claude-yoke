@@ -4,7 +4,7 @@
 # Part 3 smoke test — reconciled with main's coordinator-runs-once
 # architecture. Original Part 3 had the Validator spawn each inferential
 # sensor via Agent(subagent_type: yoke:semantic-judge); main's runtime
-# restricts the Validator to invoking only /yoke:ask via the Skill tool.
+# restricts the Validator to invoking only /yoke:search-canonical-memory via the Skill tool.
 #
 # Under the post-merge architecture, the semantic-judge subagent and its
 # template are forward-looking artifacts: the calibration metadata, prompt
@@ -150,10 +150,10 @@ grep -q '\.yoke/sensors/' "$TEMPLATE" \
   && pass "template documents .yoke/sensors/ drift contract" \
   || err "template does not document .yoke/sensors/"
 
-# Promotion path: /yoke:preserve, not automatic
-grep -q '/yoke:preserve' "$JUDGE" \
-  && pass "judge documents /yoke:preserve promotion path" \
-  || err "judge does not document /yoke:preserve"
+# Promotion path: /yoke:canonize, not automatic
+grep -q '/yoke:canonize' "$JUDGE" \
+  && pass "judge documents /yoke:canonize promotion path" \
+  || err "judge does not document /yoke:canonize"
 
 # ---------------------------------------------------------------------------
 # DoD #5 (no canonical-memory writes from this part)

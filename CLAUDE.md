@@ -39,20 +39,23 @@ state**; v1.2 dogfood is in flight — the framework's own design
 doctrine (patterns, decisions, conventions, audits) has been canonized
 into the registered Bedrock vault under `tags: [yoke-framework]` per
 the 2026-04-27 doctrine-canonization PRD. Project state lives in
-canonical memory at `projects/claude-yoke`; query it via `/yoke:ask`
+canonical memory at `projects/claude-yoke`; query it via `/yoke:search-canonical-memory`
 to see the current sprint, version, and active action items.
 
 The manifesto (`yoke.md`) and the implementation plan
 (`yoke-implementation-plan.md`) remain the design source of truth.
 **Before proposing any file, module or command, query
-`/yoke:ask "what does Yoke decide about <topic>?"`** — the canonized
+`/yoke:search-canonical-memory "what does Yoke decide about <topic>?"`** — the canonized
 decision history (`concepts/yoke-decision-*`) is the authoritative
 record. The manifesto is the original design intent; canonical memory
 is the lived doctrine.
 
 ## Where things live
 
-- **Canonical memory** (registered Bedrock vault, query via `/yoke:ask`):
+- **Canonical memory** (registered Bedrock vault behind the
+  `bedrock` provider entry in `providers.yaml`; reads dispatch through
+  `/yoke:search-canonical-memory`, writes dispatch through
+  `/yoke:canonize` at loop termination):
   - `projects/claude-yoke` — project entity (status, version, action items)
   - `actors/yoke-framework` — the framework as an actor
   - `concepts/yoke-pattern-*` — pattern doctrine (9 entities)
@@ -69,14 +72,14 @@ is the lived doctrine.
   - `.yoke/sensors/<sensor-id>.md` — per-sensor working artifacts
   - `.yoke/runtime/` — gitignored: progress.md, snapshots, judge verdicts
 - `.claude-plugin/` — plugin manifest (`plugin.json`, `marketplace.json`).
-- `skills/`, `agents/`, `hooks/`, `templates/`, `lib/`, `docs/`, `tests/`, `examples/` — query `/yoke:ask "describe the yoke plugin-structure pattern"` for the full layout.
+- `skills/`, `agents/`, `hooks/`, `templates/`, `lib/`, `docs/`, `tests/`, `examples/` — query `/yoke:search-canonical-memory "describe the yoke plugin-structure pattern"` for the full layout.
 
 ## Working on this repo
 
-1. Query `/yoke:ask "what is the claude-yoke project?"` for current project state before any non-trivial change.
-2. Follow `concepts/yoke-conventions` (canonical memory) exactly — the Don'ts list is non-negotiable. Query via `/yoke:ask` for the live version.
-3. Pattern docs at `concepts/yoke-pattern-*` (canonical memory) are the source of truth for HOW to implement each component. Query via `/yoke:ask`.
-4. Decisions already fixed in `concepts/yoke-decision-*` (canonical memory) or the manifesto are not re-decided in code — only refined. Query via `/yoke:ask` for any specific decision.
+1. Query `/yoke:search-canonical-memory "what is the claude-yoke project?"` for current project state before any non-trivial change.
+2. Follow `concepts/yoke-conventions` (canonical memory) exactly — the Don'ts list is non-negotiable. Query via `/yoke:search-canonical-memory` for the live version.
+3. Pattern docs at `concepts/yoke-pattern-*` (canonical memory) are the source of truth for HOW to implement each component. Query via `/yoke:search-canonical-memory`.
+4. Decisions already fixed in `concepts/yoke-decision-*` (canonical memory) or the manifesto are not re-decided in code — only refined. Query via `/yoke:search-canonical-memory` for any specific decision.
 5. New trade-offs become input for canonical memory via Model C, not unilateral decisions.
 
 ## Sprint discipline
@@ -208,3 +211,4 @@ The manifesto enumerates eight failure modes (Section 16). The most load-bearing
 ## Migration history
 
 - **2026-04-27** — First end-to-end self-canonization run of Yoke on Yoke. The legacy `.vi`+`beflow/` directory was retired: 9 patterns migrated to `concepts/yoke-pattern-*`, 30 decisions split into individual `concepts/yoke-decision-*` entities (with bidirectional supersession), 1 conventions doc to `concepts/yoke-conventions`, 52 audit reports to `discussions/yoke-audit-*`, 12 PRDs and 53 specs migrated to `.yoke/prds/` and `.yoke/specs/` with date-prefixed slugs. The dogfood run surfaced 9 framework signals (8 captured during the loop, 1 surfaced during canonize-time cascade); 5 framework bug fixes shipped in the same change. Source PRD: `.yoke/prds/2026-04-27-yoke-doctrine-canonization.md`. Canonical-memory PR: `iurykrieger/brain#1` (merged at `fe0c24f`).
+- **2026-04-30 (v2.0.0)** — **Pluggable canonical-memory providers.** The single-vendor canonical-memory implementation that was forked from Bedrock at Sprint 5 (seven skills + lib + entities + canonical templates) was extracted out of `claude-yoke` into the standalone `claude-bedrock` peer plugin. Yoke v2.0.0 ships a curated provider registry at `providers.yaml` and two provider-agnostic facade verbs: `/yoke:search-canonical-memory` (read) and `/yoke:canonize` (write). Every Yoke skill except `/yoke:bootstrap` sources `lib/yoke-prelude.sh` and runs a hard-break pre-flight that refuses to run on a project whose `.yoke/config.yaml` lacks `canonical_memory.provider`. `/yoke:bootstrap` was rewritten to handle interactive provider selection, the `--provider` flag, and v1.x → v2.0.0 migration (preserves `url`/`name`/`default_branch` as `config_passthrough` keys; removes `<plugin_dir>/memories.json` after final confirmation). Plugin version bumped from `1.1.0` to `2.0.0`; description now mentions "pluggable canonical-memory". See `docs/migration-v1-to-v2.md` for the upgrade runbook and `docs/architecture.md` for the v2.0.0 dispatch-path diagram. Source PRD: `.yoke/prds/2026-04-30-pluggable-canonical-memory.md`. Source Spec: `.yoke/specs/2026-04-30-pluggable-canonical-memory.md`. Acceptance Contract: `.yoke/acceptance-contracts/2026-04-30-pluggable-canonical-memory.md`.

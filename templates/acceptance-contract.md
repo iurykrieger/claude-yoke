@@ -105,8 +105,9 @@ Examples (illustrative — delete or edit when ratifying):
 
 ## Applicable policies
 
-Discovered via `/yoke:ask` against canonical memory. List with citation
-and canonical-memory path.
+Discovered via `/yoke:search-canonical-memory` against canonical memory.
+List with citation and canonical-memory path. Promoted concepts emerging
+during runtime are written back via `/yoke:canonize` under Model C.
 
 - **<policy id>** (<source>) — canonical: `<path>`. Applies to: <scope>.
 
