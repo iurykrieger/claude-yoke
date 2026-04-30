@@ -9,9 +9,8 @@
 #   ├── config.yaml                                # versioned
 #   ├── .gitignore                                 # versioned
 #   ├── prds/<slug>.md                             # versioned archive
-#   ├── specs/<slug>.md                            # versioned archive  (tech-spec-task-split sprint index)
-#   ├── tasks/<slug>-s<NN>-t<MM>.md                # versioned archive  (tech-spec-task-split per-task body — retiring; see sprint-as-cycle PRD)
-#   ├── sprints/<slug>-s<NN>.md                    # versioned archive  (sprint-as-cycle per-sprint runtime bundle — additive in sprint 1; replaces tasks/ in sprint 4)
+#   ├── specs/<slug>.md                            # versioned archive  (cross-sprint architecture index)
+#   ├── sprints/<slug>-s<NN>.md                    # versioned archive  (sprint-as-cycle per-sprint runtime bundle)
 #   ├── acceptance-contracts/<slug>.md             # versioned archive
 #   ├── contracts/<slug>.md                        # versioned archive
 #   ├── sensors/<sensor-id>.md                     # versioned archive  (project-scoped; not slug-keyed)
@@ -25,17 +24,15 @@
 # Slug format: <YYYY-MM-DD>-<slug>, full filename (without .md) regex:
 #   ^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9][a-z0-9-]{0,49}$
 #
-# Task-ID format (filename without .md inside tasks/):
-#   <slug>-s<NN>-t<MM>, where <NN> and <MM> are 2-digit zero-padded
-#   positive integers (sprint number / task-within-sprint number).
-#   Padding makes lexical sort equal positional order.
-#
 # Sprint-ID format (filename without .md inside sprints/):
 #   <slug>-s<NN>, where <NN> is a 2-digit zero-padded positive integer
 #   (sprint number 01..99). Padding makes lexical sort equal positional
 #   order in `wm_list_sprint_paths`. Per the sprint-as-cycle PRD, sprint
 #   files are runtime bundles consumed one-per-cycle by the ralph loop;
-#   tasks-as-files retire in sprint 4 of that PRD.
+#   tasks-as-files were retired in sprint 4 of that PRD (the wm_task_*
+#   helpers and the `tasks` archive category were hard-removed; tasks
+#   now live as `### Task <ID>` anchors inside sprint files, not
+#   standalone files).
 #
 # Error contract: failures emit "wm: <message>" to stderr and return non-zero.
 # Callers should run with `set -euo pipefail` to honor failures.
@@ -45,8 +42,6 @@
 #   slug="$(wm_active_slug)"
 #   prd="$(wm_prd_path "$slug")"
 #   spec="$(wm_spec_path)"                  # uses active slug when no arg
-#   t11="$(wm_task_path "$slug" 1 1)"       # .yoke/tasks/<slug>-s01-t01.md
-#   wm_list_task_paths "$slug"              # one path per line, sorted
 #   s03="$(wm_sprint_path "$slug" 3)"       # .yoke/sprints/<slug>-s03.md
 #   wm_list_sprint_paths "$slug"            # one sprint path per line, sorted
 
@@ -61,17 +56,17 @@ readonly WM_RUNTIME_DIR="${WM_ROOT}/runtime"
 readonly WM_CURRENT_FILE="${WM_RUNTIME_DIR}/.current"
 readonly WM_SENSORS_DIR="${WM_ROOT}/sensors"
 readonly WM_SLUG_REGEX='^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9][a-z0-9-]{0,49}$'
-readonly WM_TASK_NUM_REGEX='^[1-9][0-9]{0,2}$'
 # Sprint number range: 1..99 (zero-padded to 2 digits in filenames).
 readonly WM_SPRINT_NUM_REGEX='^[1-9][0-9]?$'
 # Sprint-ID regex: <slug>-s<NN> where <NN> is exactly 2 zero-padded digits.
 # Padding to exactly 2 digits is what makes lexical sort equal positional
 # order in wm_list_sprint_paths.
 readonly WM_SPRINT_ID_REGEX='^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9][a-z0-9-]{0,49}-s[0-9]{2}$'
-# `sprints` is additive (sprint 1 of the sprint-as-cycle PRD); `tasks`
-# coexists during the migration window and is removed in sprint 4 of
-# the same PRD.
-readonly WM_ARCHIVE_CATEGORIES=(prds specs tasks sprints acceptance-contracts contracts)
+# Sprint-as-cycle PRD: `tasks` was hard-removed in sprint 4; `sprints`
+# is now the runtime-bundle archive category. Per-task files no longer
+# exist on disk — tasks live as `### Task <ID>` anchors inside sprint
+# files.
+readonly WM_ARCHIVE_CATEGORIES=(prds specs sprints acceptance-contracts contracts)
 
 # --- slug validation --------------------------------------------------------
 
@@ -126,67 +121,19 @@ wm_spec_path()                 { _wm_archive_path "specs" "${1:-}"; }
 wm_acceptance_contract_path()  { _wm_archive_path "acceptance-contracts" "${1:-}"; }
 wm_contracts_path()            { _wm_archive_path "contracts" "${1:-}"; }
 
-# wm_task_path "<slug>" <sprint> <task>
-#   echoes .yoke/tasks/<slug>-s<NN>-t<MM>.md (zero-padded to 2 digits)
-#   on success; emits a `wm:`-prefixed message and returns non-zero on
-#   any of: missing/invalid slug, non-numeric sprint, non-numeric task,
-#   sprint or task <= 0, sprint or task > 999.
-wm_task_path() {
-    local slug="${1:-}"
-    local sprint="${2:-}"
-    local task="${3:-}"
-    if [[ -z "$slug" ]]; then
-        slug="$(wm_active_slug)" || return 1
-    else
-        wm_validate_slug "$slug" || return 1
-    fi
-    if [[ -z "$sprint" || -z "$task" ]]; then
-        echo "wm: wm_task_path requires <slug> <sprint> <task>; got slug='$slug' sprint='$sprint' task='$task'" >&2
-        return 1
-    fi
-    if [[ ! "$sprint" =~ $WM_TASK_NUM_REGEX ]]; then
-        echo "wm: invalid sprint number: '$sprint' (expected positive integer 1..999)" >&2
-        return 1
-    fi
-    if [[ ! "$task" =~ $WM_TASK_NUM_REGEX ]]; then
-        echo "wm: invalid task number: '$task' (expected positive integer 1..999)" >&2
-        return 1
-    fi
-    printf '%s/%s/%s-s%02d-t%02d.md' "$WM_ROOT" "tasks" "$slug" "$sprint" "$task"
-}
-
-# wm_list_task_paths "<slug>"
-#   echoes one task-file path per line, lexically sorted (= positional
-#   order via the s<NN>-t<MM> suffix). Empty output when the slug has
-#   no task files. Exits non-zero only on slug-validation failure.
-wm_list_task_paths() {
-    local slug="${1:-}"
-    if [[ -z "$slug" ]]; then
-        slug="$(wm_active_slug)" || return 1
-    else
-        wm_validate_slug "$slug" || return 1
-    fi
-    local tasks_dir="${WM_ROOT}/tasks"
-    [[ -d "$tasks_dir" ]] || return 0
-    (
-        shopt -s nullglob
-        local f
-        for f in "${tasks_dir}/${slug}"-s*-t*.md; do
-            printf '%s\n' "$f"
-        done
-    ) | sort
-}
-
-# --- sprint paths (additive; per the sprint-as-cycle PRD) -------------------
+# --- sprint paths -----------------------------------------------------------
 #
 # Per the sprint-as-cycle PRD (.yoke/prds/2026-04-27-sprint-as-cycle.md), the
-# runtime atom shifts from a per-task file to a per-sprint runtime bundle
-# under .yoke/sprints/<slug>-s<NN>.md. Sprint 1 of that PRD adds these
-# helpers additively — wm_task_* helpers stay live until sprint 4 of the
-# same PRD removes them.
+# runtime atom is a per-sprint runtime bundle under
+# .yoke/sprints/<slug>-s<NN>.md consumed one-per-cycle by the ralph loop.
+# Sprint 4 of that PRD hard-removed the legacy wm_task_* helpers and the
+# `tasks` archive category; tasks now live as `### Task <ID>` anchors
+# inside sprint files (no filename concern).
 #
 # Cites concepts/yoke-pattern-memory-model for the working-memory archive
-# layout invariants the new helpers must satisfy.
+# layout invariants and concepts/yoke-pattern-sprint-runtime-bundle (drafted
+# in sprint 4's preserve packet of the sprint-as-cycle PRD) for the runtime
+# bundle shape.
 
 # wm_sprint_path "<slug>" <sprint>
 #   echoes .yoke/sprints/<slug>-s<NN>.md (zero-padded to 2 digits) on
