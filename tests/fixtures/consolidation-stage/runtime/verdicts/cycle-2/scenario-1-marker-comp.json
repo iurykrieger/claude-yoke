@@ -1,0 +1,10 @@
+{
+  "criterion": "Scenario 1",
+  "sensor": "marker-comp",
+  "status": "pass",
+  "location": null,
+  "fix_instruction": null,
+  "evidence": "frontmatter healthy",
+  "confidence": 1.0,
+  "supporting_quotes": []
+}

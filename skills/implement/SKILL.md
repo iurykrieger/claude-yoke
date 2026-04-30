@@ -440,9 +440,39 @@ defect that the Part-3 smoke gates against.
 Exit with the loop's termination reason and a one-line summary of
 PRs opened (count + URLs).
 
-### 4. Termination paths
+### 4. Sensor consolidation teardown (single Skill invocation)
 
-After the canonize handoff in §3 returns, call
+After the canonize handoff in §3 returns and **before** the runtime
+cleanup in §5, invoke `/yoke:consolidate-sensors` via the Skill tool
+to distill the loop's runtime evidence (verdicts under
+`.yoke/runtime/.judge-verdicts/`, durations under
+`.yoke/runtime/progress.md`) back into the durable per-sensor files
+at `.yoke/sensors/<id>.md`. The skill:
+
+- Reads `.yoke/config.yaml`'s `sensor_consolidation:` key
+  (`review` | `auto` | `skip`, default `review`) and short-circuits
+  to a silent no-op when set to `skip`.
+- Is non-blocking by design — a non-zero exit does NOT roll back the
+  implement run. Log the skill's exit code and proceed to §5.
+- Reads the up-to-date `.yoke/runtime/progress.md` (which the
+  per-cycle persist step has finalized by this point), so observed
+  durations and citations reflect the full loop history.
+
+When the Skill tool is unavailable (e.g. CLI runtime that does not
+expose the Skill tool), print a clear instruction telling the user
+to run `/yoke:consolidate-sensors` manually before the next
+implement invocation, and proceed to §5. The teardown does not
+block on the missing-tool path; deferring consolidation to a manual
+invocation is acceptable when the harness cannot dispatch it
+automatically.
+
+This is the **only** invocation of `/yoke:consolidate-sensors` in
+the loop. Do not invoke it mid-loop — runtime evidence is
+incomplete until the loop terminates.
+
+### 5. Termination paths
+
+After §4's consolidation teardown returns, call
 `wm_runtime_cleanup "$termination_reason" "$canonize_exit_code"`
 (from `lib/working-memory/cleanup.sh`) **before** printing the exit
 summary. The helper is gated on `(reason == merge-ready &&

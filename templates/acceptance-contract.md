@@ -16,6 +16,16 @@
 > interpretation **inside** this envelope but cannot relax it. A sprint
 > contract attempting to modify the Contract escalates via Trigger 4.
 
+> **Sensor binding lives here, not inline.** Each criterion below carries
+> a `### Validation` sub-section listing the sensors that gate it and the
+> interpretation guidance for each. The per-sensor command, type
+> (`computational` | `inferential`), `token_cost`, `time_cost`, and the
+> `command:`-or-`agent:` dispatch metadata live in
+> `.yoke/sensors/<sensor-id>.md` (per `templates/sensor.md`). Adding a
+> sensor to a contract is a contract-only change; removing one does not
+> affect the sensor file. Source PRD:
+> `.yoke/prds/2026-04-30-sensor-harness-realignment.md`.
+
 ## Use cases (BDD scenarios)
 
 **Exactly one scenario per task file.** Each scenario carries the
@@ -25,9 +35,9 @@ can decide pass/fail. The Then clauses are drafted from the task
 file's *Validation* section (full description) with the
 *Acceptance criterion* as the binary observable check.
 
-`Sensors:` entries reference sensor ids declared in the **Sensors
-registry** below; the per-sensor command, class and tier live in
-`.yoke/sensors/<sensor-id>.md`, never inline here.
+`Sensors:` entries reference sensor ids that resolve to
+`.yoke/sensors/<sensor-id>.md` files; the per-sensor dispatch
+metadata lives there, never inline here.
 
 ### Scenario 1 — <name, mirroring task <slug>-s01-t01>
 Task: <slug>-s01-t01
@@ -48,9 +58,50 @@ Sensors: [<sensor-id>]
 ## Functional requirements
 
 Measurable, observable. Each FR maps to a concrete sensor or fixture.
+Each criterion carries a `### Validation` sub-section enumerating the
+sensors that gate it and how to interpret each sensor's feedback.
 
-- [ ] **FR-1** — <requirement>. Sensor: <sensor-id>.
-- [ ] **FR-2** — <requirement>. Sensor: <sensor-id>.
+### Criterion FR-1 — <one-line requirement>
+
+<!-- Body of the requirement: what must hold, measurable. -->
+
+### Validation
+
+- **<sensor-id>** — <interpretation guidance: under what reading of this sensor's feedback does the criterion pass or fail?>
+- **<sensor-id-2>** — <interpretation, if multiple sensors gate this criterion>
+
+### Criterion FR-2 — <one-line requirement>
+
+<!-- Body of the requirement. -->
+
+### Validation
+
+- **<sensor-id>** — <interpretation guidance>
+
+<!--
+Examples (illustrative — delete or edit when ratifying):
+
+  ### Criterion FR-A — Linting passes on every modified file
+  All Bash scripts authored or modified by this PRD pass `shellcheck`
+  without new warnings.
+
+  ### Validation
+
+  - **shellcheck-clean** — pass = `shellcheck` exits 0 against the
+    explicit file list; fail = any new warning surfaces.
+
+  ### Criterion FR-B — Round-trip suite passes (mixed gating)
+  The PRD round-trip suite is end-to-end green and the semantic-judge
+  agrees with the suite verdict.
+
+  ### Validation
+
+  - **round-trip-suite-passes** — pass = `bash tests/round-trip.sh`
+    exits 0; fail = any subtest fails or the suite times out.
+  - **semantic-judge** — pass = verdict JSON has `status: pass` and
+    `confidence >= 0.7`; fail = `status: fail` or `confidence < 0.7`
+    or `supporting_quotes: []` while `status: fail` (invalid verdict).
+-->
 
 ## Applicable policies
 
@@ -59,47 +110,21 @@ and canonical-memory path.
 
 - **<policy id>** (<source>) — canonical: `<path>`. Applies to: <scope>.
 
-## Sensors registry
+### Validation
 
-> **Sensors are first-class persistent artifacts** in
-> `.yoke/sensors/<sensor-id>.md`, defined using `templates/sensor.md`.
-> This section lists every sensor id used by this contract, with the
-> metadata needed to materialize the per-sensor file.
-> `/yoke:ack-sensors --mode upsert` reads this registry and
-> creates / updates `.yoke/sensors/<sensor-id>.md` files from
-> `templates/sensor.md`; author edits to existing sensor files (caveats,
-> calibration notes, explicit `tier:` overrides, `runs:` history) are
-> preserved on update.
->
-> **Tier default is class-based**: `computational` → `cheap`;
-> `inferential` → `expensive`. To override, set `tier:` explicitly in
-> `.yoke/sensors/<sensor-id>.md`. Heavy computational sensors (Playwright,
-> browser automation) MUST set `tier: expensive` — the class-based default
-> is a starting point, not a substitute for author judgment.
->
-> Source PRD: `.yoke/prds/2026-04-27-sensor-cost-tiering.md`.
+- **<sensor-id>** — <how does the sensor verify policy compliance for the listed policies?>
 
-```yaml
-sensors:
-  - id: <sensor-id>
-    command: <shell command>
-    class: <computational | inferential>
-  - id: <sensor-id-2>
-    command: <shell command>
-    class: <computational | inferential>
-```
+<!--
+Note: this `### Validation` block under Policies is optional — only
+include it when a sensor explicitly verifies policy adherence (e.g. a
+license-header check, a regulated-pattern detector). When no sensor
+gates policy compliance directly, omit the block.
+-->
 
-### Inferential sensors — calibration metadata
+---
 
-Inferential sensors carry calibration metadata in their per-sensor file's
-body (`## Calibration notes` section). When registering an inferential
-sensor here, ensure the per-sensor file also captures:
-
-- `prompt`: `<path>`
-- `model_calibrated_against`: `<model id>`
-- `calibrated_at`: `<iso8601>`
-- `known_false_positives`: `<rate or count>`
-- `known_false_negatives`: `<rate or count>`
-
-`hooks/verify-acceptance.sh` parses the registry and the per-sensor files
-to execute the contract.
+> Sensor metadata (command, type, token_cost, time_cost, dispatch) lives
+> in `.yoke/sensors/<sensor-id>.md` per `templates/sensor.md`.
+> `hooks/verify-acceptance.sh` resolves the binding by reading each
+> `### Validation` block here plus the per-sensor file pointed to by the
+> bullet's `<sensor-id>`.

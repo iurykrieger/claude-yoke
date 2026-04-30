@@ -29,6 +29,16 @@ host:
   # the sprint-contract-promotion sprint).
   actor_name: "{{ host_actor_name }}"
 
+# Post-implement sensor consolidation policy (sensor-harness-realignment
+# Sprint 2). Controls how /yoke:implement's teardown invokes
+# /yoke:consolidate-sensors:
+#   review — render the diff (body appends + cost deltas) and prompt the
+#            user to accept all / accept partial / skip / cancel. Default.
+#   auto   — apply every distillation and recalibration without prompting.
+#   skip   — silent no-op at teardown; runtime evidence stays in
+#            .yoke/runtime/ until the next invocation that reads it.
+sensor_consolidation: review
+
 overrides:
   # Hard bounds for the ralph loop (defaults baked into Yoke; uncomment to override)
   # hard_bounds:

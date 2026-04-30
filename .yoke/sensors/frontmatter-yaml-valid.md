@@ -1,54 +1,33 @@
 <!--
-templates/sensor.md — per-sensor working-memory artifact template.
-
-The host project's `.yoke/sensors/<sensor-id>.md` is the source of truth
-for a single sensor's command, class, tier, criterion mapping, accumulated
-caveats and run history. Acceptance Contracts reference sensors by `id`;
-they no longer inline the command, class or tier.
-
-Created and refreshed by `/yoke:ack-sensors --mode upsert` (Part 2 of
-sensor-cost-tiering — see .vibeflow/prds/sensor-cost-tiering.md). Read
-by `hooks/verify-acceptance.sh` (Part 3) and by `agents/validator.md`
-(Part 4). Run-history entries are appended by `skills/implement/SKILL.md`
-(Part 5).
-
-Tier default is class-based: computational sensors default to `cheap`;
-inferential sensors default to `expensive`. The author may override either
-way via the `tier:` field below — explicit value always wins.
-
-Heavy computational sensors (Playwright, browser automation) MUST set
-`tier: expensive` explicitly — the class-based default is a starting
-point, not a substitute for author judgment.
+Migrated by .yoke/runtime/migrate-one.sh on 2026-04-30 per
+.yoke/prds/2026-04-30-sensor-harness-realignment.md (Sprint 3, t01).
+Frontmatter rewritten to new schema: type / token_cost / time_cost
++ command (computational) | agent (inferential). Legacy fields
+(class / tier / applies_to / runs) removed. Body shape: How to run
+/ Known issues / Frequent errors (+ Calibration for inferential).
 -->
 ---
 id: frontmatter-yaml-valid
+type: computational
+token_cost: 0
+time_cost: 30
 command: |
   python3 lib/sensors/check-frontmatter.py "$(cat .yoke/runtime/cutover-slice-file.txt)"
-class: computational
-tier: cheap
-applies_to: [2026-04-27-yoke-doctrine-canonization-s01-t04]
-runs: []
 ---
 
 # frontmatter-yaml-valid
 
-## Caveats
+## How to run
 
-<!--
-Known flakes, environmental dependencies, calibration notes, and other
-context the Validator should weigh when scheduling this sensor. Free-form
-markdown.
+Run the `command:` declared in the frontmatter. The command is
+a deterministic shell invocation; non-zero exit equals sensor
+fail. See the source PRD for the calibrated invocation context.
 
-Examples:
-- "Times out under 30 s when test DB is cold; warm with `make seed-test-db`."
-- "Skips on macOS — uses GNU-only `find -printf`."
-- "Calibrated against claude-opus-4-7 on 2026-04-22; recheck on model upgrade."
--->
+## Known issues
 
-## Calibration notes
+- No known caveats yet — populated by `/yoke:consolidate-sensors`.
 
-<!--
-Inferential sensors only. Document the prompt, rubric, and known
-false-positive / false-negative rates. Computational sensors leave this
-section empty.
--->
+## Frequent errors
+
+- TODO: pattern: TODO — fix.
+

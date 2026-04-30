@@ -1,0 +1,10 @@
+{
+  "criterion": "Scenario 1",
+  "sensor": "marker-inf",
+  "status": "pass",
+  "location": null,
+  "fix_instruction": null,
+  "evidence": "judge passed",
+  "confidence": 0.9,
+  "supporting_quotes": []
+}
