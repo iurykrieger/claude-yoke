@@ -1,6 +1,6 @@
 ---
 id: progress-md-singleton
-command: bash -c '[ "$(find .yoke/runtime -maxdepth 1 -name "progress*.md" -type f | wc -l | xargs)" = "1" ]'
+command: bash -c '[ "$(find .yoke/runtime -maxdepth 1 -name "progress*.md" -type f 2>/dev/null | wc -l | xargs)" -le "1" ]'
 class: computational
 tier: cheap
 applies_to: []

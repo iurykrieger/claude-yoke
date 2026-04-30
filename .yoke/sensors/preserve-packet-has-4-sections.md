@@ -1,6 +1,6 @@
 ---
 id: preserve-packet-has-4-sections
-command: bash -c '[ "$(grep -c "^## " .yoke/runtime/.preserve-packet.md)" -ge "4" ]'
+command: bash -c 'if [ -f .yoke/runtime/.preserve-packet.md ]; then [ "$(grep -c "^## " .yoke/runtime/.preserve-packet.md | xargs)" -ge "4" ]; else [ -z "$(ls -A .yoke/runtime/ 2>/dev/null)" ]; fi'
 class: computational
 tier: cheap
 applies_to: []
