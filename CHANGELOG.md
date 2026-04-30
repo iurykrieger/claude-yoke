@@ -4,6 +4,140 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and this
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.0.0] — 2026-04-30 — Pluggable canonical-memory providers (**Breaking**)
+
+The single-vendor canonical-memory implementation that was forked from
+Bedrock at Sprint 5 and lived under the `/yoke:` namespace in v1.x has
+been extracted into a standalone peer plugin (`claude-bedrock`). Yoke
+v2.0.0 ships a curated provider registry at `providers.yaml` and two
+provider-agnostic facade verbs that resolve the active provider via
+the host project's `.yoke/config.yaml :: canonical_memory.provider`.
+
+> **Breaking.** Backward compatibility for in-flight tasks is not
+> promised. Every host project that ran a prior Yoke version must
+> explicitly migrate via `/yoke:bootstrap` re-run before any other
+> Yoke skill works again. Hard break is preferable to silent default.
+> See `docs/migration-v1-to-v2.md` for the full upgrade runbook.
+
+### Breaking changes
+
+- **Seven legacy skills removed from Yoke.** The directories under
+  `skills/` named `ask`, `preserve`, `teach`, `compress`, `memory`,
+  `confluence-to-markdown`, and `gdoc-to-markdown` are deleted. The
+  same skills are exposed under the `/bedrock:` namespace by the peer
+  plugin (`/bedrock:ask`, `/bedrock:preserve`, `/bedrock:teach`,
+  `/bedrock:compress`, `/bedrock:vaults` — note the `memory` rename —
+  `/bedrock:confluence-to-markdown`, `/bedrock:gdoc-to-markdown`).
+  Calls to the legacy `/yoke:ask`, `/yoke:preserve`, `/yoke:teach`,
+  `/yoke:compress`, `/yoke:memory` namespaced verbs will be
+  unrecognized in the Yoke namespace.
+- **`.yoke/config.yaml` schema bumped.** A new required key:
+  `canonical_memory.provider`. The legacy `canonical_memory.name`
+  registry key is retired in Yoke; the registry concept moves to the
+  provider plugin. `url:` and `default_branch:` survive as
+  `config_passthrough` keys forwarded opaquely to the provider.
+- **Hard-break pre-flight.** Every Yoke skill except `/yoke:bootstrap`
+  sources `lib/yoke-prelude.sh` and calls `yoke_require_provider`.
+  Skills refuse to run on a project whose `.yoke/config.yaml` lacks
+  `canonical_memory.provider` — they print
+  `wm: canonical_memory.provider not configured. Run /yoke:bootstrap to migrate.`
+  and exit non-zero.
+- **`<plugin_dir>/memories.json` removed by bootstrap migration.** The
+  vault registry concept moves into `claude-bedrock` (`/bedrock:vaults`).
+- **`.claude-plugin/plugin.json :: version`** bumped from `1.1.0` to
+  `2.0.0`; description now mentions "pluggable canonical-memory".
+
+### Added
+
+- `providers.yaml` at the plugin root — curated registry of
+  canonical-memory providers. Schema version 1 is frozen for v2.0.0.
+  Single seed entry: `bedrock` (requires `claude-bedrock` peer plugin
+  ≥ 0.1.0).
+- `lib/canonical-memory/resolve-provider.sh` — the only resolver Yoke
+  needs at runtime. Sourced by both facade skills.
+- `lib/yoke-prelude.sh` — exports `yoke_require_provider`. Sourced by
+  every Yoke skill except `/yoke:bootstrap`.
+- `skills/search-canonical-memory/SKILL.md` — provider-agnostic read
+  facade. Resolves the active provider and dispatches to the
+  provider's pinned `skills.search` (e.g. `/bedrock:ask`).
+- `skills/canonize/SKILL.md` — provider-agnostic write facade.
+  Resolves the active provider and dispatches to the provider's
+  pinned `skills.canonize` (e.g. `/bedrock:canonize`) with
+  `--working-memory <abs-path-to-.yoke>`.
+- `docs/canonical-memory-provider-contract.md` — `contract_version: 1`
+  documenting the `--working-memory` shape, directory tree
+  expectations, frontmatter shapes, the `runtime/progress.md` log
+  conventions, the soft exit-summary line, the versioning policy, and
+  the anti-patterns any provider plugin must avoid.
+- `docs/migration-v1-to-v2.md` — full upgrade runbook with
+  pre-upgrade checklist, four-step procedure (install
+  `claude-bedrock`, upgrade Yoke, re-bootstrap each project, verify),
+  common errors, and rollback.
+- `tests/canonical-memory/yoke-prelude.test.sh`,
+  `tests/smoke/hard-break-pre-flight.test.sh`,
+  `tests/smoke/bootstrap-provider-flow.test.sh`,
+  `tests/smoke/bootstrap-legacy-migration.test.sh`,
+  `tests/canonical-memory/resolve-provider.test.sh`,
+  `tests/canonical-memory/search-facade-equivalence.test.sh`,
+  `tests/canonical-memory/canonize-progress-log-line.test.sh`,
+  `tests/smoke/bedrock-canonize-roundtrip.test.sh`,
+  `tests/smoke/end-to-end-implement-cycle.test.sh` — the v2.0.0
+  Acceptance-Contract sensor coverage.
+
+### Changed
+
+- **`/yoke:bootstrap` rewritten end-to-end** to handle interactive
+  provider selection (lists `providers.yaml` entries), the
+  `--provider <name>` flag, the `--non-interactive` flag, and v1.x
+  → v2.0.0 migration (detects either `<plugin_dir>/memories.json` or
+  a v1.x-shaped `.yoke/config.yaml` lacking the `provider:` key,
+  preserves `url`/`name`/`default_branch` as passthrough keys,
+  removes `memories.json` after final confirmation).
+- **22 Yoke internal call-sites flipped to the facade verbs** —
+  agents, spec-phase skills, `/yoke:implement`, lib helpers, sensors,
+  and tests now reference `/yoke:search-canonical-memory` and
+  `/yoke:canonize` exclusively. The seven legacy verbs no longer
+  appear in any of `agents/`, `lib/`, `tests/`, `hooks/`, or any
+  surviving `skills/<name>/SKILL.md`.
+- **`templates/yoke-config.yaml`** — added `canonical_memory.provider`
+  placeholder; removed the legacy `name:` field; clarified `url:` /
+  `default_branch:` as `config_passthrough` documentation.
+- **`templates/acceptance-contract.md`, `templates/task.md`,
+  `templates/project-claude-md.md`** — swapped legacy verbs for
+  facade verbs (`/yoke:ask` → `/yoke:search-canonical-memory`,
+  `/yoke:preserve` → `/yoke:canonize`).
+- **All user-facing documentation rewritten to v2.0.0 vocabulary** —
+  `docs/canonical-memory-setup.md`, `docs/troubleshooting.md`,
+  `docs/architecture.md` (now includes the v2.0.0 dispatch-path
+  diagram), `docs/lineage.md` (records the v2.0.0 extraction event),
+  `docs/quickstart.md`, `CLAUDE.md`, `README.md`.
+
+### Removed
+
+- `claude-yoke/skills/{ask,preserve,teach,compress,memory,confluence-to-markdown,gdoc-to-markdown}/`
+  — moved to `claude-bedrock`.
+- `claude-yoke/lib/canonical-memory/` — all eight scripts other than
+  `resolve-provider.sh` (which is the Yoke-native facade resolver).
+  The retired set includes `canonization-criteria.sh`, `graph.sh`,
+  `registry.sh`, `resolve-memory.sh`, `scaffold-memory.sh`,
+  `semantic-overlap-rewrite.sh`, `trace-analyzer.sh`, and
+  `write-promoted-concept.sh` — all moved to `claude-bedrock`.
+- `claude-yoke/entities/` — eight entity-type definitions moved to
+  `claude-bedrock/entities/`.
+- `claude-yoke/templates/canonical/` — eight per-type frontmatter
+  templates moved to `claude-bedrock/templates/canonical/`.
+- `claude-yoke/templates/canonical-entry-frontmatter.yaml`,
+  `claude-yoke/templates/yoke-memory-config.json` — replaced by
+  `claude-bedrock/templates/bedrock-memory-config.json`.
+
+### Migration
+
+- See `docs/migration-v1-to-v2.md` for the end-to-end runbook. Short
+  version: install `claude-bedrock`, upgrade Yoke to 2.0.0, run
+  `/yoke:bootstrap` once per host project (it auto-detects v1.x
+  state). Use `/yoke:search-canonical-memory` and `/yoke:canonize`
+  for every read and write from this point forward.
+
 ## [Unreleased] — Source-agnostic /yoke:ask (**Breaking**)
 
 `/yoke:ask` is now a pure source-agnostic read against the registered

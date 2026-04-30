@@ -107,7 +107,7 @@ fi
 # ----------------------------------------------------------------------
 # Remove every line containing the bare `[[session-timeout-policy]]`
 # wikilink from the actor body. This mirrors a hand edit / regression
-# in `/yoke:compress` or `/yoke:preserve`.
+# in `/bedrock:compress` or `/yoke:canonize`.
 DAMAGED_ACTOR="$ACTOR_FILE"
 grep -v '\[\[session-timeout-policy\]\]' "$DAMAGED_ACTOR" > "$DAMAGED_ACTOR.tmp"
 mv "$DAMAGED_ACTOR.tmp" "$DAMAGED_ACTOR"

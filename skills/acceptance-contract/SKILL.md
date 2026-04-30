@@ -49,6 +49,7 @@ the Generator captures intent, you express measurable rigor:
 
 ### 1. Pre-flight
 
+- Enforce the v2.0.0 hard break: `source <plugin_dir>/lib/yoke-prelude.sh && yoke_require_provider || exit 1`. The helper aborts non-zero with a stderr diagnostic when `canonical_memory.provider` is missing or empty (unmigrated v1.x projects); surface its stderr verbatim and exit. See Acceptance Contract Scenario 12 / FR-6.
 - Source `lib/working-memory/paths.sh`. All paths below resolve through `wm_*_path`.
 - Verify `.yoke/config.yaml` exists. If not, abort: "Run
   `/yoke:bootstrap` first."
@@ -105,7 +106,7 @@ with empty sensors.
   feeds the scenario's Then clauses.
 - Read `templates/acceptance-contract.md` for artifact shape.
 - For applicable regulatory policies (PCI-DSS, LGPD, HIPAA, etc.) and
-  prior sensor calibrations: invoke `/yoke:ask`. Never read canonical
+  prior sensor calibrations: invoke `/yoke:search-canonical-memory`. Never read canonical
   memory directly.
 
 ### 4. Acceptance Contract draft
@@ -136,7 +137,7 @@ Acceptance Contract at `wm_acceptance_contract_path "$slug"` (i.e.,
     per `patterns/acceptance-contract.md`).
 - **Functional requirements** — measurable, mapped to sensors.
   Refuse vague items.
-- **Applicable policies** — discovered via `/yoke:ask`. Regulatory
+- **Applicable policies** — discovered via `/yoke:search-canonical-memory`. Regulatory
   policies are non-negotiable.
 - **Computational sensors** — populated from step 2's discovery, in
   the exact bullet shape `verify-acceptance.sh` parses
@@ -258,7 +259,7 @@ rejected (no `Status: ratified` is written) and the skill exits cleanly.
 - Do NOT skip sensor discovery — the host `CLAUDE.md` (or direct
   user input as fallback) is the source of truth for what is
   runnable.
-- Do NOT read canonical memory directly. All queries via `/yoke:ask`.
+- Do NOT read canonical memory directly. All queries via `/yoke:search-canonical-memory`.
 
 ## See also
 

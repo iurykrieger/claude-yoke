@@ -1,0 +1,26 @@
+# Fixture .yoke/config.yaml for tests/canonical-memory/resolve-provider.test.sh
+#
+# Mirrors the happy-path shape produced by /yoke:bootstrap once Sprint 3
+# wires the provider key in: a `canonical_memory:` block whose `provider:`
+# matches a curated entry in the plugin's providers.yaml.
+#
+# The bedrock entry in the plugin root's providers.yaml maps:
+#   skills.search   = "yoke:ask"
+#   skills.canonize = "yoke:teach"
+#
+# So invoking yoke_resolve_provider against this config is expected to
+# exit 0 and export YOKE_PROVIDER_NAME=bedrock,
+# YOKE_PROVIDER_SEARCH_SKILL=yoke:ask, YOKE_PROVIDER_CANONIZE_SKILL=yoke:teach.
+
+yoke_version: "2.0.0-test"
+created_at: "2026-04-30T00:00:00Z"
+
+canonical_memory:
+  provider: "bedrock"
+  url: ""
+  name: "test-vault"
+  default_branch: main
+
+host:
+  project_name: "resolve-provider-fixture"
+  actor_name: "resolve-provider-fixture"

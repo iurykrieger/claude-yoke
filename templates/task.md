@@ -21,8 +21,11 @@ traceability: ""
 > `impact_level`) from the values seeded here, per
 > `concepts/yoke-pattern-memory-model`. `model` and `traceability`
 > are seeded empty and populated by the Generator persona during
-> stage 3; the canonical fields stay empty until `/yoke:preserve`
-> writes them under Model C.
+> stage 3; the canonical fields stay empty until `/yoke:canonize`
+> writes them through the active canonical-memory provider under
+> Model C. Discover prior decisions and applicable policies via
+> `/yoke:search-canonical-memory` before drafting the task — the
+> facade dispatches to the configured provider verbatim.
 
 ## Story
 

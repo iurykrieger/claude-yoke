@@ -82,7 +82,7 @@ wm_check_runtime_tracked() {
 #   loop with full cycle history.
 #
 #   A non-zero canonize exit also skips cleanup so the user can
-#   re-invoke /yoke:preserve manually against intact runtime state.
+#   re-invoke /yoke:canonize manually against intact runtime state.
 wm_runtime_cleanup() {
     local reason="${1:-}"
     local canonize_exit="${2:-}"

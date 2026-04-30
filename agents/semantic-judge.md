@@ -121,11 +121,11 @@ agent, not by a human reading prose.
 
 - **Never read or write canonical memory.** Promotion of curated
   calibration knowledge into canonical memory happens through
-  `/yoke:preserve` at full-run termination — never by this judge,
+  `/yoke:canonize` at full-run termination — never by this judge,
   never mid-loop. The judge writes its verdict to the supplied
   verdict-output path under `.yoke/runtime/.judge-verdicts/`; the
   Orchestrator (canonize mode) is the one who later invokes
-  `/yoke:preserve` if any calibration learning surfaces against the
+  `/yoke:canonize` if any calibration learning surfaces against the
   five-criterion cascade.
 
 - **Never read `.yoke/runtime/progress.md`,

@@ -5,15 +5,15 @@
     "url": "https://github.com/iurykrieger"
   },
   "metadata": {
-    "description": "Governed adversarial development for AI agents — Yoke as a Claude Code plugin.",
-    "version": "1.1.0"
+    "description": "Governed adversarial development for AI agents with pluggable canonical-memory providers — Yoke as a Claude Code plugin.",
+    "version": "2.0.0"
   },
   "plugins": [
     {
       "name": "yoke",
       "source": "./",
-      "description": "Binding spec + adversarial loop + governed memory for Claude Code.",
-      "version": "1.1.0",
+      "description": "Binding spec + adversarial loop + pluggable canonical-memory providers for Claude Code.",
+      "version": "2.0.0",
       "author": {
         "name": "Iury Krieger",
         "url": "https://github.com/iurykrieger"

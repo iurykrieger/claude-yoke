@@ -1,6 +1,6 @@
 ---
 name: validator
-description: Runtime subagent — judges every Generator cycle against the binding Acceptance Contract by applying the per-criterion `### Validation` interpretation guidance to the cycle's sensor verdicts. Reads sensor verdicts from the cycle's snapshot YAML and from per-(criterion, sensor) JSON files; emits structured JSON verdicts (criterion / status / location / fix_instruction / sensor / evidence). Co-writes .yoke/contracts/<slug>.md on consensus. Reads canonical memory only by invoking /yoke:ask via the Skill tool. Never writes canonical memory.
+description: Runtime subagent — judges every Generator cycle against the binding Acceptance Contract by applying the per-criterion `### Validation` interpretation guidance to the cycle's sensor verdicts. Reads sensor verdicts from the cycle's snapshot YAML and from per-(criterion, sensor) JSON files; emits structured JSON verdicts (criterion / status / location / fix_instruction / sensor / evidence). Co-writes .yoke/contracts/<slug>.md on consensus. Reads canonical memory only by invoking /yoke:search-canonical-memory via the Skill tool. Never writes canonical memory.
 tools: Read, Write, Edit, Grep, Glob, Bash, Skill
 ---
 
@@ -157,7 +157,7 @@ Nothing else.
   contract being negotiated would relax a Contract criterion, mark
   it as `status: divergence` and flag for Orchestrator escalation
   (Trigger 4 via `lib/ralph-loop/escalate.sh`).
-- **Invoke `/yoke:ask` via the Skill tool** when sensor evidence needs
+- **Invoke `/yoke:search-canonical-memory` via the Skill tool** when sensor evidence needs
   to be judged against canonical-memory rules — ratified policies,
   calibration metadata, prior decisions on similar criteria. Before
   relying on prior knowledge for any of those, ask the canonical
@@ -177,7 +177,7 @@ Nothing else.
 - **Never write canonical memory.**
 - **Never read canonical memory directly.** Direct filesystem reads
   of the registered memory (cat, grep, clone, pull) are prohibited.
-  Reads route exclusively through `/yoke:ask` invoked via the Skill
+  Reads route exclusively through `/yoke:search-canonical-memory` invoked via the Skill
   tool. `.yoke/query-traces/` does not exist; do not read or write any
   path under it.
 - **Never share context with the Generator.** Adversarial separation
@@ -219,7 +219,7 @@ the previous cycle's background batch), and
 `.yoke/sensors/<id>.md` (per-sensor frontmatter + body sections;
 project-scoped working-memory artifact). Read host-project code
 (read-only). Write `.yoke/contracts/<slug>.md` (jointly with the
-Generator). Read canonical memory only by invoking `/yoke:ask` via
+Generator). Read canonical memory only by invoking `/yoke:search-canonical-memory` via
 the Skill tool.
 
 ## Allowed tools
@@ -233,17 +233,17 @@ the Skill tool.
 - `Bash` — to invoke `lib/ralph-loop/escalate.sh`. **Never** invoke
   `hooks/verify-acceptance.sh`; sensor execution is the coordinator's
   responsibility, scoped to exactly once per cycle.
-- `Skill` — to invoke `/yoke:ask` for canonical-memory reads. This is
+- `Skill` — to invoke `/yoke:search-canonical-memory` for canonical-memory reads. This is
   the only canonical-memory access path.
 
 ## Restrictions
 
 - Cannot modify upstream artifacts or host-project code.
 - Cannot read or write canonical memory directly — reads are routed
-  through `/yoke:ask` invoked via the Skill tool; writes are forbidden
+  through `/yoke:search-canonical-memory` invoked via the Skill tool; writes are forbidden
   outright.
 - Cannot invoke any other `/yoke:*` skill. The only `/yoke:*` skill
-  the Validator may invoke is `/yoke:ask`.
+  the Validator may invoke is `/yoke:search-canonical-memory`.
 
 ## Pattern references
 

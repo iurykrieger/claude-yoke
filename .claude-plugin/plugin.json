@@ -1,7 +1,7 @@
 {
   "name": "yoke",
-  "version": "1.1.0",
-  "description": "Governed adversarial development for AI agents. Three runtime subagents (Generator, Validator, Orchestrator) spawned in parallel inside a binding human contract, with canonical memory governed by contextual write authority. Manifesto: yoke.md.",
+  "version": "2.0.0",
+  "description": "Governed adversarial development for AI agents with pluggable canonical-memory providers. Three runtime subagents (Generator, Validator, Orchestrator) spawned in parallel inside a binding human contract. Canonical-memory reads and writes dispatch through providers.yaml to a peer plugin (claude-bedrock is the reference implementation); pluggable canonical-memory providers ship via the documented working-memory contract. Manifesto: yoke.md.",
   "author": {
     "name": "Iury Krieger",
     "url": "https://github.com/iurykrieger"
@@ -14,6 +14,8 @@
     "adversarial-loop",
     "binding-spec",
     "canonical-memory",
+    "canonical-memory-provider",
+    "pluggable-providers",
     "ralph-loop",
     "human-in-the-loop",
     "spec-driven"

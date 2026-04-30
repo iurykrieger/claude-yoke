@@ -30,7 +30,7 @@ file describing the technical implementation and validation in full.
 > bundles — one ralph cycle = one sprint file. Adaptations:
 > namespaced under `/yoke:*`, blueprint stages bracketed by
 > deterministic bash, per-sprint LLM calls scoped to a single empty
-> sprint file, routes canonical-memory queries through `/yoke:ask`.
+> sprint file, routes canonical-memory queries through `/yoke:search-canonical-memory`.
 > Per-skill mapping in `docs/lineage.md` at Sprint 8.
 
 ## Your role (Senior Engineer persona, inline)
@@ -87,6 +87,7 @@ prose.
 
 ### 1. Pre-flight
 
+- Enforce the v2.0.0 hard break: `source <plugin_dir>/lib/yoke-prelude.sh && yoke_require_provider || exit 1`. The helper aborts non-zero with a stderr diagnostic when `canonical_memory.provider` is missing or empty (unmigrated v1.x projects); surface its stderr verbatim and exit. See Acceptance Contract Scenario 12 / FR-6.
 - Source `lib/working-memory/paths.sh`. All paths below resolve through `wm_*` helpers.
 - Verify `.yoke/config.yaml` exists. If not, abort: "Run `/yoke:bootstrap` first."
 - Resolve the active task: `slug="$(wm_active_slug)"`. If `.yoke/runtime/.current` is missing, the helper aborts with "no active task" — surface that and instruct the user to run `/yoke:discover`.
@@ -105,7 +106,7 @@ prose.
 - Read `templates/sprint.md` for the per-sprint runtime-bundle shape
   (you will use it in stage 3 to know which sections to fill).
 - For topology templates, prior decisions, or applicable patterns from
-  canonical memory, invoke `/yoke:ask`. Never read canonical memory
+  canonical memory, invoke `/yoke:search-canonical-memory`. Never read canonical memory
   directly.
 
 ### 3. Clarity evaluation
@@ -369,7 +370,7 @@ skill exits cleanly.
 - Do NOT let any task have a vague acceptance criterion ("works
   correctly", "looks good") — every task's *Acceptance criterion*
   must be binary and observable.
-- Do NOT read canonical memory directly. All queries via `/yoke:ask`.
+- Do NOT read canonical memory directly. All queries via `/yoke:search-canonical-memory`.
 - Do NOT preserve hand edits across `revise` — delete + rewrite is
   the contract.
 

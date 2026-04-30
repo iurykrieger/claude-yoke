@@ -99,6 +99,60 @@ fi
 rm -f "$planted"
 
 # ---------------------------------------------------------------------------
+# v2.0.0 migration-pin path — plant claude-yoke/entities/foo.md, sensor
+# MUST exit non-zero with the migration-pin diagnostic on stderr. Mirrors
+# Acceptance Contract Scenario 13 / FR-8: the sensor pins the
+# extraction-to-claude-bedrock invariant after s03-t03.
+# ---------------------------------------------------------------------------
+mkdir -p "$tmp/entities"
+cat > "$tmp/entities/foo.md" <<'EOF'
+---
+type: actor
+name: foo
+---
+EOF
+
+migration_stderr="$tmp/.migration.stderr"
+if (cd "$tmp" && bash "$SENSOR") 2>"$migration_stderr"; then
+  err "migration-pin path: planted entities/foo.md should make sensor exit non-zero"
+else
+  pass "migration-pin path: planted entities/foo.md → non-zero exit"
+fi
+
+if grep -qE 'entities/.*must not exist|entities/.*reintroduced|migration-pin' "$migration_stderr"; then
+  pass "migration-pin path: stderr contains migration-pin diagnostic"
+else
+  err "migration-pin path: stderr missing migration-pin diagnostic"
+  echo "--- captured stderr ---" >&2
+  cat "$migration_stderr" >&2 || true
+fi
+
+# Same probe for templates/canonical/ — second arm of the migration pin.
+rm -rf "$tmp/entities"
+mkdir -p "$tmp/templates/canonical/actor"
+cat > "$tmp/templates/canonical/actor/_template.md" <<'EOF'
+---
+type: actor
+---
+EOF
+
+canonical_stderr="$tmp/.canonical.stderr"
+if (cd "$tmp" && bash "$SENSOR") 2>"$canonical_stderr"; then
+  err "migration-pin path: planted templates/canonical/ should make sensor exit non-zero"
+else
+  pass "migration-pin path: planted templates/canonical/ → non-zero exit"
+fi
+
+if grep -qE 'templates/canonical/.*must not exist|templates/canonical/.*reintroduced|migration-pin' "$canonical_stderr"; then
+  pass "migration-pin path: stderr contains migration-pin diagnostic for templates/canonical/"
+else
+  err "migration-pin path: stderr missing migration-pin diagnostic for templates/canonical/"
+fi
+
+# Cleanup before the working-tree pollution check.
+rm -rf "$tmp/entities" "$tmp/templates/canonical"
+
+# ---------------------------------------------------------------------------
 # Working-tree non-pollution sanity check — no fixture artifact leaked
 # into the host repo's framework surfaces during this test run.
 # ---------------------------------------------------------------------------
