@@ -1,0 +1,10 @@
+{
+  "criterion": "FR-1",
+  "sensor": "semantic-judge",
+  "status": "pass",
+  "location": "src/foo.ts:10-15",
+  "fix_instruction": null,
+  "evidence": "The diff adds the required schema validation at the gateway entrypoint.",
+  "confidence": 0.92,
+  "supporting_quotes": ["+ if (!schema.parse(input)) throw new Error('invalid')"]
+}

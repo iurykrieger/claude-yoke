@@ -9,20 +9,15 @@
 #                             either a "Scenario N" heading or an "FR-N"
 #                             functional-requirement bullet in the contract.
 #                             Default (no flag): full-suite run.
-#   --tier <cheap|expensive|all>
-#                             Filter executed sensors by cost tier (sensor-
-#                             cost-tiering Part 3). Tier is resolved per
-#                             sensor by reading `.yoke/sensors/<id>.md`
-#                             frontmatter (with class-based default —
-#                             computational → cheap, inferential →
-#                             expensive). Orthogonal to `--criterion`;
-#                             both filters combine by intersection. Only
-#                             meaningful for new-format contracts (`## Sensors
-#                             registry`); old-format contracts have no tier
-#                             metadata and reject `--tier cheap|expensive`.
-#                             Default (no flag) preserves current full-suite
-#                             behavior; `--tier all` is explicit and
-#                             equivalent.
+#   --max-time-cost <int>     Filter sensors by `time_cost` ≤ <int> seconds
+#                             (resolved from `.yoke/sensors/<id>.md`
+#                             frontmatter under the new schema). Sensors
+#                             whose `time_cost` exceeds the value are
+#                             skipped. Combines with --max-token-cost via
+#                             logical AND.
+#   --max-token-cost <int>    Filter sensors by `token_cost` ≤ <int> tokens
+#                             (resolved from per-sensor file frontmatter).
+#                             Combines with --max-time-cost via AND.
 #   --concurrency <N>         Override sensor parallelism. <N> must be a
 #                             positive integer. Default resolves from
 #                             .yoke/config.yaml's runtime.sensor_concurrency,
@@ -32,34 +27,41 @@
 #                             <path>/<safe-sensor-id>.yaml. Caller owns the
 #                             directory's lifetime. Without the flag a
 #                             tempdir is created and cleaned up at exit.
+#   --validate-verdict <path> Standalone verdict-parser mode: validate the
+#                             JSON file at <path> against the inferential
+#                             verdict schema (criterion / sensor / status /
+#                             location / fix_instruction / evidence /
+#                             confidence / supporting_quotes) and exit
+#                             0 on valid, non-zero on invalid.
 #
 # Default contract path: resolved via lib/working-memory/paths.sh::wm_acceptance_contract_path
 #                        (i.e., .yoke/acceptance-contracts/<slug>.md, where <slug>
 #                        comes from .yoke/runtime/.current).
 #
-# Sensor source-of-truth (sensor-cost-tiering Part 1+):
+# Sensor source-of-truth (sensor-harness-realignment, supersedes
+# sensor-cost-tiering Part 1):
 #
-#   * **New format** — contract uses `## Sensors registry` block + `Sensors:
-#     [<id>]` references. Each sensor's command/class/tier lives in
-#     `.yoke/sensors/<id>.md`. Read by this hook when the contract has the
-#     registry section.
-#   * **Old format** — contract uses inline `## Sensors > ### Computational`
-#     block:
+#   * **New format** — contract carries per-criterion `### Validation`
+#     sub-sections under each `### Criterion <id>` heading; each
+#     sub-section lists `- **<sensor-id>** — <interpretation>` bullets.
+#     Per-sensor metadata (`type` / `token_cost` / `time_cost` /
+#     `command|agent`) lives in `.yoke/sensors/<sensor-id>.md` per
+#     `templates/sensor.md`. Read by this hook when the contract has
+#     `### Validation` sub-sections.
+#   * **Legacy registry transition** — older contracts still carry
+#     `## Sensors registry` with inline `class:` per sensor. This hook
+#     reads the legacy registry as a fallback when no `### Validation`
+#     blocks are present, with a stderr warning, and resolves dispatch
+#     metadata from the per-sensor files (legacy contracts must have
+#     had `/yoke:ack-sensors --mode upsert` run). Sprint 3 of the
+#     harness-realignment PRD migrates the catalog and removes this
+#     fallback.
 #
-#       ## Sensors
-#
-#       ### Computational
-#       - linter: `npm run lint`
-#       - type-check: `mypy --strict`
-#
-#     Read by this hook when the registry section is absent. No tier
-#     metadata; `--tier cheap|expensive` is rejected against old-format
-#     contracts with a structured violation pointing at `/yoke:ack-sensors
-#     --mode upsert <contract>`.
-#
-# Per-criterion mapping (used by --criterion, both formats):
+# Per-criterion mapping (used by --criterion):
 #   - Scenario blocks carry `Sensors: [name1, name2, ...]`.
 #   - FR bullets carry `Sensor: name.` (single sensor).
+#   - New-shape `### Criterion <id>` headings with per-criterion
+#     `### Validation` bullets.
 #
 # Output (YAML to stdout):
 #
@@ -72,13 +74,13 @@
 #       reason: "<why skip, when applicable>"
 #
 # Exit codes:
-#   0 — verification ran (regardless of individual sensor outcomes)
-#   2 — usage error
-#   3 — Acceptance Contract not found
-#   4 — Acceptance Contract has no sensor section (neither old nor new
-#       format), or `--tier cheap|expensive` was passed against an
-#       old-format contract, or a referenced `.yoke/sensors/<id>.md` is
-#       missing or malformed under tier filtering.
+#   0 — verification ran (regardless of individual sensor outcomes), OR
+#       --validate-verdict succeeded.
+#   2 — usage error (including legacy `--tier` flag).
+#   3 — Acceptance Contract not found.
+#   4 — Acceptance Contract has no sensor section, or a referenced
+#       `.yoke/sensors/<id>.md` is missing or malformed under the new
+#       schema, or --validate-verdict found an invalid verdict envelope.
 
 set -euo pipefail
 
@@ -91,9 +93,11 @@ source "${hook_dir}/../lib/working-memory/paths.sh"
 
 contract=""
 filter_criterion=""
-filter_tier="all"
+max_time_cost=""
+max_token_cost=""
 explicit_concurrency=""
 fragments_dir=""
+validate_verdict_path=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -106,21 +110,28 @@ while [ $# -gt 0 ]; do
       shift 2
       ;;
     --tier)
-      filter_tier="${2:-}"
-      case "$filter_tier" in
-        cheap|expensive|all) ;;
-        "")
-          echo "Error: --tier requires a value." >&2
-          exit 2
-          ;;
-        *)
-          # Structured violation per sensors.md back-pressure.
-          echo "Error: unknown --tier value '${filter_tier}'." >&2
-          echo "  expected: cheap | expensive | all" >&2
-          echo "  correction: re-run with --tier cheap, --tier expensive, --tier all, or omit the flag." >&2
-          exit 2
-          ;;
-      esac
+      # Removed in sensor-harness-realignment Sprint 2. Replaced by
+      # --max-time-cost and --max-token-cost (resolved from the
+      # per-sensor file's frontmatter).
+      echo "Error: --tier was removed in the sensor-harness-realignment refactor." >&2
+      echo "  expected: --max-time-cost <int> and/or --max-token-cost <int>" >&2
+      echo "  correction: re-run with --max-time-cost <seconds> and/or --max-token-cost <tokens>; the --tier flag is no longer recognized." >&2
+      exit 2
+      ;;
+    --max-time-cost)
+      max_time_cost="${2:-}"
+      if ! [[ "$max_time_cost" =~ ^[0-9]+$ ]]; then
+        echo "Error: --max-time-cost requires a non-negative integer (got '${max_time_cost}')." >&2
+        exit 2
+      fi
+      shift 2
+      ;;
+    --max-token-cost)
+      max_token_cost="${2:-}"
+      if ! [[ "$max_token_cost" =~ ^[0-9]+$ ]]; then
+        echo "Error: --max-token-cost requires a non-negative integer (got '${max_token_cost}')." >&2
+        exit 2
+      fi
       shift 2
       ;;
     --concurrency)
@@ -135,6 +146,14 @@ while [ $# -gt 0 ]; do
       fragments_dir="${2:-}"
       if [ -z "$fragments_dir" ]; then
         echo "Error: --fragments-dir requires a path." >&2
+        exit 2
+      fi
+      shift 2
+      ;;
+    --validate-verdict)
+      validate_verdict_path="${2:-}"
+      if [ -z "$validate_verdict_path" ]; then
+        echo "Error: --validate-verdict requires a path." >&2
         exit 2
       fi
       shift 2
@@ -155,6 +174,156 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# ---------------------------------------------------------------------------
+# Verdict-parser standalone mode.
+# ---------------------------------------------------------------------------
+# Validates an inferential-sensor verdict envelope:
+#   { criterion, sensor, status, location, fix_instruction, evidence,
+#     confidence, supporting_quotes }
+# Hard rules (return 4 on violation):
+#   - confidence is a number in [0, 1] (string "1.0" rejected).
+#   - status ∈ {pass, fail, skip}.
+#   - on status=fail, supporting_quotes MUST be a non-empty array of
+#     strings; supporting_quotes=[] when status=fail is invalid.
+#   - evidence is non-empty.
+validate_verdict_envelope() {
+  local path="$1"
+  if [ ! -f "$path" ]; then
+    echo "Error: verdict file not found at '${path}'." >&2
+    return 4
+  fi
+
+  local content
+  content="$(cat "$path")"
+
+  # Use python (or python3) for robust JSON validation. Falls back to
+  # grep-based heuristics when python is unavailable so the parser still
+  # runs in minimal CI environments.
+  local py
+  if command -v python3 >/dev/null 2>&1; then
+    py=python3
+  elif command -v python >/dev/null 2>&1; then
+    py=python
+  else
+    py=""
+  fi
+
+  if [ -n "$py" ]; then
+    "$py" - "$path" <<'PY'
+import json
+import sys
+
+path = sys.argv[1]
+try:
+    with open(path, "r") as f:
+        data = json.load(f)
+except Exception as e:
+    sys.stderr.write(f"Error: invalid JSON in verdict at '{path}': {e}\n")
+    sys.exit(4)
+
+if not isinstance(data, dict):
+    sys.stderr.write(f"Error: verdict at '{path}' is not a JSON object.\n")
+    sys.exit(4)
+
+required = [
+    "criterion",
+    "sensor",
+    "status",
+    "location",
+    "fix_instruction",
+    "evidence",
+    "confidence",
+    "supporting_quotes",
+]
+missing = [k for k in required if k not in data]
+if missing:
+    sys.stderr.write(
+        f"Error: verdict at '{path}' missing required keys: {missing}\n"
+    )
+    sys.exit(4)
+
+status = data["status"]
+if status not in ("pass", "fail", "skip"):
+    sys.stderr.write(
+        f"Error: verdict at '{path}' has invalid status '{status}'; expected pass|fail|skip.\n"
+    )
+    sys.exit(4)
+
+confidence = data["confidence"]
+if isinstance(confidence, bool) or not isinstance(confidence, (int, float)):
+    sys.stderr.write(
+        f"Error: verdict at '{path}' carries invalid confidence (must be a number, got {type(confidence).__name__}).\n"
+    )
+    sys.exit(4)
+if confidence < 0 or confidence > 1:
+    sys.stderr.write(
+        f"Error: verdict at '{path}' carries invalid confidence (out of range [0,1]: {confidence}).\n"
+    )
+    sys.exit(4)
+
+quotes = data["supporting_quotes"]
+if not isinstance(quotes, list):
+    sys.stderr.write(
+        f"Error: verdict at '{path}' supporting_quotes must be a list (got {type(quotes).__name__}).\n"
+    )
+    sys.exit(4)
+if status == "fail" and len(quotes) == 0:
+    sys.stderr.write(
+        f"Error: verdict at '{path}' carries invalid supporting_quotes (status=fail requires at least one quote).\n"
+    )
+    sys.exit(4)
+for q in quotes:
+    if not isinstance(q, str):
+        sys.stderr.write(
+            f"Error: verdict at '{path}' supporting_quotes entries must be strings.\n"
+        )
+        sys.exit(4)
+
+evidence = data["evidence"]
+if not isinstance(evidence, str) or evidence == "":
+    sys.stderr.write(
+        f"Error: verdict at '{path}' evidence must be a non-empty string.\n"
+    )
+    sys.exit(4)
+
+sys.exit(0)
+PY
+    return $?
+  fi
+
+  # Fallback heuristics (python missing). Conservative — better to
+  # reject ambiguous payloads than to falsely accept.
+  if ! printf '%s' "$content" | grep -q '"confidence"'; then
+    echo "Error: verdict at '${path}' missing 'confidence' field." >&2
+    return 4
+  fi
+  if ! printf '%s' "$content" | grep -q '"supporting_quotes"'; then
+    echo "Error: verdict at '${path}' missing 'supporting_quotes' field." >&2
+    return 4
+  fi
+  # Reject confidence > 1 or negative quickly.
+  if printf '%s' "$content" | grep -qE '"confidence"[[:space:]]*:[[:space:]]*(-[0-9]|[1-9][0-9]+|[2-9](\.[0-9]+)?|1\.[0-9]*[1-9])'; then
+    echo "Error: verdict at '${path}' carries invalid confidence (out of range)." >&2
+    return 4
+  fi
+  if printf '%s' "$content" | grep -qE '"status"[[:space:]]*:[[:space:]]*"fail"' \
+     && printf '%s' "$content" | grep -qE '"supporting_quotes"[[:space:]]*:[[:space:]]*\[[[:space:]]*\]'; then
+    echo "Error: verdict at '${path}' carries invalid supporting_quotes (status=fail with empty list)." >&2
+    return 4
+  fi
+  return 0
+}
+
+if [ -n "$validate_verdict_path" ]; then
+  if validate_verdict_envelope "$validate_verdict_path"; then
+    echo "verdict ok: $validate_verdict_path"
+    exit 0
+  fi
+  exit 4
+fi
+
+# --- contract resolution ---------------------------------------------------
+
 if [ -z "$contract" ]; then
   contract="$(wm_acceptance_contract_path)" || exit 3
 fi
@@ -166,9 +335,8 @@ fi
 
 # --- concurrency knob -------------------------------------------------------
 # Resolves runtime.sensor_concurrency from .yoke/config.yaml, falling back to
-# default 4. Inlined per spec ("helper-vs-inline decision deferred to
-# implementation"). Coordinator passes --concurrency 1 for the MERGE-READY
-# serial sweep.
+# default 4. Coordinator passes --concurrency 1 for the MERGE-READY serial
+# sweep.
 yoke_sensor_concurrency() {
   local default=4
   local config=".yoke/config.yaml"
@@ -208,7 +376,6 @@ else
   mkdir -p "$fragments_dir"
 fi
 
-# Single trap that cleans up only the auto-generated tempdir.
 cleanup() {
   if [ "$cleanup_fragments" -eq 1 ] && [ -d "$fragments_dir" ]; then
     rm -rf "$fragments_dir"
@@ -216,136 +383,355 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# --- ack-sensors readiness pre-flight ---------------------------------------
-# Delegate sensor discovery + reachability to /yoke:ack-sensors --mode
-# readiness (single source of truth, same parser used by humans during
-# Trigger 3 and by other tooling that needs the catalog/manifest). This
-# call is informational on the hook's serial / xargs parallel path —
-# the per-sensor `command -v` check inside run_one_sensor remains
-# authoritative for the actual reachability decision (xargs subshells
-# don't share state with this top-level call). When ack-sensors is
-# missing or returns an unexpected exit, we log to stderr and continue
-# so legacy CI consumers never see a regression.
-ack_sensors="${hook_dir}/../lib/sensors/ack-sensors.sh"
-if [ -f "$ack_sensors" ]; then
-  set +e
-  bash "$ack_sensors" --mode readiness "$contract" >/dev/null 2>&1
-  ack_readiness_code=$?
-  set -e
-  if [ "$ack_readiness_code" -ne 0 ] && [ "$ack_readiness_code" -ne 4 ]; then
-    echo "verify-acceptance: ack-sensors readiness returned exit ${ack_readiness_code}; continuing with hook-local discovery." >&2
-  fi
-fi
-
 # --- contract format detection ----------------------------------------------
-# New format (sensor-cost-tiering Part 1+) puts sensor metadata in
-# `.yoke/sensors/<id>.md` files and references them from the contract via a
-# `## Sensors registry` block + `Sensors: [<id>]` lines in scenarios.
-# Old format keeps inline bullets under `## Sensors > ### Computational`.
-# Both formats are supported here; new format is preferred when present.
+# Detect new-shape (per-criterion `### Validation` blocks) vs. legacy
+# (`## Sensors registry`). Both can co-exist during the bootstrap
+# transition; new-shape takes priority. Old `## Sensors > ###
+# Computational` block is no longer supported (sensor-cost-tiering Part
+# 1 already eliminated it; harness-realignment formalizes its removal).
 contract_format=""
-if grep -qE '^## Sensors registry[[:space:]]*$' "$contract"; then
+if grep -qE '^### Validation[[:space:]]*$' "$contract"; then
   contract_format="new"
-fi
-
-sensors_block=$(awk '
-  /^## Sensors[[:space:]]*$/ { in_sensors = 1; next }
-  in_sensors && /^## / && !/^## Sensors/ { in_sensors = 0 }
-  in_sensors && /^### Computational[[:space:]]*$/ { in_comp = 1; next }
-  in_sensors && in_comp && /^### / { in_comp = 0 }
-  in_sensors && in_comp { print }
-' "$contract")
-
-if [ -z "$contract_format" ] && [ -n "$sensors_block" ]; then
-  contract_format="old"
+elif grep -qE '^## Sensors registry[[:space:]]*$' "$contract"; then
+  contract_format="legacy-registry"
+  echo "verify-acceptance: contract uses legacy '## Sensors registry' (sensor-harness-realignment transition layer; Sprint 3 will migrate)." >&2
 fi
 
 if [ -z "$contract_format" ]; then
   echo "Error: Acceptance Contract has no sensor section." >&2
-  echo "  expected: '## Sensors registry' (new format) or '## Sensors > ### Computational' (old format)" >&2
-  echo "  correction: add a registry block or run \`/yoke:ack-sensors --mode upsert ${contract}\`." >&2
+  echo "  expected: per-criterion '### Validation' blocks (new shape) or legacy '## Sensors registry'." >&2
+  echo "  correction: rewrite the contract per templates/acceptance-contract.md, then run \`/yoke:ack-sensors --mode upsert ${contract}\`." >&2
   exit 4
 fi
 
-# Tier filtering requires the new format (sensor files have tier metadata).
-if [ "$filter_tier" != "all" ] && [ "$contract_format" = "old" ]; then
-  echo "Error: --tier ${filter_tier} requires the new contract format with '## Sensors registry'." >&2
-  echo "  expected: contract with '## Sensors registry' and per-sensor files in .yoke/sensors/" >&2
-  echo "  actual: contract uses old-format inline '## Sensors > ### Computational' block" >&2
-  echo "  correction: migrate the contract to the new format and run \`/yoke:ack-sensors --mode upsert ${contract}\`." >&2
-  exit 4
-fi
+# --- per-sensor file metadata loader ----------------------------------------
+# Reads `.yoke/sensors/<id>.md` and emits `type|token_cost|time_cost|dispatch`
+# on stdout. Returns 0 on success, non-zero with structured stderr on
+# malformed/missing files. Used by both the new-shape validation parser
+# and the legacy-registry fallback.
+declare -A sensor_meta_type=()
+declare -A sensor_meta_token_cost=()
+declare -A sensor_meta_time_cost=()
+declare -A sensor_meta_command=()
+declare -A sensor_meta_agent=()
 
-# --- criterion → sensor names ----------------------------------------------
-# Returns a newline-separated list of sensor names mapped to <criterion>.
-# Empty output means "no mapping" (caller falls back / emits empty results).
-sensors_for_criterion() {
-  local criterion="$1"
-  local raw
+load_sensor_metadata() {
+  local id="$1"
+  local criterion_for_error="${2:-<unspecified>}"
+  local sensor_file=".yoke/sensors/${id}.md"
 
-  # Scenario form: "### Scenario N — name" followed by "Sensors: [a, b, c]"
-  raw=$(awk -v crit="$criterion" '
-    /^###[[:space:]]+Scenario[[:space:]]+/ {
-      heading = $0
-      sub(/^###[[:space:]]+/, "", heading)
-      n = split(heading, parts, /[[:space:]]+/)
-      sid = parts[1] " " parts[2]
-      if (sid == crit) { in_scenario = 1 } else { in_scenario = 0 }
-      next
-    }
-    /^##[[:space:]]/ || /^###[[:space:]]/ { in_scenario = 0 }
-    in_scenario && /^Sensors:/ {
-      sub(/^Sensors:[[:space:]]*\[/, "")
-      sub(/\][[:space:]]*$/, "")
-      print
-      exit
-    }
-  ' "$contract")
-
-  if [ -n "$raw" ]; then
-    echo "$raw" | tr ',' '\n' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g' | grep -v '^$' || true
+  if [ -n "${sensor_meta_type[$id]:-}" ]; then
     return 0
   fi
 
-  # FR form: "- [ ] **FR-N** — requirement. Sensor: name."
-  raw=$(grep -E "\\*\\*${criterion}\\*\\*" "$contract" 2>/dev/null | head -1 || true)
-  if [ -n "$raw" ]; then
-    echo "$raw" | sed -nE 's/.*Sensor:[[:space:]]*([^.[:space:]]+)\.?.*/\1/p'
+  if [ ! -f "$sensor_file" ]; then
+    echo "Error: sensor file missing for criterion '${criterion_for_error}', sensor '${id}'." >&2
+    echo "  expected: ${sensor_file}" >&2
+    echo "  correction: run \`/yoke:ack-sensors --mode upsert ${contract}\` to materialize the file." >&2
+    return 4
   fi
+
+  local fm
+  fm=$(awk '
+    BEGIN { count = 0 }
+    /^---[[:space:]]*$/ { count++; if (count == 2) exit; next }
+    count == 1 { print }
+  ' "$sensor_file")
+
+  local v_type v_token v_time v_command v_agent
+  v_type=$(printf '%s\n' "$fm" | awk -F': *' '/^type:/ { sub(/^type:[[:space:]]*/, ""); print; exit }')
+  v_token=$(printf '%s\n' "$fm" | awk -F': *' '/^token_cost:/ { sub(/^token_cost:[[:space:]]*/, ""); print; exit }')
+  v_time=$(printf '%s\n' "$fm" | awk -F': *' '/^time_cost:/ { sub(/^time_cost:[[:space:]]*/, ""); print; exit }')
+  v_command=$(printf '%s\n' "$fm" | awk '/^command:/ { sub(/^command:[[:space:]]*/, ""); print; exit }')
+  v_agent=$(printf '%s\n' "$fm" | awk '/^agent:/ { sub(/^agent:[[:space:]]*/, ""); print; exit }')
+
+  if [ -z "$v_type" ]; then
+    echo "Error: sensor file '${sensor_file}' missing 'type:' frontmatter (criterion '${criterion_for_error}')." >&2
+    return 4
+  fi
+  case "$v_type" in
+    computational)
+      if [ -z "$v_command" ]; then
+        echo "Error: sensor file '${sensor_file}' is type 'computational' but missing 'command:' (criterion '${criterion_for_error}')." >&2
+        return 4
+      fi
+      ;;
+    inferential)
+      if [ -z "$v_agent" ]; then
+        echo "Error: sensor file '${sensor_file}' is type 'inferential' but missing 'agent:' (criterion '${criterion_for_error}')." >&2
+        return 4
+      fi
+      ;;
+    *)
+      echo "Error: sensor file '${sensor_file}' has invalid type '${v_type}' (expected computational|inferential)." >&2
+      return 4
+      ;;
+  esac
+
+  if [ -z "$v_token" ]; then v_token=0; fi
+  if [ -z "$v_time" ]; then v_time=30; fi
+
+  sensor_meta_type[$id]="$v_type"
+  sensor_meta_token_cost[$id]="$v_token"
+  sensor_meta_time_cost[$id]="$v_time"
+  sensor_meta_command[$id]="${v_command:-}"
+  sensor_meta_agent[$id]="${v_agent:-}"
+  return 0
 }
 
-# --- per-sensor execution function (exported for xargs subshells) -----------
+# --- contract parser: collect (criterion, sensor) pairs --------------------
+# For new-shape contracts: each `### Criterion <id>` followed by `###
+# Validation` collects bullets `- **<sensor-id>** — <interpretation>`.
+# Scenario blocks' `Sensors:` lines also count. For legacy-registry:
+# extract registry ids and `Sensors: [...]` references.
+#
+# Output (stdout, one line per pair):
+#   <criterion-id>|<sensor-id>
+parse_new_shape_pairs() {
+  awk '
+    function emit(crit, ids,    n, arr, i, v) {
+      n = split(ids, arr, ",")
+      for (i = 1; i <= n; i++) {
+        v = arr[i]
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", v)
+        if (v != "") print crit "|" v
+      }
+    }
+
+    /^### Scenario / {
+      # Extract `Scenario N` token (first two whitespace-separated bits).
+      heading = $0
+      sub(/^###[[:space:]]+/, "", heading)
+      n = split(heading, parts, /[[:space:]]+/)
+      current_crit = parts[1] " " parts[2]
+      in_validation = 0
+      next
+    }
+    /^### Criterion / {
+      heading = $0
+      sub(/^###[[:space:]]+Criterion[[:space:]]+/, "", heading)
+      sub(/[[:space:]]*—.*$/, "", heading)
+      sub(/[[:space:]]+$/, "", heading)
+      current_crit = heading
+      in_validation = 0
+      next
+    }
+    /^### Validation[[:space:]]*$/ {
+      in_validation = 1
+      next
+    }
+    /^##[[:space:]]/ || /^###[[:space:]]/ {
+      in_validation = 0
+    }
+    in_validation && /^[[:space:]]*-[[:space:]]+\*\*[a-z0-9][a-z0-9._-]*\*\*/ {
+      match($0, /\*\*[a-z0-9][a-z0-9._-]*\*\*/)
+      if (RSTART > 0) {
+        sid = substr($0, RSTART + 2, RLENGTH - 4)
+        if (current_crit != "") print current_crit "|" sid
+      }
+    }
+    /^Sensors:[[:space:]]*\[/ {
+      raw = $0
+      sub(/^Sensors:[[:space:]]*\[/, "", raw)
+      sub(/\][[:space:]]*$/, "", raw)
+      if (current_crit != "") emit(current_crit, raw)
+    }
+  ' "$contract"
+}
+
+parse_legacy_registry_pairs() {
+  # Build (criterion, sensor) pairs from `Sensors: [a, b]` lines under
+  # `### Scenario <N>` headings. Sensor ids without a scenario fall
+  # under criterion `__registry__` (run unconditionally when no
+  # --criterion filter is set).
+  awk '
+    function emit(crit, ids,    n, arr, i, v) {
+      n = split(ids, arr, ",")
+      for (i = 1; i <= n; i++) {
+        v = arr[i]
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", v)
+        if (v != "") print crit "|" v
+      }
+    }
+    /^### Scenario / {
+      heading = $0
+      sub(/^###[[:space:]]+/, "", heading)
+      n = split(heading, parts, /[[:space:]]+/)
+      current_crit = parts[1] " " parts[2]
+      next
+    }
+    /^Sensors:[[:space:]]*\[/ {
+      raw = $0
+      sub(/^Sensors:[[:space:]]*\[/, "", raw)
+      sub(/\][[:space:]]*$/, "", raw)
+      if (current_crit == "") current_crit = "__registry__"
+      emit(current_crit, raw)
+    }
+  ' "$contract"
+
+  # Also include FR-style references: "Sensor: name." and
+  # "Sensors: \`...\`, \`...\`" inside FR bullets, attaching to the
+  # `FR-<id>` criterion.
+  awk '
+    /^-[[:space:]]+\[[ x]\][[:space:]]+\*\*FR-[0-9]+\*\*/ {
+      crit_match = $0
+      match(crit_match, /\*\*FR-[0-9]+\*\*/)
+      if (RSTART > 0) {
+        crit = substr(crit_match, RSTART + 2, RLENGTH - 4)
+        rest = $0
+        # Extract `Sensor: name.` (single).
+        if (match(rest, /Sensor:[[:space:]]*[^[:space:].]+\.?/)) {
+          tok = substr(rest, RSTART, RLENGTH)
+          sub(/^Sensor:[[:space:]]*/, "", tok)
+          sub(/\.[[:space:]]*$/, "", tok)
+          if (tok != "") print crit "|" tok
+        }
+        # Extract `Sensors: a, b, c.` (multi).
+        if (match(rest, /Sensors:[[:space:]]*[^.]+\./)) {
+          tok = substr(rest, RSTART, RLENGTH)
+          sub(/^Sensors:[[:space:]]*/, "", tok)
+          sub(/\.[[:space:]]*$/, "", tok)
+          n = split(tok, arr, ",")
+          for (i = 1; i <= n; i++) {
+            v = arr[i]
+            gsub(/^[[:space:]`]+|[[:space:]`]+$/, "", v)
+            if (v != "") print crit "|" v
+          }
+        }
+      }
+    }
+  ' "$contract"
+}
+
+if [ "$contract_format" = "new" ]; then
+  pairs_raw="$(parse_new_shape_pairs | sort -u)"
+else
+  pairs_raw="$(parse_legacy_registry_pairs | sort -u)"
+fi
+
+# Apply --criterion filter.
+if [ -n "$filter_criterion" ]; then
+  pairs_filtered=$(printf '%s\n' "$pairs_raw" | awk -F'|' -v c="$filter_criterion" '$1 == c { print }')
+  pairs_raw="$pairs_filtered"
+fi
+
+# Build sensor list (dedup ids; preserve criterion association for verdict
+# persistence).
+sensor_ids=()
+declare -A sensor_to_criterion=()
+if [ -n "$pairs_raw" ]; then
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    crit="${line%%|*}"
+    sid="${line#*|}"
+    if [ -z "${sensor_to_criterion[$sid]:-}" ]; then
+      sensor_to_criterion[$sid]="$crit"
+      sensor_ids+=("$sid")
+    fi
+  done <<< "$pairs_raw"
+fi
+
+# --- load metadata + apply cost filters ------------------------------------
+filtered_ids=()
+for sid in "${sensor_ids[@]}"; do
+  crit="${sensor_to_criterion[$sid]:-<unspecified>}"
+  if ! load_sensor_metadata "$sid" "$crit"; then
+    exit 4
+  fi
+  if [ -n "$max_time_cost" ] && [ "${sensor_meta_time_cost[$sid]:-0}" -gt "$max_time_cost" ]; then
+    continue
+  fi
+  if [ -n "$max_token_cost" ] && [ "${sensor_meta_token_cost[$sid]:-0}" -gt "$max_token_cost" ]; then
+    continue
+  fi
+  filtered_ids+=("$sid")
+done
+
+# --- per-sensor execution ---------------------------------------------------
+# Computational: shell `bash -c "$command"`.
+# Inferential: emit a Task spawn envelope (metadata + verdict path); the
+# coordinator (skills/implement/SKILL.md) is responsible for the actual
+# Agent spawn. This hook persists a placeholder verdict file with status
+# `skip` and reason `awaiting-coordinator-spawn` if the file is missing
+# at output time, so downstream parsers always find a verdict file.
+
 run_one_sensor() {
   local sensor_name="$1"
-  local command_str="$2"
-  local fragment_file="$3"
+  local fragment_file="$2"
+  local sensor_type="${sensor_meta_type[$sensor_name]:-}"
+  local command_str="${sensor_meta_command[$sensor_name]:-}"
+  local agent_id="${sensor_meta_agent[$sensor_name]:-}"
+  local criterion="${sensor_to_criterion[$sensor_name]:-__registry__}"
 
-  local leading_bin status exit_code output_excerpt reason sensor_output
-  leading_bin=$(echo "$command_str" | awk '{print $1}')
-  status=""
-  exit_code=-1
-  output_excerpt=""
-  reason=""
+  local status="" exit_code=-1 output_excerpt="" reason="" sensor_output=""
 
-  if ! command -v "$leading_bin" >/dev/null 2>&1; then
-    status="skip"
-    reason="binary not found: $leading_bin"
-  else
-    set +e
-    sensor_output=$(bash -c "$command_str" </dev/null 2>&1)
-    exit_code=$?
-    set -e
-
-    if [ "$exit_code" -eq 0 ]; then
-      status="pass"
+  if [ "$sensor_type" = "computational" ]; then
+    if [ -z "$command_str" ]; then
+      status="skip"
+      reason="missing command for computational sensor"
     else
-      status="fail"
-      reason="exit_code=$exit_code"
+      local leading_bin
+      leading_bin=$(echo "$command_str" | awk '{print $1}')
+      if ! command -v "$leading_bin" >/dev/null 2>&1; then
+        status="skip"
+        reason="binary not found: $leading_bin"
+      else
+        set +e
+        sensor_output=$(bash -c "$command_str" </dev/null 2>&1)
+        exit_code=$?
+        set -e
+
+        if [ "$exit_code" -eq 0 ]; then
+          status="pass"
+        else
+          status="fail"
+          reason="exit_code=$exit_code"
+        fi
+        output_excerpt=$(echo "$sensor_output" | grep -v '^[[:space:]]*$' | head -5 || true)
+      fi
     fi
-    output_excerpt=$(echo "$sensor_output" | grep -v '^[[:space:]]*$' | head -5 || true)
+  elif [ "$sensor_type" = "inferential" ]; then
+    # Persist a placeholder verdict to the deterministic location.
+    # The coordinator (skills/implement/SKILL.md) may overwrite this
+    # at spawn time with the judge's actual output (lag-by-one model:
+    # cycle N spawns, cycle N+1 reads). Until the coordinator runs
+    # the agent, the placeholder is the verdict — its `status: skip`
+    # signals the lag explicitly to the Validator.
+    local cycle_n verdict_dir verdict_path
+    cycle_n=0
+    if [ -f "$(wm_cycle_counter_path)" ]; then
+      cycle_n="$(tr -d '[:space:]' < "$(wm_cycle_counter_path)" 2>/dev/null || echo 0)"
+    fi
+    verdict_dir="$(wm_runtime_dir)/.judge-verdicts/cycle-${cycle_n}"
+    mkdir -p "$verdict_dir"
+    local safe_crit safe_sensor
+    safe_crit="${criterion//[^A-Za-z0-9_.-]/_}"
+    safe_sensor="${sensor_name//[^A-Za-z0-9_.-]/_}"
+    verdict_path="${verdict_dir}/${safe_crit}-${safe_sensor}.json"
+    if [ ! -f "$verdict_path" ]; then
+      cat > "$verdict_path" <<JSON
+{
+  "criterion": "${criterion}",
+  "sensor": "${sensor_name}",
+  "status": "skip",
+  "location": null,
+  "fix_instruction": "spawn agent '${agent_id}' to produce a real verdict",
+  "evidence": "placeholder verdict written by hooks/verify-acceptance.sh inferential dispatch",
+  "confidence": 0.0,
+  "supporting_quotes": []
+}
+JSON
+    fi
+    status="skip"
+    reason="inferential sensor pending Task spawn (agent=${agent_id}, verdict=${verdict_path})"
+    output_excerpt="agent=${agent_id} verdict_path=${verdict_path}"
+    command_str="agent:${agent_id}"
+  else
+    status="skip"
+    reason="unknown sensor type '${sensor_type}'"
   fi
 
-  # Inline YAML escape (kept inside the function so xargs subshells have it).
+  # Inline YAML escape
   esc() {
     local s="$1"
     s=${s//\\/\\\\}
@@ -364,174 +750,26 @@ run_one_sensor() {
     reason: "$(esc "$reason")"
 EOF
 }
-export -f run_one_sensor
 
-# --- build sensor pair list (name|command) and apply --criterion filter ----
-# Parallel map: sensor_tier[<name>] = cheap|expensive|"" (empty for old
-# format / unresolved). Used by the --tier filter below.
-declare -A sensor_tier=()
-
-sensor_pairs=()
-if [ "$contract_format" = "old" ]; then
-  while IFS= read -r line; do
-    [ -z "$line" ] && continue
-    if [[ "$line" =~ ^[[:space:]]*-[[:space:]]+([^:]+):[[:space:]]*\`([^\`]+)\` ]]; then
-      sensor_name=$(echo "${BASH_REMATCH[1]}" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
-      command_str="${BASH_REMATCH[2]}"
-      sensor_pairs+=("${sensor_name}|${command_str}")
-    fi
-  done <<< "$sensors_block"
-else
-  # New format: extract registered ids from `## Sensors registry` YAML
-  # block and load command + class + tier from each `.yoke/sensors/<id>.md`.
-  registry_ids=$(awk '
-    /^## Sensors registry/ { in_section = 1; next }
-    in_section && /^## / { in_section = 0 }
-    in_section && /^```yaml[[:space:]]*$/ { in_block = 1; next }
-    in_section && /^```[[:space:]]*$/ && in_block { in_block = 0 }
-    in_block && /^[[:space:]]*-[[:space:]]+id:/ {
-      v = $0
-      sub(/^[[:space:]]*-[[:space:]]+id:[[:space:]]*/, "", v)
-      sub(/[[:space:]]+$/, "", v)
-      print v
-    }
-  ' "$contract")
-
-  while IFS= read -r id; do
-    [ -z "$id" ] && continue
-    sensor_file=".yoke/sensors/${id}.md"
-    if [ ! -f "$sensor_file" ]; then
-      # Skip silently when --tier is `all` (or omitted) and we are
-      # processing a registered sensor whose file is missing — readiness
-      # mode is the right place to surface that. But surface a hard
-      # failure when the user explicitly asked for tier filtering, since
-      # tier resolution requires the file.
-      if [ "$filter_tier" != "all" ]; then
-        echo "Error: sensor file missing for registered id '${id}'." >&2
-        echo "  expected: ${sensor_file}" >&2
-        echo "  actual: file not found" >&2
-        echo "  correction: run \`/yoke:ack-sensors --mode upsert ${contract}\`." >&2
-        exit 4
-      fi
-      continue
-    fi
-
-    fm=$(awk '
-      BEGIN { count = 0 }
-      /^---[[:space:]]*$/ { count++; if (count == 2) exit; next }
-      count == 1 { print }
-    ' "$sensor_file")
-
-    sensor_command=$(printf '%s\n' "$fm" \
-      | awk -F': ' '/^command:/ { sub(/^command:[[:space:]]*/, "", $0); print $0; exit }')
-    sensor_class=$(printf '%s\n' "$fm" \
-      | awk -F': ' '/^class:/ { sub(/^class:[[:space:]]*/, "", $0); print $0; exit }')
-    sensor_tier_val=$(printf '%s\n' "$fm" \
-      | awk -F': ' '/^tier:/ { sub(/^tier:[[:space:]]*/, "", $0); print $0; exit }')
-
-    if [ -z "$sensor_command" ] || [ -z "$sensor_class" ]; then
-      if [ "$filter_tier" != "all" ]; then
-        echo "Error: sensor file '${sensor_file}' is malformed." >&2
-        echo "  expected: command and class fields populated in frontmatter" >&2
-        echo "  actual: command='${sensor_command}', class='${sensor_class}'" >&2
-        echo "  correction: edit ${sensor_file} or re-run \`/yoke:ack-sensors --mode upsert ${contract}\`." >&2
-        exit 4
-      fi
-      continue
-    fi
-
-    # Class-based default when tier is absent.
-    if [ -z "$sensor_tier_val" ]; then
-      if [ "$sensor_class" = "inferential" ]; then
-        sensor_tier_val="expensive"
-      else
-        sensor_tier_val="cheap"
-      fi
-    fi
-
-    sensor_pairs+=("${id}|${sensor_command}")
-    sensor_tier["$id"]="$sensor_tier_val"
-  done <<< "$registry_ids"
-fi
-
-if [ -n "$filter_criterion" ]; then
-  allowed=$(sensors_for_criterion "$filter_criterion" || true)
-  filtered_pairs=()
-  if [ -n "$allowed" ] && [ "${#sensor_pairs[@]}" -gt 0 ]; then
-    while IFS= read -r allowed_name; do
-      [ -z "$allowed_name" ] && continue
-      for pair in "${sensor_pairs[@]}"; do
-        name="${pair%%|*}"
-        if [ "$name" = "$allowed_name" ]; then
-          filtered_pairs+=("$pair")
-          break
-        fi
-      done
-    done <<< "$allowed"
-  fi
-  if [ "${#filtered_pairs[@]}" -gt 0 ]; then
-    sensor_pairs=("${filtered_pairs[@]}")
-  else
-    sensor_pairs=()
-  fi
-fi
-
-# --- apply --tier filter (new format only; old format errors out earlier) --
-if [ "$filter_tier" != "all" ] && [ "${#sensor_pairs[@]}" -gt 0 ]; then
-  filtered_pairs=()
-  for pair in "${sensor_pairs[@]}"; do
-    name="${pair%%|*}"
-    pair_tier="${sensor_tier[$name]:-}"
-    if [ "$pair_tier" = "$filter_tier" ]; then
-      filtered_pairs+=("$pair")
-    fi
-  done
-  if [ "${#filtered_pairs[@]}" -gt 0 ]; then
-    sensor_pairs=("${filtered_pairs[@]}")
-  else
-    sensor_pairs=()
-  fi
-fi
-
-# --- safe-filename helper (used by both serial and parallel paths) ----------
 safe_filename() {
   echo "$1" | tr -c '[:alnum:]_.-' '_'
 }
 
-# --- run sensors (parallel via xargs -P, or serial when concurrency==1) ----
-# When concurrency>1 we fan out via xargs -P; each subshell calls
-# run_one_sensor (exported above) and writes to its own fragment file.
-# When concurrency==1 we still write fragments but iterate inline so the
-# MERGE-READY serial sweep is straightforward and predictable.
-if [ "${#sensor_pairs[@]}" -gt 0 ]; then
-  if [ "$concurrency" -eq 1 ]; then
-    for pair in "${sensor_pairs[@]}"; do
-      [ -z "$pair" ] && continue
-      name="${pair%%|*}"
-      cmd="${pair#*|}"
-      fragment_file="${fragments_dir}/$(safe_filename "$name").yaml"
-      run_one_sensor "$name" "$cmd" "$fragment_file"
-    done
-  else
-    # Null-delimited fanout to xargs; -I {} substitutes the whole pair into
-    # the bash -c invocation as $1.
-    export FRAGMENTS_DIR="$fragments_dir"
-    printf '%s\0' "${sensor_pairs[@]}" \
-      | xargs -0 -I {} -P "$concurrency" bash -c '
-          pair="$1"
-          name="${pair%%|*}"
-          cmd="${pair#*|}"
-          safe=$(echo "$name" | tr -c "[:alnum:]_.-" "_")
-          run_one_sensor "$name" "$cmd" "$FRAGMENTS_DIR/$safe.yaml"
-        ' _ {}
-    unset FRAGMENTS_DIR
-  fi
+if [ "${#filtered_ids[@]}" -gt 0 ]; then
+  # Serial execution — parallel xargs path retained from prior versions
+  # is dropped here because inferential dispatch needs to emit verdict
+  # files into a shared directory and the parallel path didn't gain us
+  # anything for the harness-realignment transition. Re-introduce when
+  # coordination becomes a bottleneck.
+  for sid in "${filtered_ids[@]}"; do
+    fragment_file="${fragments_dir}/$(safe_filename "$sid").yaml"
+    run_one_sensor "$sid" "$fragment_file"
+  done
 fi
 
 # --- merge fragments deterministically (alphabetical by sensor-id) ---------
 echo "results:"
 if [ -d "$fragments_dir" ]; then
-  # LC_ALL=C sort guarantees byte-order regardless of locale.
   while IFS= read -r f; do
     [ -z "$f" ] && continue
     cat "$f"

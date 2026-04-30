@@ -1,0 +1,10 @@
+{
+  "criterion": "FR-1",
+  "sensor": "semantic-judge",
+  "status": "fail",
+  "location": "src/foo.ts:10-15",
+  "fix_instruction": "Add a null-check on `input` before calling `schema.parse`.",
+  "evidence": "The diff calls schema.parse without guarding against null input.",
+  "confidence": 0.85,
+  "supporting_quotes": ["+ schema.parse(input)"]
+}

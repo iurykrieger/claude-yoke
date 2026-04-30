@@ -82,6 +82,7 @@ jobs:
           - tests/perf-quickwins-part-1.test.sh
           - tests/perf-quickwins-part-2.test.sh
           - tests/perf-quickwins-part-3.test.sh
+          - tests/smoke/sensor-harness-realignment.test.sh
     steps:
       - name: Check out
         uses: actions/checkout@v4

@@ -1,0 +1,10 @@
+{
+  "criterion": "FR-1",
+  "sensor": "semantic-judge",
+  "status": "fail",
+  "location": "src/foo.ts:10-15",
+  "fix_instruction": "Add validation.",
+  "evidence": "Validation missing.",
+  "confidence": 0.8,
+  "supporting_quotes": []
+}

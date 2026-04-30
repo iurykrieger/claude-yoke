@@ -1,0 +1,10 @@
+{
+  "criterion": "Scenario 1",
+  "sensor": "marker-comp",
+  "status": "fail",
+  "location": "src/example.sh:42",
+  "fix_instruction": "missing trailing newline on YAML frontmatter",
+  "evidence": "frontmatter ends without a newline; YAML parser strict mode rejects",
+  "confidence": 0.0,
+  "supporting_quotes": ["frontmatter ends without a newline"]
+}
