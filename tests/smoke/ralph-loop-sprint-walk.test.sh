@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# tests/smoke/sprint-4.test.sh
+# tests/smoke/ralph-loop-sprint-walk.test.sh
 #
-# Ralph-loop walking invariants for the sprint-as-cycle PRD.
+# Ralph-loop sprint-walking invariants — behavior-level guarantees on
+# how `/yoke:implement` walks sprints. The test does not reference a
+# specific PRD slug or sprint number; it asserts the runtime walks any
+# multi-sprint spec serially with the documented contract.
 #
 # Three assertions guarantee that future changes to /yoke:implement or
 # lib/ralph-loop/orchestrate.sh cannot regress the per-sprint walk:

@@ -1,6 +1,6 @@
 ---
 id: progress-md-frontmatter-shape
-command: bash -c 'if [ -f .yoke/runtime/progress.md ]; then grep -qE "^current_sprint:" .yoke/runtime/progress.md && grep -qE "^completed_sprints:" .yoke/runtime/progress.md; else [ -z "$(ls -A .yoke/runtime/ 2>/dev/null)" ]; fi'
+command: bash -c 'if [ -f .yoke/runtime/progress.md ]; then grep -qE "^current_sprint:" .yoke/runtime/progress.md && grep -qE "^completed_sprints:" .yoke/runtime/progress.md; else ! test -f .yoke/runtime/.current; fi'
 class: computational
 tier: cheap
 applies_to: []

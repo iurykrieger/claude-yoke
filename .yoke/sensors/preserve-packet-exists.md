@@ -1,6 +1,6 @@
 ---
 id: preserve-packet-exists
-command: bash -c 'test -f .yoke/runtime/.preserve-packet.md || [ -z "$(ls -A .yoke/runtime/ 2>/dev/null)" ]'
+command: bash -c 'test -f .yoke/runtime/.preserve-packet.md || ! test -f .yoke/runtime/.current'
 class: computational
 tier: cheap
 applies_to: []

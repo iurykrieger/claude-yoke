@@ -187,17 +187,17 @@ Sensors: [legacy-parts-residual-clean]
 Task: 2026-04-27-sprint-as-cycle-s04-t04
 Given migration has converged and `tests/fixtures/legacy-slugs.txt` + `tests/fixtures/pre-migration-line-count.txt` are committed
 When sprint 4 t04 commits the new assertions
-Then `bash tests/smoke/sprint-2.test.sh` exits 0, AND `grep -c 'legacy -part-N.md\|lost its sprint counterpart\|content drift exceeds' tests/smoke/sprint-2.test.sh` returns ≥ 3
+Then `bash tests/smoke/working-memory-migration.test.sh` exits 0, AND `grep -c 'legacy -part-N.md\|lost its sprint counterpart\|content drift exceeds' tests/smoke/working-memory-migration.test.sh` returns ≥ 3
 Fixture: tests/fixtures/legacy-slugs.txt, tests/fixtures/pre-migration-line-count.txt
-Sensors: [smoke-sprint2-passes, smoke-sprint2-has-3-assertions]
+Sensors: [smoke-working-memory-migration-passes, smoke-working-memory-migration-has-3-assertions]
 
 ### Scenario 22 — Sprint-4 smoke test additions
 Task: 2026-04-27-sprint-as-cycle-s04-t05
 Given the runtime walk semantics are in place (sprint 3 t03)
 When sprint 4 t05 commits the new assertions
-Then `bash tests/smoke/sprint-4.test.sh` exits 0, AND `grep -c 'current_sprint: did not advance\|progress.md was split\|completed_sprints array does not equal' tests/smoke/sprint-4.test.sh` returns ≥ 3
+Then `bash tests/smoke/ralph-loop-sprint-walk.test.sh` exits 0, AND `grep -c 'current_sprint: did not advance\|progress.md was split\|completed_sprints array does not equal' tests/smoke/ralph-loop-sprint-walk.test.sh` returns ≥ 3
 Fixture: none
-Sensors: [smoke-sprint4-passes, smoke-sprint4-has-3-assertions]
+Sensors: [smoke-ralph-loop-sprint-walk-passes, smoke-ralph-loop-sprint-walk-has-3-assertions]
 
 ### Scenario 23 — Draft Phase 5 canonization packet
 Task: 2026-04-27-sprint-as-cycle-s04-t06
@@ -214,12 +214,12 @@ Measurable, observable. Each FR maps to a concrete sensor or fixture.
 - [ ] **FR-1 — Working-memory shape switch.** After ralph convergence, `.yoke/sprints/` exists, contains all migrated content, and `.yoke/tasks/` is empty (or removed). Sensor: legacy-parts-residual-clean.
 - [ ] **FR-2 — Path-helper consolidation.** Only `wm_sprint_*` helpers exist in `lib/working-memory/paths.sh`; the `wm_task_*` family is removed. Sensor: paths-sh-no-task-helpers.
 - [ ] **FR-3 — Consumer migration.** Every skill, agent, and lib file references `.yoke/sprints/` (never `.yoke/tasks/`); every consumer of removed helpers is rewritten. Sensor: codebase-no-task-helper-refs.
-- [ ] **FR-4 — Sprint-as-cycle runtime.** `/yoke:implement` walks sprints serially; `progress.md` advances `current_sprint:` monotonically and `completed_sprints:` length equals `total_sprints:` at run end. Sensor: smoke-sprint4-passes.
+- [ ] **FR-4 — Sprint-as-cycle runtime.** `/yoke:implement` walks sprints serially; `progress.md` advances `current_sprint:` monotonically and `completed_sprints:` length equals `total_sprints:` at run end. Sensor: smoke-ralph-loop-sprint-walk-passes.
 - [ ] **FR-5 — Phase-artifact preservation.** PRD, AC, sensors, and contracts retain one-file-per-task shape; only `.yoke/tasks/` → `.yoke/sprints/` directory changed. Sensor: phase-artifacts-shape-preserved.
 - [ ] **FR-6 — Reference-by-ID invariant.** Sprint files reference sensors by ID and AC criteria by ID; never inline. Sensor: sprint-files-reference-only.
 - [ ] **FR-7 — Migration safety.** Pre-flight backup at `.yoke/.legacy-archive/2026-04-27-pre-migration/` covers every migrated file with sha256 manifest before any move; gitignored. Sensor: legacy-archive-78-files + legacy-archive-gitignored.
 - [ ] **FR-8 — Doctrine canonization packet.** Phase 5 packet at `.yoke/runtime/.preserve-packet.md` carries new entity + supersession diffs for memory-model + task-ids-zero-pad decision. Sensor: preserve-packet-has-4-sections.
-- [ ] **FR-9 — Smoke-test gate.** `tests/smoke/sprint-2.test.sh` and `tests/smoke/sprint-4.test.sh` pass with the new assertions; CI green on the migration PR. Sensor: smoke-sprint2-passes + smoke-sprint4-passes.
+- [ ] **FR-9 — Smoke-test gate.** `tests/smoke/working-memory-migration.test.sh` and `tests/smoke/ralph-loop-sprint-walk.test.sh` pass with the new assertions; CI green on the migration PR. Sensor: smoke-working-memory-migration-passes + smoke-ralph-loop-sprint-walk-passes.
 - [ ] **FR-10 — Per-sprint hard bound.** Cycle counter resets at sprint boundaries; ≤ 8 cycles per sprint. Sensor: ralph-orchestrate-has-current-sprint (verifies the orchestrator parses per-sprint counters).
 
 ## Applicable policies
@@ -354,17 +354,17 @@ sensors:
   - id: legacy-parts-residual-clean
     command: bash -c 'bash lib/sensors/legacy-parts-zero-residual.sh && [ "$(bash lib/sensors/legacy-parts-zero-residual.sh 2>/dev/null | wc -c)" = "0" ]'
     class: computational
-  - id: smoke-sprint2-passes
-    command: bash tests/smoke/sprint-2.test.sh
+  - id: smoke-working-memory-migration-passes
+    command: bash tests/smoke/working-memory-migration.test.sh
     class: computational
-  - id: smoke-sprint2-has-3-assertions
-    command: bash -c '[ "$(grep -c "legacy -part-N.md\|lost its sprint counterpart\|content drift exceeds" tests/smoke/sprint-2.test.sh)" -ge "3" ]'
+  - id: smoke-working-memory-migration-has-3-assertions
+    command: bash -c '[ "$(grep -c "legacy -part-N.md\|lost its sprint counterpart\|content drift exceeds" tests/smoke/working-memory-migration.test.sh)" -ge "3" ]'
     class: computational
-  - id: smoke-sprint4-passes
-    command: bash tests/smoke/sprint-4.test.sh
+  - id: smoke-ralph-loop-sprint-walk-passes
+    command: bash tests/smoke/ralph-loop-sprint-walk.test.sh
     class: computational
-  - id: smoke-sprint4-has-3-assertions
-    command: bash -c '[ "$(grep -c "current_sprint: did not advance\|progress.md was split\|completed_sprints array does not equal" tests/smoke/sprint-4.test.sh)" -ge "3" ]'
+  - id: smoke-ralph-loop-sprint-walk-has-3-assertions
+    command: bash -c '[ "$(grep -c "current_sprint: did not advance\|progress.md was split\|completed_sprints array does not equal" tests/smoke/ralph-loop-sprint-walk.test.sh)" -ge "3" ]'
     class: computational
   - id: preserve-packet-exists
     command: test -f .yoke/runtime/.preserve-packet.md

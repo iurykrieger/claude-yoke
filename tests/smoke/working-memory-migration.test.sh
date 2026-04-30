@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# tests/smoke/sprint-2.test.sh
+# tests/smoke/working-memory-migration.test.sh
 #
-# Working-memory invariants for the sprint-as-cycle migration.
+# Working-memory invariants — behavior-level guarantees that survive
+# any specific migration. The test does not encode a sprint number
+# or a PRD slug; it asserts the post-migration shape of `.yoke/`
+# regardless of which migration produced it.
 #
 # Three assertions guard against regressions on the post-migration
 # working-memory shape:

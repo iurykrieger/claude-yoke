@@ -1,11 +1,11 @@
 ---
-id: smoke-sprint4-passes
-command: bash tests/smoke/sprint-4.test.sh
+id: smoke-ralph-loop-sprint-walk-passes
+command: bash tests/smoke/ralph-loop-sprint-walk.test.sh
 class: computational
 tier: cheap
 applies_to: []
 runs:
-  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: fail, criterion: "sprint-1-bundle", evidence_snippet: "bash: tests/smoke/sprint-4.test.sh: No such file or directory"}
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: fail, criterion: "sprint-1-bundle", evidence_snippet: "stale path reference; sensor now points at the renamed test"}
 ---
 
 # Sensor: smoke-sprint4-passes

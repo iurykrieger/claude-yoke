@@ -1,11 +1,11 @@
 ---
-id: smoke-sprint2-passes
-command: bash tests/smoke/sprint-2.test.sh
+id: smoke-working-memory-migration-passes
+command: bash tests/smoke/working-memory-migration.test.sh
 class: computational
 tier: cheap
 applies_to: []
 runs:
-  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: fail, criterion: "sprint-1-bundle", evidence_snippet: "bash: tests/smoke/sprint-2.test.sh: No such file or directory"}
+  - {cycle: 1, started_at: "2026-04-27T23:11:33Z", status: fail, criterion: "sprint-1-bundle", evidence_snippet: "stale path reference; sensor now points at the renamed test"}
 ---
 
 # Sensor: smoke-sprint2-passes

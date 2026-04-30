@@ -67,8 +67,8 @@ as the final migration step.
 #### Task 2026-04-27-sprint-as-cycle-s04-t01 — Concatenate this spec's own task files (`.yoke/tasks/2026-04-27-sprint-as-cycle-s<NN>-t<MM>.md`) into 4 sprint files at `.yoke/sprints/2026-04-27-sprint-as-cycle-s<NN>.md`, with `Migrated-from:` frontmatter preserving the original paths.
 #### Task 2026-04-27-sprint-as-cycle-s04-t02 — Hard-remove `wm_task_path`, `wm_list_task_paths`, `wm_validate_task_id` from `lib/working-memory/paths.sh`; remove `tasks` from `WM_ARCHIVE_CATEGORIES` (`sprints` already added in sprint 1).
 #### Task 2026-04-27-sprint-as-cycle-s04-t03 — Run `lib/sensors/legacy-parts-zero-residual.sh` globally and confirm zero `-part-N.md` under `.yoke/specs/` and zero `<slug>-s<NN>-t<MM>.md` under any directory in the working tree.
-#### Task 2026-04-27-sprint-as-cycle-s04-t04 — Add assertions to `tests/smoke/sprint-2.test.sh`: zero `-part-N.md` residue under `.yoke/specs/`, every legacy slug has a sprint counterpart under `.yoke/sprints/`, post-migration `git diff --stat` line-count matches pre-migration modulo header reframing.
-#### Task 2026-04-27-sprint-as-cycle-s04-t05 — Add assertions to `tests/smoke/sprint-4.test.sh`: `current_sprint:` advances monotonically through sprint list during a successful `/yoke:implement` run; `progress.md` is never split into per-sprint files; `completed_sprints:` array length equals total sprint count at run end.
+#### Task 2026-04-27-sprint-as-cycle-s04-t04 — Add assertions to `tests/smoke/working-memory-migration.test.sh`: zero `-part-N.md` residue under `.yoke/specs/`, every legacy slug has a sprint counterpart under `.yoke/sprints/`, post-migration `git diff --stat` line-count matches pre-migration modulo header reframing.
+#### Task 2026-04-27-sprint-as-cycle-s04-t05 — Add assertions to `tests/smoke/ralph-loop-sprint-walk.test.sh`: `current_sprint:` advances monotonically through sprint list during a successful `/yoke:implement` run; `progress.md` is never split into per-sprint files; `completed_sprints:` array length equals total sprint count at run end.
 #### Task 2026-04-27-sprint-as-cycle-s04-t06 — Draft the Phase 5 canonization packet at `.yoke/runtime/.preserve-packet.md`: a new `concepts/yoke-pattern-sprint-runtime-bundle.md` entity body, a `refined_by:` link to add to `concepts/yoke-pattern-memory-model.md`, and a new `concepts/yoke-decision-2026-04-27-sprint-id-zero-pad-supersedes-task-id-zero-p.md` decision that supersedes `yoke-decision-2026-04-25-task-ids-zero-pad-to-2-digits-filename-only`.
 
 ## Contracts and interfaces
@@ -101,7 +101,7 @@ respect.
 - `skills/{tech-spec,acceptance-contract,implement,status,bootstrap,discover,ack-sensors,preserve}/SKILL.md` — consumer rewrites in sprint 3.
 - `agents/{generator,validator,orchestrator}.md` — agent contract rewrites in sprint 3.
 - `templates/{spec,task,approval-menu}.md` — template updates in sprints 1 and 3.
-- `tests/smoke/sprint-2.test.sh`, `tests/smoke/sprint-4.test.sh` — smoke test additions in sprint 4.
+- `tests/smoke/working-memory-migration.test.sh`, `tests/smoke/ralph-loop-sprint-walk.test.sh` — smoke test additions in sprint 4.
 
 ### Cross-team coordination
 
