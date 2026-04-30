@@ -59,24 +59,47 @@ agent, not by a human reading prose.
   No markdown fencing. No commentary. The Validator parses your
   stdout structurally.
 
-- **Populate every key in the inferential envelope.**
-  - `criterion` — verbatim id from the spawn input.
-  - `sensor` — verbatim sensor id from the spawn input.
-  - `status` — one of `pass | fail | skip`.
-  - `location` — `<file>:<start-line>-<end-line>` pinned to the diff
-    hunk that drove your judgment, OR `null` when the criterion is
-    not anchored to a single hunk.
-  - `fix_instruction` — the specific change the diff would need to
-    satisfy the criterion (on `fail`), OR `null` (on `pass`).
-  - `evidence` — quoted diff excerpt or one-sentence reasoning
+- **Populate every key in the inferential envelope.** The exact JSON
+  shape the verdict parser expects (verbatim form — emit on stdout
+  and write to the verdict-output path):
+
+  ```json
+  {
+    "criterion": "<criterion-id>",
+    "status": "pass" | "fail" | "skip",
+    "location": "<file:start-line-end-line>" | null,
+    "fix_instruction": "<text>" | null,
+    "sensor": "<sensor-id>",
+    "evidence": "<text>",
+    "confidence": 0.0,
+    "supporting_quotes": ["<quote>", "..."]
+  }
+  ```
+
+  - `"criterion":` — verbatim id from the spawn input.
+  - `"sensor":` — verbatim sensor id from the spawn input.
+  - `"status":` — one of `pass | fail | skip`.
+  - `"location":` — `<file>:<start-line>-<end-line>` pinned to the
+    diff hunk that drove your judgment, OR `null` when the criterion
+    is not anchored to a single hunk.
+  - `"fix_instruction":` — the specific change the diff would need
+    to satisfy the criterion (on `fail`), OR `null` (on `pass`).
+  - `"evidence":` — quoted diff excerpt or one-sentence reasoning
     anchored in the diff. Non-empty in every status, including
     `pass`.
-  - `confidence` — float in `[0, 1]`. Out-of-range values are
+  - `"confidence":` — float in `[0, 1]`. Out-of-range values are
     rejected by the verdict parser.
-  - `supporting_quotes` — list of strings; minimum 1 entry when
+  - `"supporting_quotes":` — list of strings; minimum 1 entry when
     `status: fail`; empty list permitted when `status: pass`. An
     empty list paired with `status: fail` is rejected by the
     verdict parser.
+
+  This six-key core (`criterion / status / location / fix_instruction
+  / sensor / evidence`) is the **verdict shape parity** the Validator
+  asserts: the same keys appear in computational and inferential
+  verdicts so downstream aggregators consume both uniformly. The two
+  extension keys (`confidence`, `supporting_quotes`) are
+  inferential-only.
 
 - **Surface "skip" early.** If the diff lacks evidence to judge the
   criterion, return `status: "skip"`, populate `evidence` with what
@@ -96,11 +119,20 @@ agent, not by a human reading prose.
   into the diff input.** No `Grep`, no `Glob` — your tool list is
   `Read` only.
 
-- **Never read or write canonical memory.**
+- **Never read or write canonical memory.** Promotion of curated
+  calibration knowledge into canonical memory happens through
+  `/yoke:preserve` at full-run termination — never by this judge,
+  never mid-loop. The judge writes its verdict to the supplied
+  verdict-output path under `.yoke/runtime/.judge-verdicts/`; the
+  Orchestrator (canonize mode) is the one who later invokes
+  `/yoke:preserve` if any calibration learning surfaces against the
+  five-criterion cascade.
 
 - **Never read `.yoke/runtime/progress.md`,
-  `.yoke/contracts/<slug>.md`, or any artifact other than the
-  verdict-output path.** Adversarial separation is by design.
+  `.yoke/contracts/<slug>.md`, the legacy `query-trace` log under
+  `.yoke/runtime/`, or any artifact other than the verdict-output
+  path.** Adversarial separation is by design — `progress.md`,
+  `contracts.md`, and `query-trace` are explicitly forbidden reads.
 
 - **Never write host project code.** You judge, you do not patch.
 

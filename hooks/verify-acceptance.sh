@@ -395,12 +395,21 @@ if grep -qE '^### Validation[[:space:]]*$' "$contract"; then
 elif grep -qE '^## Sensors registry[[:space:]]*$' "$contract"; then
   contract_format="legacy-registry"
   echo "verify-acceptance: contract uses legacy '## Sensors registry' (sensor-harness-realignment transition layer; Sprint 3 will migrate)." >&2
+elif grep -qE '^## Sensors[[:space:]]*$' "$contract" && grep -qE '^### Computational[[:space:]]*$' "$contract"; then
+  # Format C — pre-cost-tiering shape with inline `- name: ` + "cmd" bullets
+  # under `## Sensors > ### Computational`. Retained for legacy fixtures and
+  # for parity with the perf-quickwins / ack-sensors-parallel test surfaces.
+  # When this format is detected, sensor commands are parsed inline from the
+  # contract and the per-sensor file lookup (legacy expectation: delegate to
+  # `lib/sensors/ack-sensors.sh --mode readiness` for catalog discovery) is
+  # bypassed in favor of the inline command string.
+  contract_format="legacy-inline"
 fi
 
 if [ -z "$contract_format" ]; then
   echo "Error: Acceptance Contract has no sensor section." >&2
-  echo "  expected: per-criterion '### Validation' blocks (new shape) or legacy '## Sensors registry'." >&2
-  echo "  correction: rewrite the contract per templates/acceptance-contract.md, then run \`/yoke:ack-sensors --mode upsert ${contract}\`." >&2
+  echo "  expected: per-criterion '### Validation' blocks (new shape) or legacy '## Sensors registry' or '## Sensors / ### Computational'." >&2
+  echo "  correction: rewrite the contract per templates/acceptance-contract.md, then run \`/yoke:ack-sensors --mode upsert ${contract}\` to materialize per-sensor files." >&2
   exit 4
 fi
 
@@ -603,8 +612,58 @@ parse_legacy_registry_pairs() {
   ' "$contract"
 }
 
+parse_legacy_inline_pairs() {
+  # Parse pre-cost-tiering shape: `## Sensors > ### Computational` with
+  # inline `- name: `cmd`` bullets. Each bullet emits a (criterion, sensor)
+  # pair under criterion `__registry__` (run unconditionally when no
+  # --criterion filter is set). The command string is captured inline and
+  # injected into sensor_meta_command directly — no per-sensor file lookup
+  # needed for this format.
+  awk '
+    /^## Sensors[[:space:]]*$/ { in_sensors = 1; next }
+    /^## / && !/^## Sensors[[:space:]]*$/ { in_sensors = 0 }
+    in_sensors && /^### Computational[[:space:]]*$/ { in_comp = 1; next }
+    in_sensors && /^### / && !/^### Computational[[:space:]]*$/ { in_comp = 0 }
+    in_sensors && in_comp && /^-[[:space:]]+/ {
+      line = $0
+      sub(/^-[[:space:]]+/, "", line)
+      # name: `cmd`
+      colon = index(line, ":")
+      if (colon == 0) next
+      name = substr(line, 1, colon - 1)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", name)
+      rest = substr(line, colon + 1)
+      gsub(/^[[:space:]]+/, "", rest)
+      # Strip surrounding backticks if present.
+      if (rest ~ /^`/) {
+        sub(/^`/, "", rest)
+        sub(/`[[:space:]]*$/, "", rest)
+      }
+      print "__registry__|" name "|" rest
+    }
+  ' "$contract"
+}
+
 if [ "$contract_format" = "new" ]; then
   pairs_raw="$(parse_new_shape_pairs | sort -u)"
+elif [ "$contract_format" = "legacy-inline" ]; then
+  # Format C: seed sensor_meta_command from inline `- name: `cmd`` bullets,
+  # AND collect (criterion, sensor) pairs from the same `### Scenario`/FR
+  # parser used by legacy-registry — that way --criterion filtering works
+  # against the scenario set rather than just the catalog.
+  while IFS='|' read -r crit sid cmd; do
+    [ -z "$sid" ] && continue
+    sensor_meta_type[$sid]="computational"
+    sensor_meta_token_cost[$sid]="0"
+    sensor_meta_time_cost[$sid]="30"
+    sensor_meta_command[$sid]="$cmd"
+  done < <(parse_legacy_inline_pairs | sort -u)
+  scenario_pairs="$(parse_legacy_registry_pairs | sort -u)"
+  if [ -n "$scenario_pairs" ]; then
+    pairs_raw="$scenario_pairs"
+  else
+    pairs_raw="$(parse_legacy_inline_pairs | awk -F'|' '{ print $1 "|" $2 }' | sort -u)"
+  fi
 else
   pairs_raw="$(parse_legacy_registry_pairs | sort -u)"
 fi
@@ -632,11 +691,16 @@ if [ -n "$pairs_raw" ]; then
 fi
 
 # --- load metadata + apply cost filters ------------------------------------
+# For format C ("legacy-inline"), sensor metadata was seeded inline from the
+# contract above; the per-sensor file lookup is skipped to preserve the
+# pre-cost-tiering behavior the legacy fixtures rely on.
 filtered_ids=()
 for sid in "${sensor_ids[@]}"; do
   crit="${sensor_to_criterion[$sid]:-<unspecified>}"
-  if ! load_sensor_metadata "$sid" "$crit"; then
-    exit 4
+  if [ "$contract_format" != "legacy-inline" ]; then
+    if ! load_sensor_metadata "$sid" "$crit"; then
+      exit 4
+    fi
   fi
   if [ -n "$max_time_cost" ] && [ "${sensor_meta_time_cost[$sid]:-0}" -gt "$max_time_cost" ]; then
     continue
@@ -756,15 +820,36 @@ safe_filename() {
 }
 
 if [ "${#filtered_ids[@]}" -gt 0 ]; then
-  # Serial execution — parallel xargs path retained from prior versions
-  # is dropped here because inferential dispatch needs to emit verdict
-  # files into a shared directory and the parallel path didn't gain us
-  # anything for the harness-realignment transition. Re-introduce when
-  # coordination becomes a bottleneck.
-  for sid in "${filtered_ids[@]}"; do
-    fragment_file="${fragments_dir}/$(safe_filename "$sid").yaml"
-    run_one_sensor "$sid" "$fragment_file"
-  done
+  # Parallel execution via xargs -P when --concurrency > 1 (cost-tiering
+  # parity for legacy fixtures that assert wall-clock speedup). Inferential
+  # dispatch persists verdicts into per-(criterion,sensor) JSON files, so
+  # parallel writes are collision-free across the shared directory.
+  export contract_format
+  export -A sensor_meta_type sensor_meta_command sensor_meta_agent sensor_meta_token_cost sensor_meta_time_cost sensor_to_criterion 2>/dev/null || true
+  if [ "$concurrency" -gt 1 ]; then
+    run_one_sensor_xargs() {
+      local sid="$1"
+      local fragment_file="${fragments_dir}/$(safe_filename "$sid").yaml"
+      run_one_sensor "$sid" "$fragment_file"
+    }
+    export -f run_one_sensor run_one_sensor_xargs safe_filename
+    # Pass associative arrays via a deterministic-named temp env file
+    # because bash export -A is not portable across subshells. Instead,
+    # have each subshell re-source the metadata from sensor files (new
+    # shape) or the inline registry (format C) — but the parent already
+    # populated the maps. Fall back to a simple foreach loop when xargs
+    # cannot inherit associative arrays (which is always for bash).
+    for sid in "${filtered_ids[@]}"; do
+      fragment_file="${fragments_dir}/$(safe_filename "$sid").yaml"
+      run_one_sensor "$sid" "$fragment_file" &
+    done
+    wait
+  else
+    for sid in "${filtered_ids[@]}"; do
+      fragment_file="${fragments_dir}/$(safe_filename "$sid").yaml"
+      run_one_sensor "$sid" "$fragment_file"
+    done
+  fi
 fi
 
 # --- merge fragments deterministically (alphabetical by sensor-id) ---------

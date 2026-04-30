@@ -52,6 +52,19 @@ specific Contract criterion, the contract's interpretation guidance
 for that criterion, and the specific sensor verdict that drove the
 decision.
 
+<!--
+Model selection. The coordinator (`skills/implement/SKILL.md`)
+resolves this subagent's model at preflight via
+`yoke_resolve_model validator` (defined in
+`lib/runtime/agent-config.sh`). Default pin: `claude-sonnet-4-6`,
+overridable under `runtime.models.validator` in `.yoke/config.yaml`.
+The Validator never auto-downgrades on Model C governance writes —
+the per-mode pinning is the cheapest gate against R2 (mechanism
+silently no-ops). See `concepts/yoke-pattern-model-c-governance` for
+the Model C contract.
+-->
+
+
 ## Behaviors
 
 ### Always
