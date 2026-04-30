@@ -7,6 +7,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 > `templates/project-claude-md.md` (which `/yoke:bootstrap` copies into
 > their repo).
 
+## Language policy (non-negotiable)
+
+**All content added to this repository MUST be written in English (en-US).**
+This applies without exception to:
+
+- Source code, identifiers, and inline comments
+- Markdown files (CLAUDE.md, READMEs, docs/, templates/, manifesto, plan)
+- PRDs, Tech Specs, Acceptance Contracts, sprint contracts, and any
+  artifact under `.yoke/` (prds, specs, tasks, acceptance-contracts,
+  contracts, sensors, runtime artifacts)
+- Skill definitions, agent prompts, hooks, sensor scripts, templates
+- Commit messages, PR titles and descriptions, issue text
+- Test names, test fixtures, log lines, error messages, user-facing strings
+- Canonical-memory entities authored from this repo (frontmatter and body)
+
+**Never write Portuguese or any other language into repository files.**
+If a user message arrives in another language, translate the user's intent
+into English before producing any file content. Conversational replies in
+chat may follow the user's preferred language, but anything that lands on
+disk in this repo is en-US only.
+
+When editing existing files that contain non-English text, do not introduce
+new non-English content; if the task is to fix the language, replace the
+non-English text with an accurate English equivalent.
+
 ## Project status
 
 Yoke is being built sprint by sprint. **v1.1.x is the current shipped
