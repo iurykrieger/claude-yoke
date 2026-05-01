@@ -270,45 +270,49 @@ sprint boundaries):
    hard-bound check, stop check) against partial state — every step
    below in this cycle assumes all `3 + N` Task calls have returned.
 
-2. **Sensor execution — Phase A (cheap, deterministic).** Run
-   `hooks/verify-acceptance.sh --tier cheap` to capture cycle N's
-   post-Generator sensor state for the **cheap tier**. Pass
-   `--criterion <id>` where `<id>` is the Generator's last targeted
-   criterion (read from the most recent `citing_criterion:` entry in
-   `wm_progress_path`); pass
-   `--fragments-dir "$(wm_runtime_dir)/.pending-fragments"`; redirect
-   stdout to `$(wm_runtime_dir)/.pending-snapshot.yaml`. Sensors run
-   in parallel via `xargs -P "$(yoke_sensor_concurrency)"` (default 4,
-   configurable via `runtime.sensor_concurrency` in
+2. **Sensor execution — Phase A (cheap-equivalent, deterministic).** Run
+   `hooks/verify-acceptance.sh --max-time-cost 60` to capture cycle N's
+   post-Generator sensor state at the cheap-equivalent cost ceiling
+   (sensors whose `time_cost:` exceeds the cap are skipped; the cap is
+   the coordinator's filter, replacing the retired `--tier cheap`
+   flag per the sensor-harness-realignment refactor — see
+   `agents/validator.md` "Cost-based filtering of which sensors run
+   this cycle is the coordinator's job"). Pass `--criterion <id>`
+   where `<id>` is the Generator's last targeted criterion (read from
+   the most recent `citing_criterion:` entry in `wm_progress_path`);
+   pass `--fragments-dir "$(wm_runtime_dir)/.pending-fragments"`;
+   redirect stdout to `$(wm_runtime_dir)/.pending-snapshot.yaml`.
+   Sensors run in parallel via `xargs -P "$(yoke_sensor_concurrency)"`
+   (default 4, configurable via `runtime.sensor_concurrency` in
    `.yoke/config.yaml`). When no `citing_criterion` is recorded
-   (cycle 0 / fallback) omit `--criterion` and run the full cheap
-   tier. The Validator (`agents/validator.md`) reads the resulting
-   snapshot — it never invokes `verify-acceptance.sh` itself.
+   (cycle 0 / fallback) omit `--criterion` and run every sensor that
+   fits the cap. The Validator (`agents/validator.md`) reads the
+   resulting snapshot — it never invokes `verify-acceptance.sh` itself.
 
-3. **Sensor execution — Phase B (expensive, gated, deterministic).**
-   Decide whether to run the expensive tier this cycle by reading
-   cycle `<N-1>`'s `schedule_next` from `wm_progress_path` (Validator-
-   owned scheduling, sensor-cost-tiering Part 4 — see
-   `agents/validator.md`'s "schedule_next emission" contract).
-   - **Cycle 1**: skip Phase B. No prior `schedule_next` exists; the
-     coordinator runs cheap-only by design. Phase B becomes possible
-     from cycle 2 onward via the Validator's authorization.
-   - **Cycle ≥ 2**: parse the `schedule_next:` block from the most
-     recent `## Cycle <N-1>` entry in `wm_progress_path`. If
-     `tiers:` includes `expensive`, OR `sensors:` lists explicit
-     ids whose `applies_to` covers the current criterion, run
-     `hooks/verify-acceptance.sh --tier expensive --criterion <id>
-     --fragments-dir "$(wm_runtime_dir)/.pending-fragments"` and
-     **append** its results to the same
-     `$(wm_runtime_dir)/.pending-snapshot.yaml` (the snapshot is the
-     union of Phase A + Phase B). Otherwise, skip Phase B.
-   This dual phase is the **two-phase per-cycle execution** of
-   sensor-cost-tiering — cheap sensors fire every cycle (shift-left
-   on actionable feedback), expensive sensors fire only when
-   pre-convergence failure would yield actionable signal. Source PRD:
-   `.yoke/prds/2026-04-27-sensor-cost-tiering.md`. Both phases respect the
+3. **Sensor execution — Phase B (expensive-equivalent, deterministic).**
+   From cycle 2 onward, run a higher-ceiling sweep that lets
+   inferential / longer-running sensors fire without flooding cheap
+   cycles with their cost. The Validator no longer emits a
+   `schedule_next:` block to gate this — that mechanism was retired
+   in the sensor-harness-realignment refactor; cost-based filtering
+   moved to the coordinator. Skip Phase B on cycle 1 (no prior
+   adversarial signal yet to justify the cost). On cycle ≥ 2, run
+   `hooks/verify-acceptance.sh --max-time-cost 600 --criterion <id>
+   --fragments-dir "$(wm_runtime_dir)/.pending-fragments"` and
+   **append** its results to the same
+   `$(wm_runtime_dir)/.pending-snapshot.yaml` (the snapshot is the
+   union of Phase A + Phase B). Sensors that already fit the
+   cheap-equivalent cap from Phase A are de-duplicated by
+   `verify-acceptance.sh` (it skips sensors whose snapshot entry is
+   already present in the merge target). Both phases respect the
    `runtime.inferential_sensor_concurrency` cap and the deferred-
-   sensors queue when tier filtering authorizes inferential judges.
+   sensors queue. The cheap-vs-expensive split is no longer a hard
+   tier classification — it is a soft cost-ceiling shift between the
+   two phases; the same sensor file is eligible for either phase
+   depending on whether its `time_cost:` fits the cap. Source PRD:
+   `.yoke/prds/2026-04-27-sensor-cost-tiering.md` (Part 4's
+   `schedule_next` mechanism was retired by the
+   `2026-04-30-sensor-harness-realignment` PRD).
 
 4. **Run-history append (deterministic).** After Phase A (always)
    and Phase B (when authorized), invoke
@@ -352,11 +356,14 @@ sprint boundaries):
    sweep.** This step decides three outcomes: (a) advance to the
    next sprint, (b) declare MERGE-READY (last sprint just
    converged), or (c) continue this sprint's loop.
-   - First, run `hooks/verify-acceptance.sh --concurrency 1 --tier
-     all --sprint <current_sprint>` (no `--criterion`), filtering
-     sensors / criteria to those declared in the active sprint
-     file's `## Functional acceptance criteria` and `## Sensors`
-     blocks. Redirect stdout to
+   - First, run `hooks/verify-acceptance.sh --concurrency 1
+     --sprint <current_sprint>` (no `--criterion`, no cost cap),
+     filtering sensors / criteria to those declared in the active
+     sprint file's `## Functional acceptance criteria` and
+     `## Sensors` blocks. The convergence sweep runs every
+     in-sprint sensor regardless of cost — the cheap-equivalent /
+     expensive-equivalent ceilings used in steps 2–3 are per-cycle
+     filters, not convergence filters. Redirect stdout to
      `$(wm_runtime_dir)/.sprint-converge-snapshot.yaml`. If every
      active-sprint criterion has `status: pass` AND no `divergence`
      verdict from the Validator, the sprint has converged.
@@ -370,14 +377,13 @@ sprint boundaries):
    - When `current_sprint` would exceed the last sprint id (i.e.
      every sprint has been completed), promote to the **full-run
      merge-ready sweep**: run `hooks/verify-acceptance.sh
-     --concurrency 1 --tier all` (no `--criterion`, no `--sprint`)
+     --concurrency 1` (no `--criterion`, no `--sprint`, no cost cap)
      and redirect stdout to
-     `$(wm_runtime_dir)/.merge-ready-snapshot.yaml`. The merge-ready
-     sweep ignores `schedule_next` entirely — every sensor (cheap
-     AND expensive) across every criterion MUST pass before the run
-     terminates, regardless of any per-sprint authorization. Scoped
-     / parallel / tier-filtered modes never decide convergence; the
-     serial full-suite sweep across all tiers is the authoritative
+     `$(wm_runtime_dir)/.merge-ready-snapshot.yaml`. Every sensor
+     across every criterion MUST pass before the run terminates,
+     regardless of any per-cycle cost-cap filtering. Scoped /
+     parallel / cost-capped modes never decide convergence; the
+     serial full-suite sweep at no cost cap is the authoritative
      final check (sensor-cost-tiering Part 5). If every criterion
      in the Acceptance Contract has `status: pass` in this snapshot
      AND no `divergence` verdict from the Validator, return
