@@ -668,11 +668,32 @@ upsert_mode() {
   shopt -u nullglob
   ids="$(printf '%s\n' "$ids" | LC_ALL=C sort -u | grep -v '^$' || true)"
 
+  # Sensor-id regex — matches `wm_sensor_path` in
+  # lib/working-memory/paths.sh. Kebab-or-snake plus '.' / '-' / '_';
+  # lower-case alnum start; ≤64 chars total. The path constructor
+  # honors `--root` so we cannot dispatch through `wm_sensor_path`
+  # directly — duplicating the validation regex here keeps the two
+  # call sites in sync (any tightening must touch both).
+  local sensor_id_regex='^[a-z0-9][a-z0-9_.-]{0,63}$'
+
   local upserted_yaml=""
+  local failures_yaml=""
   local id sf action
+  local invalid_count=0
   if [ -n "$ids" ]; then
     while IFS= read -r id; do
       [ -z "$id" ] && continue
+      if [[ ! "$id" =~ $sensor_id_regex ]]; then
+        # Structured failure per concepts/yoke-pattern-sensors —
+        # sensor / expected / actual / reason / correction.
+        failures_yaml+="  - sensor: \"${id}\""$'\n'
+        failures_yaml+="    expected: \"sensor id matching ${sensor_id_regex}\""$'\n'
+        failures_yaml+="    actual: \"${id}\""$'\n'
+        failures_yaml+="    reason: \"sensor id contains characters outside the kebab-or-snake set (allowed: lower-case alnum start, then [a-z0-9_.-], ≤64 chars total). Whitespace, parentheses, and uppercase are rejected.\""$'\n'
+        failures_yaml+="    correction: \"edit the contract to remove the invalid sensor reference (e.g. drop annotations from \`Sensors: [<id> (annotation)]\` or rename the registry entry); re-run upsert.\""$'\n'
+        invalid_count=$((invalid_count + 1))
+        continue
+      fi
       sf="${sensors_dir}/${id}.md"
       if [ -f "$sf" ]; then
         action="unchanged"
@@ -684,6 +705,22 @@ upsert_mode() {
       upserted_yaml+="    path: \"${sf}\""$'\n'
       upserted_yaml+="    action: ${action}"$'\n'
     done <<< "$ids"
+  fi
+
+  if [ "$invalid_count" -gt 0 ]; then
+    # Surface the same structured failures on stderr so callers piping
+    # stdout into a parser still see the violation list. Exit 4 per
+    # the upsert contract.
+    {
+      printf 'wm: ack-sensors --mode upsert rejected %d invalid sensor id(s):\n' "$invalid_count"
+      printf '%s' "$failures_yaml"
+    } >&2
+    if [ -z "$upserted_yaml" ]; then
+      printf 'status: error\nupserted: []\nfailures:\n%s' "$failures_yaml"
+    else
+      printf 'status: error\nupserted:\n%sfailures:\n%s' "$upserted_yaml" "$failures_yaml"
+    fi
+    exit 4
   fi
 
   if [ -z "$upserted_yaml" ]; then
