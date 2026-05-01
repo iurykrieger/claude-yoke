@@ -310,24 +310,7 @@ sprint boundaries):
    `runtime.inferential_sensor_concurrency` cap and the deferred-
    sensors queue when tier filtering authorizes inferential judges.
 
-4. **Run-history append (deterministic).** After Phase A (always)
-   and Phase B (when authorized), invoke
-   `bash lib/sensors/append-runs.sh "$(wm_runtime_dir)/.pending-snapshot.yaml" <N> <criterion>`
-   to append one entry to each executed sensor's
-   `.yoke/sensors/<id>.md` `runs:` history. The helper applies a
-   retention cap of N=20 (oldest entries roll off on overflow) and
-   writes atomically. Sensors that did not run this cycle (Phase B
-   was skipped, or the sensor was filtered out by `--criterion`)
-   are not touched. Sensors with no per-sensor file (not registered
-   under `## Sensors registry`) are skipped silently — readiness
-   mode is the right place to surface that. The persisted history
-   is the durable record the Validator reads next cycle when
-   emitting `schedule_next`. `hooks/post-iteration.sh` then promotes
-   the scratch snapshot to `$(wm_snapshots_dir)/cycle-<N>.yaml` —
-   the snapshot file is the union of Phase A + Phase B and is never
-   re-run when the scratch is already present.
-
-5. **Contradiction check (deterministic).** Run
+4. **Contradiction check (deterministic).** Run
    `lib/ralph-loop/orchestrate.sh check-contradiction`. If a sprint
    contract textually contradicts an Acceptance Contract criterion
    (heuristic: contains a relax/remove/skip/disable/bypass/ignore
@@ -335,20 +318,20 @@ sprint boundaries):
    and the loop pauses with a clear message: "Sprint contract
    contradicts Acceptance Contract. Pausing for human arbitration."
 
-6. **Persist (deterministic).** Run `hooks/post-iteration.sh`. The
+5. **Persist (deterministic).** Run `hooks/post-iteration.sh`. The
    hook:
    - Increments the cycle counter at `wm_cycle_counter_path`
      (`.yoke/runtime/.cycle-counter`).
    - Snapshots `verify-acceptance.sh` output to
      `$(wm_snapshots_dir)/cycle-<N>.yaml`.
 
-7. **Hard-bound check (deterministic).** Run
+6. **Hard-bound check (deterministic).** Run
    `hooks/check-hard-bounds.sh`. If cycles, timeout, or token
    budget is exceeded, the hook invokes
    `lib/ralph-loop/escalate.sh --reason hard-bound` and exits 10.
    The skill treats this as a pause-with-arbitration-packet.
 
-8. **Stop check — per-sprint convergence + full-run merge-ready
+7. **Stop check — per-sprint convergence + full-run merge-ready
    sweep.** This step decides three outcomes: (a) advance to the
    next sprint, (b) declare MERGE-READY (last sprint just
    converged), or (c) continue this sprint's loop.
@@ -386,14 +369,14 @@ sprint boundaries):
      --category quality-policies-broken` — a converged-per-sprint
      run that fails the cross-sprint sweep is a coupling regression
      between sprints.
-   - On no per-sprint convergence: continue to step 9.
+   - On no per-sprint convergence: continue to step 8.
 
-9. **Cycle status snapshot (deterministic, exactly once per cycle).**
+8. **Cycle status snapshot (deterministic, exactly once per cycle).**
    Run `bash lib/ralph-loop/status-snapshot.sh "$(wm_runtime_dir)"`
    and emit its stdout to the user verbatim. Fires once per cycle,
    only when the loop continues to the next cycle — i.e. **after**
-   step 6 (`post-iteration.sh`) and step 7 (`check-hard-bounds.sh`)
-   have completed and step 8 chose to continue. Do **not** emit on
+   step 5 (`post-iteration.sh`) and step 6 (`check-hard-bounds.sh`)
+   have completed and step 7 chose to continue. Do **not** emit on
    MERGE-READY (the canonize handoff prints the exit summary) or on
    escalation paths (`escalate.sh` already surfaces full state via
    the Trigger-4 packet). Do **not** emit between step 1 and step 8
@@ -569,7 +552,7 @@ see `concepts/yoke-pattern-human-triggers`.
   written to `.yoke/runtime/.judge-verdicts/cycle-<N-1>/` by judges
   spawned in the previous cycle's batch.
 - Do NOT emit user-visible status mid-cycle — between step 1
-  (per-cycle batch dispatch) and step 9 (cycle status snapshot) the
+  (per-cycle batch dispatch) and step 8 (cycle status snapshot) the
   skill must stay silent. The status block is a single, fixed-format
   emission per cycle; per-notification or per-step output dilutes
   back-pressure (`conventions.md`: "success is silent, failures are
