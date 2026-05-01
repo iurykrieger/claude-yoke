@@ -5,24 +5,90 @@
 > Approved by: <user>
 > Approved at: <iso8601>
 
+## Introduction / Overview
+
+Brief description of the feature and the problem it solves. Lead with
+the concrete pain point, the population that suffers, what triggered
+the ask, and why now. Strategic constraints from outside the technical
+sphere belong here.
+
+<1–3 paragraphs>
+
+## Goals
+
+Specific, measurable objectives. Each bullet should be a concrete
+outcome a reader can later verify, not a fuzzy aspiration.
+
+- <goal 1>
+- <goal 2>
+
 ## Product invariants
 
 What must hold regardless of implementation. The "shape" of the product
-that constrains every solution. Non-negotiable.
+that constrains every solution. Non-negotiable. These survive into the
+Acceptance Contract verbatim and bind every sprint.
 
 - <invariant 1>
 - <invariant 2>
 
-## Business context
+## User Stories
 
-Why this matters and why now. Who suffers without it. What triggered the
-ask. Strategic constraints from outside the technical sphere.
+Each story is small enough to implement in one focused session and
+carries a verifiable acceptance checklist. The Tech Spec phase will
+decompose stories into sprint tasks; vague stories produce vague tasks.
 
-<1–3 paragraphs>
+### US-001: <short descriptive title>
 
-## Known constraints
+**Description.** As a <user role>, I want <capability> so that <benefit>.
 
-What the implementation must respect, grouped by source.
+**Acceptance criteria:**
+- [ ] <specific, observable criterion>
+- [ ] <another criterion>
+- [ ] Typecheck / lint passes
+- [ ] **[UI stories only]** Verified in browser
+
+### US-002: <short descriptive title>
+
+**Description.** As a <user role>, I want <capability> so that <benefit>.
+
+**Acceptance criteria:**
+- [ ] <criterion>
+- [ ] <criterion>
+
+> Acceptance criteria must be verifiable, not vague. "Works correctly"
+> is bad. "Endpoint returns 200 with a valid JWT" is good.
+
+## Functional Requirements
+
+Numbered, unambiguous requirements. The Acceptance Contract (Phase 3)
+lifts these as `FR-N` criteria and binds sensors to them — keep them
+specific enough that a sensor can decide pass/fail.
+
+- **FR-1:** The system must <do something specific>.
+- **FR-2:** When a user <triggers something>, the system must <respond observably>.
+- **FR-3:** <requirement>
+
+## Non-Goals (Out of Scope)
+
+Aggressive, explicit anti-scope. What this feature will NOT include in
+v0. Critical for cutting Tech Spec scope and for refusing well-intentioned
+expansion mid-sprint.
+
+- <out-of-scope item 1>
+- <out-of-scope item 2>
+
+## Design Considerations
+
+Optional. UI/UX requirements, mockups, components to reuse. Omit the
+section if the feature has no user-facing surface.
+
+- <design note>
+
+## Technical Considerations
+
+Optional. What the implementation must respect, grouped by source.
+Surface only constraints that meaningfully shape the solution; do not
+duplicate generic platform conventions.
 
 ### Technical
 - <constraint with rationale>
@@ -37,15 +103,25 @@ What the implementation must respect, grouped by source.
 ## Risks
 
 What could go wrong. Each risk has an observable signal and (optionally)
-a mitigation hint. The Validator may consume these in Phase 3 for sensor
-calibration.
+a mitigation hint. The Validator consumes these in Phase 3 for sensor
+calibration — vague risks produce vague sensors.
 
 - **<risk name>** — <description>. Signal: <observable>. Mitigation: <if known>.
 
-## Open questions
+## Success Metrics
 
-TODOs the Generator could not resolve in dialogue. Block downstream phases
-when load-bearing; the Tech Spec must close them.
+How we will know this worked once shipped. Each metric is observable
+or measurable post-release.
+
+- <metric: e.g., "reduce time-to-first-success by 50%">
+- <metric: e.g., "support tickets in category X drop below 5/week">
+
+## Open Questions
+
+TODOs the Generator could not resolve in dialogue. Block downstream
+phases when load-bearing; the Tech Spec must close them. Use the
+literal word `None.` (and remove this template list) when there are
+no open questions — that suppresses the approval-menu warning.
 
 - <question>
 
