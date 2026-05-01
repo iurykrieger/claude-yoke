@@ -956,9 +956,9 @@ else
 fi
 
 if grep -qF 'lib/sensors/append-runs.sh' "$IMPLEMENT_SKILL"; then
-  pass "(l) implement SKILL.md invokes lib/sensors/append-runs.sh"
+  err "(l) implement SKILL.md still invokes retired lib/sensors/append-runs.sh (run-history append + schedule_next chain was retired by sensor-harness-realignment; the writer wrote into a void because templates/sensor.md rejects \`runs:\`)"
 else
-  err "(l) implement SKILL.md missing append-runs invocation"
+  pass "(l) implement SKILL.md does not invoke retired lib/sensors/append-runs.sh"
 fi
 
 if grep -qE '\-\-tier all' "$IMPLEMENT_SKILL"; then
@@ -974,206 +974,37 @@ else
 fi
 
 # ---------------------------------------------------------------------
-# (m) lib/sensors/append-runs.sh — unit tests
+# (m) lib/sensors/append-runs.sh — retired post sensor-harness-realignment
 # ---------------------------------------------------------------------
+# The run-history append + schedule_next chain that this helper fed was
+# retired by the sensor-harness-realignment refactor: templates/sensor.md
+# now rejects `runs:` as a legacy field, and agents/validator.md no
+# longer emits `schedule_next:` (cost-based filtering moved to the
+# coordinator via --max-time-cost / --max-token-cost). The helper wrote
+# into a void on every cycle, silently failing because no sensor file
+# carried `runs:` to append to. This section asserts the helper has
+# been deleted.
+
 APPEND_RUNS="$PLUGIN_ROOT/lib/sensors/append-runs.sh"
 
-if [ -x "$APPEND_RUNS" ]; then
-  pass "(m) lib/sensors/append-runs.sh exists and is executable"
+if [ ! -e "$APPEND_RUNS" ]; then
+  pass "(m) lib/sensors/append-runs.sh deleted (writer of retired runs: history)"
 else
-  err "(m) lib/sensors/append-runs.sh missing or not executable"
-fi
-
-# Build a fresh fixture in its own tmpdir.
-TMP_PART5=$(mktemp -d)
-mkdir -p "$TMP_PART5/.yoke/sensors"
-cat > "$TMP_PART5/.yoke/sensors/foo.md" <<'EOF'
----
-id: foo
-command: echo foo
-class: computational
-tier: cheap
-applies_to: [some-task]
-runs: []
----
-
-# foo
-
-## Caveats
-
-## Calibration notes
-EOF
-
-# Append a single result via a hand-crafted snapshot.
-cat > "$TMP_PART5/snapshot.yaml" <<'EOF'
-results:
-  - sensor: "foo"
-    command: "echo foo"
-    status: pass
-    exit_code: 0
-    output_excerpt: "foo passed cleanly"
-    reason: ""
-EOF
-
-(cd "$TMP_PART5" && bash "$APPEND_RUNS" "$TMP_PART5/snapshot.yaml" 1 "Scenario 1" >/dev/null)
-
-# Verify the runs: block now has one entry.
-if grep -qE '^[[:space:]]*-[[:space:]]+\{cycle: 1' "$TMP_PART5/.yoke/sensors/foo.md"; then
-  pass "(m) append-runs added cycle 1 entry to foo.md"
-else
-  err "(m) append-runs did not add a runs entry to foo.md"
-fi
-
-# Status field captured.
-if grep -qE 'status: pass' "$TMP_PART5/.yoke/sensors/foo.md"; then
-  pass "(m) append-runs entry includes status"
-else
-  err "(m) append-runs entry missing status"
-fi
-
-# Criterion captured.
-if grep -qE 'criterion: "Scenario 1"' "$TMP_PART5/.yoke/sensors/foo.md"; then
-  pass "(m) append-runs entry includes criterion"
-else
-  err "(m) append-runs entry missing criterion"
-fi
-
-# Body preserved.
-if grep -qE '^# foo$' "$TMP_PART5/.yoke/sensors/foo.md"; then
-  pass "(m) append-runs preserved body heading"
-else
-  err "(m) append-runs clobbered body"
-fi
-
-# Append 25 more cycles to test retention cap (N=20, cycles 2..26).
-for n in $(seq 2 26); do
-  cat > "$TMP_PART5/snapshot.yaml" <<EOF
-results:
-  - sensor: "foo"
-    command: "echo foo"
-    status: pass
-    exit_code: 0
-    output_excerpt: ""
-    reason: ""
-EOF
-  (cd "$TMP_PART5" && bash "$APPEND_RUNS" "$TMP_PART5/snapshot.yaml" "$n" "Scenario 1" >/dev/null)
-done
-
-# After 26 appends total, only the last 20 should remain (cycles 7..26).
-remaining_count=$(grep -cE '^[[:space:]]*-[[:space:]]+\{cycle: ' "$TMP_PART5/.yoke/sensors/foo.md")
-if [ "$remaining_count" -eq 20 ]; then
-  pass "(m) retention cap enforced (exactly 20 entries after 26 appends)"
-else
-  err "(m) retention cap broken — expected 20 entries, got ${remaining_count}"
-fi
-
-# Cycle 1 (first) should have rolled off.
-if grep -qE '^[[:space:]]*-[[:space:]]+\{cycle: 1,' "$TMP_PART5/.yoke/sensors/foo.md"; then
-  err "(m) oldest entry (cycle 1) was not rolled off"
-else
-  pass "(m) oldest entry (cycle 1) rolled off as expected"
-fi
-
-# Cycle 26 (newest) should be present.
-if grep -qE '^[[:space:]]*-[[:space:]]+\{cycle: 26,' "$TMP_PART5/.yoke/sensors/foo.md"; then
-  pass "(m) newest entry (cycle 26) present after retention"
-else
-  err "(m) newest entry missing"
-fi
-
-# Cycle 7 (boundary - oldest kept) should be present.
-if grep -qE '^[[:space:]]*-[[:space:]]+\{cycle: 7,' "$TMP_PART5/.yoke/sensors/foo.md"; then
-  pass "(m) boundary entry (cycle 7) present after retention"
-else
-  err "(m) boundary entry (cycle 7) missing"
-fi
-
-# Sensors without a file are skipped silently.
-cat > "$TMP_PART5/snapshot.yaml" <<'EOF'
-results:
-  - sensor: "foo"
-    command: "echo foo"
-    status: pass
-    exit_code: 0
-    output_excerpt: ""
-    reason: ""
-  - sensor: "phantom"
-    command: "echo phantom"
-    status: pass
-    exit_code: 0
-    output_excerpt: ""
-    reason: ""
-EOF
-
-set +e
-(cd "$TMP_PART5" && bash "$APPEND_RUNS" "$TMP_PART5/snapshot.yaml" 99 "Scenario 1" >/dev/null 2>&1)
-phantom_exit=$?
-set -e
-
-if [ "$phantom_exit" -eq 0 ]; then
-  pass "(m) append-runs skips unregistered sensors silently (exit 0)"
-else
-  err "(m) append-runs failed when skipping unregistered sensor (exit ${phantom_exit})"
-fi
-
-if [ ! -f "$TMP_PART5/.yoke/sensors/phantom.md" ]; then
-  pass "(m) append-runs did NOT create file for unregistered sensor"
-else
-  err "(m) append-runs created file for unregistered sensor (should skip)"
+  err "(m) lib/sensors/append-runs.sh still on disk despite the retirement of \`runs:\` and \`schedule_next:\`"
 fi
 
 # ---------------------------------------------------------------------
-# (n) End-to-end smoke: cheap-only cycle leaves expensive untouched
+# (n) End-to-end smoke — retired post sensor-harness-realignment
 # ---------------------------------------------------------------------
-# Reuse the Part 2/3 fixture (TMP_PART2 has 4 sensors with files).
-
-# Pre-state: capture mtimes of all sensor files.
-declare -A pre_mtime
-for id in linter-ruff unit-pytest judge-voice playwright-e2e; do
-  pre_mtime["$id"]="$(stat -f '%m' "$TMP_PART2/.yoke/sensors/${id}.md" 2>/dev/null \
-                   || stat -c '%Y' "$TMP_PART2/.yoke/sensors/${id}.md" 2>/dev/null)"
-done
-
-# Simulate Phase A only (cheap tier filter from Part 3).
-phase_a_snapshot="$TMP_PART2/phase-a.yaml"
-(cd "$TMP_PART2" && bash "$HOOK" --tier cheap --criterion 'Scenario 1' "$TMP_PART2/contract.md" 2>/dev/null > "$phase_a_snapshot")
-
-# Append runs from the Phase A snapshot.
-(cd "$TMP_PART2" && bash "$APPEND_RUNS" "$phase_a_snapshot" 1 "Scenario 1" >/dev/null)
-
-# Cheap sensors (linter-ruff, unit-pytest) should have a runs entry.
-for id in linter-ruff unit-pytest; do
-  if grep -qE '^[[:space:]]*-[[:space:]]+\{cycle: 1' "$TMP_PART2/.yoke/sensors/${id}.md"; then
-    pass "(n) end-to-end: cheap-tier sensor ${id} has cycle-1 runs entry"
-  else
-    err "(n) end-to-end: cheap-tier sensor ${id} missing cycle-1 entry"
-  fi
-done
-
-# Expensive sensors (judge-voice, playwright-e2e) should NOT have a
-# cycle-1 entry — they didn't run in Phase A. Their `runs:` from prior
-# Part 4 fixture state may already have entries; we only assert no
-# *cycle-1* entry was added for them.
-for id in judge-voice playwright-e2e; do
-  if grep -qE '^[[:space:]]*-[[:space:]]+\{cycle: 1' "$TMP_PART2/.yoke/sensors/${id}.md"; then
-    err "(n) end-to-end: expensive sensor ${id} got cycle-1 entry (Phase B was skipped)"
-  else
-    pass "(n) end-to-end: expensive sensor ${id} unchanged when Phase B skipped"
-  fi
-done
-
-# Now simulate Phase B authorization: run --tier expensive and append.
-phase_b_snapshot="$TMP_PART2/phase-b.yaml"
-(cd "$TMP_PART2" && bash "$HOOK" --tier expensive --criterion 'Scenario 1' "$TMP_PART2/contract.md" 2>/dev/null > "$phase_b_snapshot")
-(cd "$TMP_PART2" && bash "$APPEND_RUNS" "$phase_b_snapshot" 2 "Scenario 1" >/dev/null)
-
-# Now playwright-e2e (Scenario 1 expensive sensor) should have cycle-2.
-if grep -qE '^[[:space:]]*-[[:space:]]+\{cycle: 2' "$TMP_PART2/.yoke/sensors/playwright-e2e.md"; then
-  pass "(n) end-to-end: expensive sensor playwright-e2e has cycle-2 entry after Phase B"
-else
-  err "(n) end-to-end: playwright-e2e missing cycle-2 entry post-Phase-B"
-fi
-
-rm -rf "$TMP_PART5"
+# This section asserted that (cheap-tier sensors get a cycle-N entry in
+# their per-sensor runs: history) AND (expensive-tier sensors are
+# untouched until Phase B authorizes them). Both legs depended on the
+# append-runs.sh writer that is gone (m), AND on `--tier cheap` /
+# `--tier expensive` flags that the realignment removed from
+# verify-acceptance.sh in favor of `--max-time-cost` / `--max-token-cost`.
+# The replacement end-to-end test for the new coordinator-level tier
+# resolution belongs to the follow-up `--tier`-flag retirement PR;
+# this section's content has been retired here so the test suite no
+# longer claims a contract that the codebase has already broken.
 
 harness::summary
