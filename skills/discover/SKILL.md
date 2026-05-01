@@ -2,10 +2,12 @@
 name: discover
 description: >
   Phase 1 — Discovery. Runs an interactive dialogue (1–5 rounds) to turn
-  an idea into an approved PRD with product invariants, business context,
-  known constraints, risks, and open questions. Saves to
-  `.yoke/prds/<YYYY-MM-DD>-<slug>.md` and sets `.yoke/runtime/.current` to the
-  slug. Pauses for explicit human approval (Trigger 1) before completing.
+  an idea into an approved PRD with introduction/overview, goals, product
+  invariants, user stories (US-###), functional requirements (FR-N),
+  non-goals, technical considerations, risks, success metrics, and open
+  questions. Saves to `.yoke/prds/<YYYY-MM-DD>-<slug>.md` and sets
+  `.yoke/runtime/.current` to the slug. Pauses for explicit human approval
+  (Trigger 1) before completing.
 argument-hint: "<idea>"
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash
 ---
@@ -18,12 +20,16 @@ dialogue with the user.
 > **Lineage.** Forked structurally from
 > [vibeflow:discover](https://github.com/pe-menezes/vibeflow), one-time
 > at Yoke v0.2.0; refreshed in v1.1.0 to drive dialogue inline (no
-> subagent spawn). Adaptations: namespaced under `/yoke:*`, switched to
-> Yoke's PRD shape (product invariants / business context / constraints
-> / risks / open questions instead of Vibeflow's problem / audience /
-> solution shape), routes any canonical-memory queries through
-> `/yoke:search-canonical-memory`. Per-skill mapping recorded in `docs/lineage.md` at
-> Sprint 8.
+> subagent spawn); refreshed again in v2.1.0 to mirror the widely-used
+> [snarktank/ralph PRD pattern](https://github.com/snarktank/ralph/blob/main/skills/prd/SKILL.md)
+> (lettered clarifying questions, US-###/FR-N indexing, explicit
+> non-goals, observable success metrics). Adaptations from both
+> upstreams: namespaced under `/yoke:*`, preserves Yoke-specific
+> sections that are load-bearing for downstream phases (Product
+> invariants → Acceptance Contract; Risks → Phase-3 sensor calibration),
+> routes any canonical-memory queries through
+> `/yoke:search-canonical-memory`. Per-skill mapping recorded in
+> `docs/lineage.md` at Sprint 8.
 
 ## Your role (Product Manager persona, inline)
 
@@ -44,6 +50,21 @@ You are NOT a passive assistant. You:
 Tone: direct, constructive, opinionated. Criticize the idea, not the
 person.
 
+## Writing principles for the PRD body
+
+The PRD's reader is a Tech Spec author or an implementation agent —
+sometimes a junior developer. When you draft the PRD body, hold to:
+
+- **Explicit and unambiguous.** No prose that requires guessing at intent.
+- **Define jargon on first use** or avoid it.
+- **Numbered IDs are load-bearing.** Every story (`US-001`, `US-002`, …)
+  and every requirement (`FR-1`, `FR-2`, …) gets a stable ID so the
+  Tech Spec and Acceptance Contract can cite it.
+- **Verifiable acceptance criteria.** "Works correctly" is bad.
+  "Endpoint returns 200 with a valid JWT" is good. UI stories include
+  "Verified in browser" as an explicit criterion.
+- **Concrete examples** where they shorten understanding.
+
 ## Process
 
 ### 1. Pre-flight
@@ -62,6 +83,38 @@ After the user's first response, evaluate three checks:
 
 **If all 3 pass:** use the Quick Round (3a).
 **If not:** use the Full Flow (3b).
+
+### Question format — lettered options
+
+Whenever you ask a clarifying question in either flow below, prefer the
+**numbered question + lettered options** format. This lets the user
+reply with terse strings like `1A, 2C, 3B` and keeps multi-question
+rounds compact:
+
+```
+1. What is the primary goal of this feature?
+   A. Reduce time-to-first-success for new users
+   B. Cut support load on an existing painful flow
+   C. Unblock a regulatory or compliance requirement
+   D. Other: <please specify>
+
+2. Who is the primary audience?
+   A. Internal engineers only
+   B. Existing external customers
+   C. Net-new users
+   D. Admins / operators
+
+3. What is the v0 scope shape?
+   A. Minimal viable slice (one happy path)
+   B. Full feature with edge cases
+   C. Backend / API only
+   D. UI only
+```
+
+Always indent the options with three spaces so they render cleanly in
+chat. Always include an `Other:` escape hatch when the option set is
+not exhaustive. Open-ended questions (e.g., "what is the trigger? why
+now?") may stay free-form when the option space cannot be enumerated.
 
 ### 3a. Quick Round (when first response gives clarity)
 
@@ -83,23 +136,34 @@ seems enormous for a first version.
 
 **Round 2 — Audience and success.** Ask:
 - Who is the primary user?
-- How will you know it worked? (metric or observable behavior)
+- How will you know it worked? (observable success metric)
 - What is the most common use scenario?
 
 Challenge if: "everyone" is the audience; the success metric is vague;
 the described flow is too complex for v0.
 
-**Round 3 — Scope and trade-offs.** Ask:
+**Round 3 — Scope, stories, and trade-offs.** Ask:
 - What is the MINIMUM version that solves the problem?
-- What is explicitly OUT OF SCOPE?
-- Are there technical constraints?
+- What is explicitly **out of scope** (anti-scope)?
+- What are the 3-6 user stories that make up v0? (Each should be one
+  focused implementation session.)
+- Are there technical, regulatory, or organizational constraints?
 
 Use canonical memory (via `/yoke:search-canonical-memory`) when relevant to:
 - Identify if something already solves part of the problem.
 - Point out existing patterns the solution should follow.
 - Alert if the idea conflicts with current architecture.
 
-**Round 4 (optional) — Consolidate.** Targeted questions about the
+**Round 4 — Functional requirements and risks.** Ask:
+- What are the numbered, unambiguous functional requirements? (`FR-1`,
+  `FR-2`, … — these will be lifted verbatim into the Acceptance Contract
+  in Phase 3, so each must be specific enough that a sensor can decide
+  pass/fail.)
+- What can go wrong? For each risk: name, observable signal, mitigation
+  (if known). The Validator consumes risks in Phase 3 for sensor
+  calibration — vague risks produce vague sensors.
+
+**Round 5 (optional) — Consolidate.** Targeted questions about the
 specific points still lacking clarity.
 
 **Stop after 5 rounds.** If you still lack clarity, generate the PRD
@@ -135,14 +199,28 @@ After slug confirmation, in this order:
 3. Draft the PRD at `wm_prd_path "<slug>"` (i.e.,
    `.yoke/prds/<slug>.md`) per `templates/prd.md`. Yoke's PRD shape:
 
-- Problem (specific, with scale/impact)
-- Target Audience (concrete)
-- Proposed Solution (high-level WHAT, not HOW)
-- Success Criteria (observable / measurable)
-- Scope v0 (closed list)
-- Anti-scope (explicit, aggressive)
-- Technical Context (`.yoke/`-grounded if available)
-- Open Questions (TODOs to resolve before `/yoke:tech-spec`)
+- **Introduction / Overview** — the feature, the pain it solves, why now.
+- **Goals** — specific, measurable objectives (bullet list).
+- **Product invariants** — non-negotiable shape constraints; carried
+  verbatim into the Acceptance Contract.
+- **User Stories** — `US-001`, `US-002`, … each with description
+  (`As a <role>, I want <capability> so that <benefit>.`) and a
+  verifiable acceptance-criteria checklist. Each story sized for one
+  focused implementation session. UI stories include "Verified in
+  browser" as an explicit criterion.
+- **Functional Requirements** — `FR-1`, `FR-2`, … numbered,
+  unambiguous, sensor-decidable. The Acceptance Contract lifts these as
+  binding criteria.
+- **Non-Goals (Out of Scope)** — aggressive, explicit anti-scope.
+- **Design Considerations** (optional) — UI/UX, mockups, components to
+  reuse.
+- **Technical Considerations** (optional) — constraints grouped by
+  source (Technical / Regulatory / Organizational).
+- **Risks** — name + observable signal + (optional) mitigation; consumed
+  by the Validator in Phase 3 for sensor calibration.
+- **Success Metrics** — observable / measurable post-release.
+- **Open Questions** — TODOs to resolve before `/yoke:tech-spec`. Use
+  the literal word `None.` to suppress the approval-menu warning.
 
 4. `wm_set_active "<slug>"` — write the slug to `.yoke/runtime/.current` (no
    trailing newline).
