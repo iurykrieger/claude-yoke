@@ -66,10 +66,6 @@ cycle_count: 0
         coupling_signal: "<tech-spec-overlap | sensor-evidence-overlap | both>"
     change_set:
       "<path>": "<one-line intent>"
-- schedule_next:
-    sensors: ["<sensor-id>"]                    # optional; explicit ids
-    tiers: ["cheap"]                            # at least one of sensors / tiers must be non-empty
-    reason: "<must cite at least one signal source — sensor id, criterion id, Tech-Spec section, or runs: history entry>"
 - notes: "<free text — keep tight>"
 
 <!-- Subsequent cycles inside this sprint append as further `### Cycle <C>` H3 entries below. When current_sprint: advances, append a new `## Sprint <NN>` H2 below this section. -->
@@ -103,12 +99,11 @@ cycle_count: 0
 > - `citing_criteria` is an alternative to `citing_criterion`, used when
 >   a cycle batches multiple coupled criteria. Exactly one of the two
 >   fields MUST be populated per cycle.
-> - `schedule_next` is the Validator's per-cycle scheduling decision —
->   added in v0.8.0 by sensor-cost-tiering Part 4. Persisted verbatim
->   from the Validator's verdict, it tells the coordinator which
->   sensors / tiers to run in cycle `<N+1>` (lag-by-one). At least one
->   of `sensors:` or `tiers:` MUST be non-empty; `reason:` MUST cite
->   at least one signal source by name (sensor id, criterion id,
->   Tech-Spec section, or `runs:` history entry from a per-sensor
->   file). Empty / missing `schedule_next` is a malformed verdict.
->   Source PRD: `.yoke/prds/2026-04-27-sensor-cost-tiering.md`.
+> - The legacy `schedule_next:` field on each cycle entry was retired
+>   by the sensor-harness-realignment refactor (PRD
+>   `2026-04-30-sensor-harness-realignment`). The Validator no longer
+>   emits it; per-cycle cost-based filtering moved to the coordinator
+>   (`/yoke:implement`) via `--max-time-cost` / `--max-token-cost`
+>   on `verify-acceptance.sh`. New cycle entries MUST NOT include
+>   `schedule_next:`; legacy entries can stay verbatim for audit but
+>   are not re-read.
