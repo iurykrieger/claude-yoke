@@ -97,18 +97,19 @@ else
 fi
 
 # Per-cycle batch section (between "Concurrent subagent batch" header
-# and "Sensor execution" header) declares run_in_background: true.
-batch_section=$(awk '/Concurrent subagent batch/,/Sensor execution/' "$skill_md")
+# and "Phase B — council loop" header) declares run_in_background: true.
+# v3.0 council protocol replaces "Concurrent subagent batch" with Phase A.
+batch_section=$(awk '/Phase A — parallel persona spawn/,/Phase B — council loop/' "$skill_md")
 if echo "$batch_section" | grep -qE 'run_in_background:[[:space:]]*true'; then
-  pass "(e) per-cycle batch declares run_in_background: true"
+  pass "(e) per-cycle Phase A batch declares run_in_background: true"
 else
-  err "(e) per-cycle batch missing run_in_background: true directive"
+  err "(e) per-cycle Phase A batch missing run_in_background: true directive"
 fi
 
 # Termination canonize handoff (between "Termination handoff" header
-# and "Termination paths" header) does NOT declare run_in_background:
-# true — the canonize call is foreground.
-canonize_section=$(awk '/Termination handoff/,/Termination paths/' "$skill_md")
+# and "Sensor consolidation teardown" header) does NOT declare
+# run_in_background: true — the canonize call is foreground.
+canonize_section=$(awk '/Termination handoff/,/Sensor consolidation teardown/' "$skill_md")
 if echo "$canonize_section" | grep -qE 'run_in_background:[[:space:]]*true'; then
   err "(e) canonize handoff incorrectly uses run_in_background: true"
 else
