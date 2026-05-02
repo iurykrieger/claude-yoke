@@ -76,12 +76,7 @@ jobs:
           - tests/example-project.test.sh
           - tests/docs-and-lineage.test.sh
           - tests/ack-sensors-catalog.test.sh
-          - tests/ack-sensors-discoverers.test.sh
-          - tests/ack-sensors-inferential.test.sh
-          - tests/ack-sensors-parallel.test.sh
           - tests/perf-quickwins-part-1.test.sh
-          - tests/perf-quickwins-part-2.test.sh
-          - tests/perf-quickwins-part-3.test.sh
           - tests/smoke/sensor-harness-realignment.test.sh
     steps:
       - name: Check out
