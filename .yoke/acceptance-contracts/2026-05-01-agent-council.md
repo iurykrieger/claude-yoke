@@ -40,7 +40,7 @@ Given a clean v2.x main branch with the last N tasks shipped under the binary lo
 When I run `/yoke:drift-sense --target codebase` against each post-merge SHA, aggregate, and append a `## Baseline metrics` section to `.yoke/specs/2026-05-01-agent-council.md`
 Then `grep -c '^## Baseline metrics$' .yoke/specs/2026-05-01-agent-council.md` returns exactly 1 AND the section contains at least three SHA samples plus a kLoC denominator AND `tests/runtime/baseline-shape.test.sh` exits 0
 Fixture: `tests/runtime/fixtures/spec-with-baseline-stub.md`
-Sensors: [drift-baseline-captured, shellcheck-clean]
+Sensors: [tests-runtime, lint]
 
 ### Scenario 2 — Three persona files load with extended frontmatter
 Task: 2026-05-01-agent-council-s01-t02
@@ -48,7 +48,7 @@ Given the plugin root has no council persona files yet
 When I create `agents/sr-eng.md`, `agents/sr-qa.md`, `agents/sr-staff.md` with Claude Code agent frontmatter extended by `objective`, `sensor-toolkit`, and (Sr Staff only) `review-skill` keys
 Then `tests/runtime/persona-files-shape.test.sh` exits 0 AND `awk` extraction of `agents/sr-staff.md` frontmatter yields a `review-skill` value matching the literal `/review`
 Fixture: `tests/runtime/fixtures/persona-frontmatter-valid.md`
-Sensors: [persona-file-shape-valid, shellcheck-clean]
+Sensors: [tests-runtime, lint]
 
 ### Scenario 3 — Persona schema validator fails fast on malformed files
 Task: 2026-05-01-agent-council-s01-t03
@@ -56,7 +56,7 @@ Given fixture persona files (one valid, one missing `objective`, one with `senso
 When I invoke `bash lib/runtime/persona-loader.sh validate <path>` against each fixture and `validate-all agents/` against the shipped defaults
 Then `tests/runtime/persona-loader.test.sh` exits 0 AND `validate-all agents/` exits 0 against the three shipped persona files AND each malformed fixture exits non-zero with a `wm:`-prefixed stderr line naming the missing or malformed key
 Fixture: `tests/runtime/fixtures/persona-missing-objective.md`, `tests/runtime/fixtures/persona-toolkit-string.md`, `tests/runtime/fixtures/persona-tools-missing.md`
-Sensors: [persona-loader-fail-fast, shellcheck-clean]
+Sensors: [tests-runtime, lint]
 
 ### Scenario 4 — Per-persona slice protocol + deterministic merge
 Task: 2026-05-01-agent-council-s01-t04
@@ -64,7 +64,7 @@ Given a fixture cycle directory at `tests/runtime/fixtures/cycle-3-personas/` co
 When I invoke `lib/runtime/council-merge.sh merge <cycle-dir>` twice in succession and capture each stdout
 Then both invocations produce byte-identical output (verified by `diff -q`) AND the merged view orders personas alphabetically AND `tests/runtime/council-merge.test.sh` exits 0 AND a fixture where one persona writes outside its own slice is detected by the slice-isolation sensor
 Fixture: `tests/runtime/fixtures/cycle-3-personas/`, `tests/runtime/fixtures/cycle-slice-violation/`
-Sensors: [merge-determinism, slice-protocol-isolated, shellcheck-clean]
+Sensors: [tests-runtime, lint]
 
 ### Scenario 5 — Sync barrier enforces mtime ordering
 Task: 2026-05-01-agent-council-s01-t05
@@ -72,7 +72,7 @@ Given an engineered cycle fixture with three slice files and three Phase-A marke
 When I run `tests/sensors/council-sync-barrier.test.sh` against the pass fixture (every slice mtime ≥ the latest marker mtime) and against the fail fixture (one slice's mtime predates the latest marker)
 Then the pass fixture sensor exits 0 AND the fail fixture sensor exits non-zero with a `wm: sync-barrier violation:` line naming the offending slice AND `tests/runtime/sync-barrier.test.sh` exits 0 covering `wait-all` success / timeout / idempotent `clear-markers`
 Fixture: `tests/runtime/fixtures/sync-barrier-pass/`, `tests/runtime/fixtures/sync-barrier-fail/`
-Sensors: [sync-barrier-mtime-ordering, phase-a-marker-cleanup-idempotent, shellcheck-clean]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 6 — Phase A orchestration spawns three personas in parallel
 Task: 2026-05-01-agent-council-s02-t01
@@ -80,7 +80,7 @@ Given a fixture working set under `tests/runtime/fixtures/working-set-three-pers
 When I invoke `/yoke:implement` against the fixture
 Then exactly `.yoke/runtime/cycles/0/sr-eng.md`, `.yoke/runtime/cycles/0/sr-qa.md`, and `.yoke/runtime/cycles/0/sr-staff.md` exist AND all three Phase-A markers exist AND `tests/runtime/phase-a-orchestration.test.sh` exits 0 AND a fixture with one persona stub failing to write its marker triggers a `wait-all` timeout naming the missing marker
 Fixture: `tests/runtime/fixtures/working-set-three-personas/`, `tests/runtime/fixtures/phase-a-marker-missing/`
-Sensors: [phase-a-spawns-three-personas, phase-b-opens-after-barrier, shellcheck-clean]
+Sensors: [tests-runtime, lint]
 
 ### Scenario 7 — Phase B council loop terminates on quiescence or arbiter consensus or cap
 Task: 2026-05-01-agent-council-s02-t02
@@ -88,7 +88,7 @@ Given three branch fixtures: immediate quiescence, arbiter-detected consensus af
 When I run `bash lib/runtime/council.sh phase-b <slug> <cycle-N>` against each fixture and run a round-cap test that flips `council_rounds_max` to 1 and 5
 Then `tests/runtime/council-phase-b.test.sh` exits 0 across the three branch fixtures AND `tests/runtime/round-cap-config.test.sh` exits 0 AND each branch's `progress.md` entry records the round count, per-round réplica counts, and exit status (`consensus | trigger-4`)
 Fixture: `tests/runtime/fixtures/phase-b-quiescence/`, `tests/runtime/fixtures/phase-b-arbiter-consensus/`, `tests/runtime/fixtures/phase-b-cap-exhausted/`
-Sensors: [council-round-cap-respected, quiescence-detection-correct, arbiter-spawned-only-with-replicas, shellcheck-clean]
+Sensors: [tests-runtime, lint]
 
 ### Scenario 8 — Contradiction-detection arbiter emits structured JSON verdict
 Task: 2026-05-01-agent-council-s02-t03
@@ -96,7 +96,7 @@ Given four engineered cycle fixtures (consensus, direct-contradiction, importanc
 When I invoke `agents/council-arbiter.md` against each fixture and parse the JSON output via `jq`
 Then `tests/sensors/council-arbiter.test.sh` exits 0 across all four fixtures AND on `direct-contradiction.cycle/` the JSON parses to `consensus: false` with exactly one entry in `contradictions` AND the `tone-only.cycle/` produces `consensus: true` with empty `contradictions` and a non-empty `tone_only_pairs` list
 Fixture: `tests/runtime/fixtures/arbiter/consensus.cycle/`, `direct-contradiction.cycle/`, `importance-disagreement.cycle/`, `tone-only.cycle/`
-Sensors: [arbiter-emits-structured-verdict, council-arbiter, shellcheck-clean]
+Sensors: [tests-runtime, tests-sensors, code-review, lint]
 
 ### Scenario 9 — Trigger 4 fires on unresolved divergence and renders correctly
 Task: 2026-05-01-agent-council-s02-t04
@@ -104,7 +104,7 @@ Given an engineered cycle that exhausts the round cap with two unresolved contra
 When I run `/yoke:implement` against the fixture and a follow-up test that supplies user replies (`ratify sr-qa` and `rework needed: <text>`)
 Then `tests/sensors/trigger4-escalates-on-divergence.test.sh` exits 0 AND the rendered escalation message contains every flagged persona pair (e.g. `sr-eng × sr-qa`, `sr-qa × sr-staff`) AND each user reply is parsed and applied as the cycle's resolution
 Fixture: `tests/runtime/fixtures/trigger4-two-pairs-divergent/`
-Sensors: [trigger4-fires-on-unresolved-divergence, trigger4-message-renders-correctly, shellcheck-clean]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 10 — Sr Eng retool ships unit tests, never acceptance tests
 Task: 2026-05-01-agent-council-s03-t01
@@ -112,7 +112,7 @@ Given the realistic-task fixture cycle
 When Sr Eng runs Phase A against it
 Then `tests/runtime/sr-eng-prompt-shape.test.sh` exits 0 (parses the four prompt sections + anti-scope clauses) AND on the cycle, `grep -c '^- file:' .yoke/runtime/cycles/0/sr-eng.md` returns at least one match AND no line in `.yoke/runtime/cycles/0/sr-eng.md` matches `tests/acceptance/`
 Fixture: `tests/runtime/fixtures/realistic-task/`
-Sensors: [sr-eng-objective-distinct-from-validator, shellcheck-clean]
+Sensors: [tests-runtime, code-review, lint]
 
 ### Scenario 11 — Sr QA writes acceptance-contract-anchored tests
 Task: 2026-05-01-agent-council-s03-t02
@@ -120,7 +120,7 @@ Given a fixture acceptance contract with three criterion IDs and a fixture sprin
 When Sr QA runs Phase A against the fixture cycle
 Then `tests/runtime/sr-qa-prompt-shape.test.sh` exits 0 AND `tests/runtime/sr-qa-test-directory.test.sh` exits 0 AND `find tests/acceptance -type f -name '*.test.sh'` returns at least three matches with each file's header comment matching `# criterion: <id>`
 Fixture: `tests/runtime/fixtures/sr-qa-three-criteria/`
-Sensors: [sr-qa-tests-anchor-acceptance-contract-ids, sr-qa-test-directory-structure, shellcheck-clean]
+Sensors: [tests-runtime, lint]
 
 ### Scenario 12 — Sr Staff invokes review-skill and consults canonical memory
 Task: 2026-05-01-agent-council-s03-t03
@@ -128,7 +128,7 @@ Given the realistic-task fixture cycle and `agents/sr-staff.md` with `review-ski
 When Sr Staff runs Phase A against the fixture
 Then `tests/runtime/sr-staff-prompt-shape.test.sh` exits 0 AND `tests/runtime/sr-staff-review-invocation.test.sh` exits 0 AND the slice contains exactly one `### Review output` subsection AND at least one `/yoke:search-canonical-memory` query record AND `grep -c '/ultrareview' .yoke/runtime/cycles/0/sr-staff.md` returns 0
 Fixture: `tests/runtime/fixtures/realistic-task/`
-Sensors: [sr-staff-invokes-review-skill, sr-staff-references-canonical-memory, personas-irreducible-on-fixture, shellcheck-clean]
+Sensors: [tests-runtime, code-review, llm-as-judge, lint]
 
 ### Scenario 13 — Legacy agents removed, plugin bumps to v3.0.0, canonize survives
 Task: 2026-05-01-agent-council-s04-t01
@@ -136,7 +136,7 @@ Given the framework state at end of Sprint 3 with `agents/generator.md`, `agents
 When I delete the legacy agent files, edit `agents/orchestrator.md` to keep only the `canonize` mode, audit `lib/runtime/` for residual references, and bump `plugin.json :: version` to `3.0.0`
 Then `tests/sensors/legacy-agents-removed.test.sh` exits 0 AND `tests/sensors/orchestrator-canonize-survives.test.sh` exits 0 AND `jq -r .version .claude-plugin/plugin.json` returns `3.0.0` AND `grep -lr "generator\\|validator\\|orchestrator-monitor\\|orchestrator-consult" lib/runtime/ skills/implement/ | wc -l` returns 0
 Fixture: none (asserts repo state directly)
-Sensors: [legacy-generator-removed, legacy-validator-removed, legacy-orchestrator-monitor-removed, legacy-orchestrator-consult-removed, orchestrator-canonize-survives, shellcheck-clean]
+Sensors: [tests-runtime, tests-sensors, build, lint]
 
 ### Scenario 14 — Docs and CLAUDE.md reflect council architecture
 Task: 2026-05-01-agent-council-s04-t02
@@ -144,7 +144,7 @@ Given the legacy-removal commit from Scenario 13 has landed
 When I rewrite `CLAUDE.md`'s `## What Yoke is` and `## Architecture` sections, extend `docs/architecture.md` with a `Council protocol` section, and create `docs/migration-v2-to-v3.md` with the one-line migration note
 Then `tests/sensors/claude-md-mentions-council.test.sh` exits 0 (greps `CLAUDE.md` for `agent council`, `Sr Eng`, `Sr QA`, `Sr Staff`, `Phase A`) AND `tests/sensors/migration-note-present.test.sh` exits 0 AND `grep -c "Council protocol" docs/architecture.md` returns at least 1 AND existing v1→v2 migration docs are untouched
 Fixture: none (asserts repo state directly)
-Sensors: [claude-md-mentions-council, migration-note-present, shellcheck-clean]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 15 — Dogfood entry point committed
 Task: 2026-05-01-agent-council-s04-t03
@@ -152,7 +152,7 @@ Given the docs commit from Scenario 14 has landed
 When I append a `## Dogfood entry point` section to `.yoke/specs/2026-05-01-agent-council.md` naming a concrete first-dogfood Yoke task slug, rationale, and handoff to the v3.0-dogfood follow-up PRD
 Then `tests/runtime/dogfood-entry-shape.test.sh` exits 0 AND `grep -c '^## Dogfood entry point$' .yoke/specs/2026-05-01-agent-council.md` returns exactly 1 AND the section contains a slug-shaped value, a rationale paragraph, and a handoff line
 Fixture: none (asserts spec state directly)
-Sensors: [dogfood-entry-point-identified, shellcheck-clean]
+Sensors: [tests-runtime, lint]
 
 ## Functional requirements
 
@@ -171,12 +171,16 @@ validator MUST fail-fast at `/yoke:implement` startup with a
 
 ### Validation
 
-- **persona-file-shape-valid** — pass = each shipped file's frontmatter
-  parses AND every required key is present with the right type; fail =
-  any file's frontmatter rejects parsing OR any required key missing.
-- **persona-loader-fail-fast** — pass = malformed fixture files exit
-  non-zero with a `wm: <message>` line naming the offending key; fail =
-  exits 0 on any malformed fixture OR exits non-zero on the valid one.
+- **tests-runtime** — pass = `tests/runtime/persona-files-shape.test.sh`
+  exits 0 (each shipped persona file's frontmatter parses + required
+  keys present + Sr Staff carries `review-skill: /review`) AND
+  `tests/runtime/persona-loader.test.sh` exits 0 (the loader exits
+  non-zero with a `wm: <message>` line naming the offending key on each
+  malformed fixture, and exits 0 on the valid fixture and on
+  `validate-all agents/`). Fail = any of the above fails.
+- **lint** — pass = shellcheck clean on
+  `lib/runtime/persona-loader.sh` and the new test scripts; fail = any
+  shellcheck complaint at SC level ≥ warning.
 
 ### Criterion FR-2 — Cycle runs three personas in parallel under sync barrier
 
@@ -188,18 +192,21 @@ mtime-consistent with the latest marker.
 
 ### Validation
 
-- **phase-a-spawns-three-personas** — pass = cycle directory contains
-  exactly three slice files matching the persona names; fail = any
-  count other than 3 OR any slice unreadable.
-- **phase-b-opens-after-barrier** — pass = every Phase B read of a slice
-  has mtime ≥ the latest Phase-A marker mtime (sensor verifies the
-  ordering); fail = any Phase B read predates the latest marker.
-- **sync-barrier-mtime-ordering** — pass = the engineered pass fixture
-  asserts mtime ordering; fail = the engineered fail fixture surfaces
-  a `wm: sync-barrier violation:` stderr.
-- **phase-a-marker-cleanup-idempotent** — pass = `clear-markers` is a
-  no-op when no markers exist AND removes any stale markers from a
-  prior interrupted cycle; fail = any leftover marker persists.
+- **tests-runtime** — pass = `tests/runtime/council-merge.test.sh`
+  exits 0 (asserts byte-identical output across two consecutive merge
+  invocations + alphabetical persona order + slice-isolation sensor
+  detects cross-author violation fixture) AND
+  `tests/runtime/sync-barrier.test.sh` exits 0 (covers `wait-all`
+  success path, timeout naming the missing marker, and idempotent
+  `clear-markers`). Fail = any of the above fails.
+- **tests-sensors** — pass =
+  `tests/sensors/council-sync-barrier.test.sh` exits 0 on the engineered
+  pass fixture (every slice's mtime ≥ the latest marker mtime) AND
+  exits non-zero with a `wm: sync-barrier violation:` stderr line on
+  the engineered fail fixture. Fail = either branch wrong.
+- **lint** — pass = shellcheck clean on `lib/runtime/council-merge.sh`,
+  `lib/runtime/sync-barrier.sh`, and `lib/working-memory/paths.sh`;
+  fail = any shellcheck complaint at SC level ≥ warning.
 
 ### Criterion FR-3 — Council converges on consensus or escalates Trigger 4
 
@@ -213,19 +220,22 @@ is reached.
 
 ### Validation
 
-- **council-round-cap-respected** — pass = no cycle exceeds the
-  configured cap; fail = any cycle's réplica round count > cap.
-- **quiescence-detection-correct** — pass = rounds with zero new
-  réplicas exit `consensus`; fail = false-positive consensus detection.
-- **arbiter-spawned-only-with-replicas** — pass = arbiter Task issued
-  iff round produced ≥ 1 réplica; fail = arbiter spawned in a
-  zero-réplica round OR omitted in a non-zero-réplica round.
-- **trigger4-fires-on-unresolved-divergence** — pass = engineered
-  cap-exhausted divergence escalates Trigger 4 with the rendered
-  message; fail = silent termination on cap exhaustion.
-- **trigger4-message-renders-correctly** — pass = escalation message
-  lists every flagged persona pair AND the arbiter's last verdict
-  summary AND the directive line; fail = any of those missing.
+- **tests-runtime** — pass = `tests/runtime/council-phase-b.test.sh`
+  exits 0 across the three branch fixtures (immediate quiescence;
+  arbiter-detected consensus after one round; cap-exhausted
+  divergence) AND `tests/runtime/round-cap-config.test.sh` exits 0;
+  each branch's `progress.md` entry records the round count, per-round
+  réplica counts, and exit status (`consensus` | `trigger-4`); the
+  arbiter Task is issued iff the round produced ≥ 1 réplica. Fail =
+  any branch wrong, cap exceeded, or arbiter spawn rule violated.
+- **tests-sensors** — pass =
+  `tests/sensors/trigger4-escalates-on-divergence.test.sh` exits 0
+  (engineered cap-exhausted divergence escalates Trigger 4 with a
+  rendered message containing every flagged persona pair, the
+  arbiter's last verdict summary, and the directive line); fail =
+  silent termination, missing pair, or missing directive.
+- **lint** — pass = shellcheck clean on
+  `lib/runtime/council.sh phase-b` and trigger-4 escalation scripts.
 
 ### Criterion FR-4 — Arbiter applies the dispute rubric correctly
 
@@ -238,18 +248,23 @@ matching the schema with required fields (`round`, `consensus`,
 
 ### Validation
 
-- **arbiter-emits-structured-verdict** — pass = JSON output matches
-  the schema across all four fixtures; fail = any required field
-  missing OR malformed type.
-- **arbiter-detects-direct-contradiction** — pass = `direct-
-  contradiction.cycle/` produces `consensus: false` with exactly one
-  entry in `contradictions`; fail = miscount or wrong consensus.
-- **arbiter-detects-importance-disagreement** — pass = `importance-
-  disagreement.cycle/` produces `consensus: false` with one entry
-  classified `importance-disagreement`; fail = misclassification.
-- **arbiter-ignores-tone-only** — pass = `tone-only.cycle/` produces
-  `consensus: true` with empty `contradictions` and a non-empty
-  `tone_only_pairs` list; fail = tone-only flagged as contradiction.
+- **tests-sensors** — pass = `tests/sensors/council-arbiter.test.sh`
+  exits 0 across all four engineered cycle fixtures (consensus,
+  direct-contradiction, importance-disagreement, tone-only): the JSON
+  output matches the schema (`round`, `consensus`, `contradictions`,
+  `tone_only_pairs`); `direct-contradiction.cycle/` produces
+  `consensus: false` with exactly one entry in `contradictions`;
+  `importance-disagreement.cycle/` produces one entry classified
+  `importance-disagreement`; `tone-only.cycle/` produces
+  `consensus: true` with empty `contradictions` and non-empty
+  `tone_only_pairs`. Fail = miscount, misclassification, missing
+  field, or malformed type.
+- **code-review** — pass = the LLM judge ratifies that the arbiter's
+  rubric implementation distinguishes direct contradictions from
+  importance disagreements from tone-only differences in line with
+  the spec's `### Contradiction-detection arbiter` contract; fail =
+  ambiguity in the implementation that the four fixtures don't catch.
+- **lint** — pass = shellcheck clean on the arbiter dispatch path.
 
 ### Criterion FR-5 — Personas produce findings irreducible to v2.x agents
 
@@ -262,27 +277,30 @@ never modifies production code; Sr Staff never invokes
 
 ### Validation
 
-- **sr-eng-objective-distinct-from-validator** — pass = Sr Eng slice
-  contains files written under conventional unit-test locations AND no
-  line references `tests/acceptance/`; fail = Sr Eng writes acceptance
-  tests OR omits unit tests.
-- **sr-qa-tests-anchor-acceptance-contract-ids** — pass = every Sr
-  QA-authored test under `tests/acceptance/<contract-slug>/` carries a
-  header comment matching `# criterion: <id>` resolvable against the
-  binding contract; fail = any orphaned test.
-- **sr-qa-test-directory-structure** — pass = test files exist under
-  `tests/acceptance/<contract-slug>/` (≥ 3 on the fixture); fail = no
-  files OR wrong namespace.
-- **sr-staff-invokes-review-skill** — pass = Sr Staff slice contains
-  exactly one `### Review output` subsection AND zero `/ultrareview`
-  tokens; fail = wrong invocation count OR autonomous `/ultrareview`.
-- **sr-staff-references-canonical-memory** — pass = Sr Staff slice
-  contains ≥ 1 `/yoke:search-canonical-memory` query record; fail = no canonical-memory
-  consult on a fixture that warrants one.
-- **personas-irreducible-on-fixture** (inferential) — pass = the
-  semantic judge ratifies that each persona's finding lens is
-  distinct from the v2.x equivalent; fail = the judge cannot
+- **tests-runtime** — pass = `tests/runtime/sr-eng-prompt-shape.test.sh`,
+  `tests/runtime/sr-qa-prompt-shape.test.sh`,
+  `tests/runtime/sr-qa-test-directory.test.sh`,
+  `tests/runtime/sr-staff-prompt-shape.test.sh`, and
+  `tests/runtime/sr-staff-review-invocation.test.sh` ALL exit 0; on the
+  realistic-task fixture cycle: `grep -c '^- file:'
+  .yoke/runtime/cycles/0/sr-eng.md` ≥ 1 AND no line in the Sr Eng
+  slice references `tests/acceptance/`; every Sr-QA-authored test under
+  `tests/acceptance/<contract-slug>/` carries `# criterion: <id>`
+  resolvable against the binding contract (≥ 3 on the fixture); the Sr
+  Staff slice contains exactly one `### Review output` subsection AND
+  ≥ 1 `/yoke:search-canonical-memory` query record AND zero `/ultrareview` tokens. Fail =
+  any of the above wrong.
+- **code-review** — pass = the LLM judge ratifies that each persona's
+  finding lens is distinct from the v2.x equivalent (Sr Eng's
+  unit-tests-only discipline, Sr QA's contract-anchored tests, Sr
+  Staff's review-skill invocation); fail = the judge cannot
   distinguish Sr X's finding from a v2.x agent + prompt tweak.
+- **llm-as-judge** — Rubric: emit a structured verdict scoring
+  irreducibility per persona on a binary basis (irreducible /
+  prompt-tweak-equivalent). pass = all three personas marked
+  irreducible; fail = any persona collapses into a v2.x prompt tweak.
+- **lint** — pass = shellcheck clean on the persona prompt scripts and
+  test files.
 
 ### Criterion FR-6 — Legacy v2.x runtime artifacts removed; canonize survives
 
@@ -294,19 +312,22 @@ version is `3.0.0`.
 
 ### Validation
 
-- **legacy-generator-removed** — pass = `agents/generator.md` does
-  not exist; fail = file present.
-- **legacy-validator-removed** — pass = `agents/validator.md` does
-  not exist; fail = file present.
-- **legacy-orchestrator-monitor-removed** — pass = orchestrator file
-  body has no `monitor` mode subsection AND no code references; fail
-  = either residual.
-- **legacy-orchestrator-consult-removed** — pass = orchestrator file
-  body has no `consult` mode subsection AND no code references; fail
-  = either residual.
-- **orchestrator-canonize-survives** — pass = orchestrator file
-  frontmatter mentions `canonize` AND `/yoke:canonize` is callable
-  end-to-end on a fixture run; fail = canonize broken.
+- **tests-runtime** — pass = `tests/runtime/legacy-removal.test.sh`
+  exits 0: `agents/generator.md` and `agents/validator.md` do NOT
+  exist; `agents/orchestrator.md` body has no `monitor` or `consult`
+  mode subsection; `grep -lr "generator\|validator\|orchestrator-monitor\|orchestrator-consult"
+  lib/runtime/ skills/implement/ | wc -l` returns 0; `jq -r .version
+  .claude-plugin/plugin.json` returns `3.0.0`. Fail = any residual.
+- **tests-sensors** — pass =
+  `tests/sensors/orchestrator-canonize-survives.test.sh` exits 0
+  (orchestrator file frontmatter mentions `canonize` AND
+  `/yoke:canonize` is callable end-to-end on a fixture run); fail =
+  canonize broken.
+- **build** — pass = directory layout matches
+  `concepts/yoke-pattern-plugin-structure` (no leftover legacy agent
+  files; no leftover legacy mode subsections); fail = layout drift.
+- **lint** — pass = shellcheck clean on the surviving canonize-only
+  orchestrator dispatch.
 
 ### Criterion FR-7 — Docs, CLAUDE.md, migration note reflect v3.0
 
@@ -317,12 +338,19 @@ note; pre-existing v1→v2 docs MUST remain intact.
 
 ### Validation
 
-- **claude-md-mentions-council** — pass = grep finds `agent council`,
-  `Sr Eng`, `Sr QA`, `Sr Staff`, and `Phase A`; fail = any token
-  missing.
-- **migration-note-present** — pass = `docs/migration-v2-to-v3.md`
-  exists and contains the literal one-line migration note; fail = any
-  missing.
+- **tests-sensors** — pass =
+  `tests/sensors/claude-md-mentions-council.test.sh` exits 0 (grep
+  finds `agent council`, `Sr Eng`, `Sr QA`, `Sr Staff`, `Phase A` in
+  `CLAUDE.md`) AND `tests/sensors/migration-note-present.test.sh`
+  exits 0 (`docs/migration-v2-to-v3.md` exists with the literal
+  one-line migration note) AND `grep -c "Council protocol"
+  docs/architecture.md` ≥ 1 AND existing v1→v2 migration docs are
+  untouched. Fail = any token missing or doc residue altered.
+- **tests-runtime** — pass = `tests/runtime/docs-shape.test.sh` exits
+  0 (asserts the council-protocol section, the migration note, and
+  the preserved v1→v2 docs).
+- **lint** — pass = shellcheck clean on any new doc-validation bash
+  scripts.
 
 ### Criterion FR-8 — Drift baseline captured before Sprint 1 implementation
 
@@ -334,9 +362,11 @@ in drift findings density`).
 
 ### Validation
 
-- **drift-baseline-captured** — pass = the section exists with N ≥ 3
-  samples AND kLoC denominator; fail = section missing OR fewer than
-  3 samples OR no kLoC value.
+- **tests-runtime** — pass = `tests/runtime/baseline-shape.test.sh`
+  exits 0 (asserts that `## Baseline metrics` exists in
+  `.yoke/specs/2026-05-01-agent-council.md` with N ≥ 3 SHA samples
+  AND a `kLoC denominator:` line); fail = section missing, fewer than
+  3 samples, or no kLoC value.
 
 ### Criterion FR-9 — Language policy enforced (en-US only)
 
@@ -347,11 +377,17 @@ disk.
 
 ### Validation
 
-- **shellcheck-clean** — orthogonal to language but runs on every
-  bash file (Bash is the canonical runtime for this PRD's scripts).
-- **no-portuguese-content** (inferential) — pass = the semantic judge
-  reviews modified files for Portuguese content per the policy; fail
-  = any Portuguese paragraph or label surfaces.
+- **lint** — pass = shellcheck clean on every bash file added or
+  modified by this PRD; fail = any shellcheck complaint at SC level
+  ≥ warning. Orthogonal to language policy but runs on every bash
+  file.
+- **llm-as-judge** — Rubric: review every file added or modified for
+  Portuguese content per the host CLAUDE.md `Language policy
+  (non-negotiable)` clause. pass = no non-en-US paragraph, label,
+  comment, or string surfaces; fail = any Portuguese (or other
+  non-en-US) human-readable content lands on disk. Identifiers
+  borrowed from technical vocabulary (English loanwords, ASCII
+  technical terms) → pass with note in `evidence`.
 
 ## Applicable policies
 

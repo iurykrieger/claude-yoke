@@ -1,0 +1,17 @@
+# Acceptance-contract-anchored tests live here.
+#
+# Sr QA (council persona) is the sole author of files under this
+# directory. Each test file lives at
+# `tests/acceptance/<contract-slug>/<criterion-id>.test.sh` and
+# starts with a `# criterion: <id>` header that resolves against
+# the binding Acceptance Contract at
+# `.yoke/acceptance-contracts/<contract-slug>.md`.
+#
+# Sr Eng (council persona) MUST NOT author files here. An Sr-Eng-
+# authored entry under this directory is a distinct-objective
+# failure caught by the `sr-eng-objective-distinct-from-validator`
+# sensor. Happy-path unit tests live next to the code they cover
+# under `tests/runtime/` or `tests/<module>/`.
+#
+# This file is a placeholder so the directory ships in git; remove
+# it once a contract-slug subdirectory is committed.

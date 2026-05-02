@@ -46,7 +46,7 @@ Given the legacy `templates/sensor.md` carrying placeholders for `class:` / `tie
 When the Generator rewrites the template per sprint 1's `Sprint objective` and the task's `**Technical implementation:**`
 Then the file no longer matches any legacy field token AND contains the four mandatory headers (`## How to run`, `## Known issues`, `## Frequent errors`, `## Calibration`) AND the three Calibration sub-sections (`### Prompt`, `### Rubric`, `### Verdict schema`)
 Fixture: none (the template itself is the artifact)
-Sensors: [sensor-template-fields-clean, sensor-template-headers-present, sensor-template-calibration-subsections]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 2 — `templates/acceptance-contract.md` carries per-criterion `### Validation`
 Task: 2026-04-30-sensor-harness-realignment-s01-t02
@@ -54,7 +54,7 @@ Given the legacy contract template carrying `## Sensors registry` with inline me
 When the Generator removes the legacy registry and adds a `### Validation` sub-section under each criterion
 Then `## Sensors registry` is absent from the template AND `### Validation` appears at least once AND no inline `class:` / `tier:` token remains
 Fixture: none
-Sensors: [contract-template-no-registry, contract-template-validation-present]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 3 — `ack-sensors.sh` parser accepts only the new schema
 Task: 2026-04-30-sensor-harness-realignment-s01-t03
@@ -62,7 +62,7 @@ Given fixtures for both valid (`type: computational` / `inferential`) and legacy
 When `bash lib/sensors/ack-sensors.sh --mode readiness <fixture>` runs
 Then the valid fixture exits 0 AND the legacy `class` fixture exits non-zero with stderr containing the substring `class:`
 Fixture: tests/fixtures/sensors/parser/
-Sensors: [parser-accepts-valid, parser-rejects-legacy-class]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 4 — Body lint enforces structure strictly
 Task: 2026-04-30-sensor-harness-realignment-s01-t04
@@ -70,7 +70,7 @@ Given fixtures with missing / empty / malformed body sections under `tests/fixtu
 When `bash lib/sensors/ack-sensors.sh --mode readiness <fixture>` runs
 Then a fixture missing `### Prompt` in an inferential sensor exits non-zero with stderr containing `### Prompt` AND a fixture with malformed bullet under `## Frequent errors` exits non-zero with stderr containing `Frequent errors`
 Fixture: tests/fixtures/sensors/body-lint/
-Sensors: [body-lint-rejects-missing-prompt, body-lint-rejects-malformed-bullet]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 5 — `ack-sensors.sh` upsert preserves curated content
 Task: 2026-04-30-sensor-harness-realignment-s01-t05
@@ -78,7 +78,7 @@ Given a fixture with an existing sensor file carrying curated `## Known issues` 
 When `bash lib/sensors/ack-sensors.sh --mode upsert` runs against the fixture root
 Then the curated existing file is byte-identical to its pre-run snapshot AND a new sensor file is created with `type:` populated in its frontmatter
 Fixture: tests/fixtures/sensors/upsert/
-Sensors: [upsert-preserves-curated, upsert-creates-new-sensor]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 6 — Migration audit lists references correctly
 Task: 2026-04-30-sensor-harness-realignment-s01-t06
@@ -86,7 +86,7 @@ Given a fixture with 5 sensor files (2 referenced by contracts, 3 orphan) under 
 When `bash lib/sensors/migration-audit.sh --root <fixture>` runs
 Then the output contains exactly 2 lines marked `still-referenced` AND exactly 3 lines marked `orphan-candidate-for-delete` AND the exit code is 0
 Fixture: tests/fixtures/sensors/migration-audit/
-Sensors: [audit-counts-correct]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 7 — `verify-acceptance.sh` filters by cost flags
 Task: 2026-04-30-sensor-harness-realignment-s02-t01
@@ -94,7 +94,7 @@ Given a fixture contract with sensors of varying `time_cost` (10, 30, 60)
 When `bash hooks/verify-acceptance.sh --max-time-cost 30` runs
 Then only the sensors with `time_cost <= 30` execute (verifiable via markers / log) AND `--tier cheap` invocation exits non-zero with a message citing the removed flag
 Fixture: tests/fixtures/verify-acceptance/
-Sensors: [verify-respects-max-time-cost, verify-rejects-tier-flag]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 8 — Dispatch by type produces correct artifacts
 Task: 2026-04-30-sensor-harness-realignment-s02-t02
@@ -102,7 +102,7 @@ Given a fixture with one `type: computational` sensor (echo command) and one `ty
 When `bash hooks/verify-acceptance.sh --criterion <id>` runs
 Then the computational shell output captures the expected marker AND `.yoke/runtime/.judge-verdicts/cycle-0/<criterion>-<inf-sensor>.json` exists post-run with parseable JSON containing the `confidence` key
 Fixture: tests/fixtures/dispatch/
-Sensors: [dispatch-comp-shell-runs, dispatch-inf-verdict-emitted]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 9 — `validator.md` is enforcer-only
 Task: 2026-04-30-sensor-harness-realignment-s02-t03
@@ -110,7 +110,7 @@ Given the existing `agents/validator.md` carrying heuristic references to `tier`
 When the Generator refactors the agent file per the task's `**Technical implementation:**`
 Then `agents/validator.md` does not contain those tokens AND contains the literal substring `Per-criterion validation`
 Fixture: none
-Sensors: [validator-no-legacy-tokens, validator-has-per-criterion-protocol]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 10 — `semantic-judge` becomes new-shape instance with extended verdict schema
 Task: 2026-04-30-sensor-harness-realignment-s02-t04
@@ -118,7 +118,7 @@ Given the existing `agents/semantic-judge.md` carrying inline prompt / rubric / 
 When the Generator splits the agent definition (slim) from a sensor template under `templates/sensors/semantic-judge.md` (carrying `## Calibration` with the three sub-sections)
 Then the sensor template carries `type: inferential`, `agent: semantic-judge`, and the three Calibration sub-sections AND the verdict parser rejects `confidence: 1.5` AND rejects `status: fail` plus `supporting_quotes: []`
 Fixture: tests/fixtures/sensors/verdicts/
-Sensors: [semantic-judge-template-shape, verdict-parser-rejects-invalid-confidence, verdict-parser-rejects-empty-quotes-on-fail]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 11 — `/yoke:consolidate-sensors` is append-only and idempotent
 Task: 2026-04-30-sensor-harness-realignment-s02-t05
@@ -126,7 +126,7 @@ Given a fixture with multi-cycle `.yoke/runtime/` evidence and 2 sensor files wi
 When `/yoke:consolidate-sensors` runs twice consecutively without changing evidence
 Then run 1 appends at least one bullet citing `cycle ` and `fix-instruction ` to a sensor's `## Frequent errors` or `## Known issues` AND run 2 produces zero diff vs the post-run-1 state
 Fixture: tests/fixtures/consolidate/
-Sensors: [consolidate-appends-with-citation, consolidate-idempotent-on-reentry]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 12 — Implement teardown honors config
 Task: 2026-04-30-sensor-harness-realignment-s02-t06
@@ -134,7 +134,7 @@ Given a fixture with `.yoke/config.yaml` carrying `sensor_consolidation: skip` p
 When `/yoke:implement` reaches teardown
 Then `git diff --quiet .yoke/sensors/` exits 0 (no modification) AND in an equivalent fixture with `sensor_consolidation: auto` `git diff --name-only .yoke/sensors/` returns at least one path
 Fixture: tests/fixtures/consolidation-teardown/
-Sensors: [teardown-honors-skip, teardown-applies-on-auto]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 13 — Big-bang migration clears legacy schema
 Task: 2026-04-30-sensor-harness-realignment-s03-t01
@@ -142,7 +142,7 @@ Given the current `.yoke/sensors/` catalog with 45 files carrying legacy fields
 When the Generator executes audit + delete + rewrite atomically
 Then `find .yoke/sensors -name '*.md' | xargs grep -lE '^(class|tier|applies_to|runs):' | wc -l` returns 0 AND `bash lib/sensors/ack-sensors.sh --mode readiness` exits 0 for every surviving sensor file AND `bash lib/sensors/migration-audit.sh` exits 0 with zero dangling references
 Fixture: none (real catalog)
-Sensors: [migration-no-legacy-fields, migration-readiness-passes-all, migration-audit-no-dangling]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 14 — Migration test suite (one-shot) passes
 Task: 2026-04-30-sensor-harness-realignment-s03-t02
@@ -150,7 +150,7 @@ Given the post-migration catalog (Scenario 13)
 When `bash tests/sensors/migration.test.sh` runs
 Then the exit code is 0
 Fixture: none
-Sensors: [migration-test-passes]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 15 — Dispatch-by-type test suite (permanent) passes
 Task: 2026-04-30-sensor-harness-realignment-s03-t03
@@ -158,7 +158,7 @@ Given fixtures under `tests/fixtures/dispatch-by-type/` and the dispatch path im
 When `bash tests/sensors/dispatch-by-type.test.sh` runs
 Then the exit code is 0 AND `/tmp/yoke-dispatch-marker-comp` is created during execution AND the inferential-sensor verdict JSON contains `confidence` (numeric) and `supporting_quotes` (list)
 Fixture: tests/fixtures/dispatch-by-type/
-Sensors: [dispatch-by-type-test-passes]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 16 — Body-lint test suite (permanent) passes
 Task: 2026-04-30-sensor-harness-realignment-s03-t04
@@ -166,7 +166,7 @@ Given fixtures under `tests/fixtures/sensors/body-lint/` covering at least 11 va
 When `bash tests/sensors/body-lint.test.sh` runs
 Then the exit code is 0 AND the test invokes readiness against at least 11 distinct fixtures
 Fixture: tests/fixtures/sensors/body-lint/
-Sensors: [body-lint-test-passes]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 17 — Consolidation-stage test suite (permanent) passes
 Task: 2026-04-30-sensor-harness-realignment-s03-t05
@@ -174,7 +174,7 @@ Given a multi-cycle fixture under `tests/fixtures/consolidation-stage/` and the 
 When `bash tests/sensors/consolidation-stage.test.sh` runs
 Then the exit code is 0 AND the post-run-1 state is byte-identical to the post-run-2 state
 Fixture: tests/fixtures/consolidation-stage/
-Sensors: [consolidation-stage-test-passes]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 18 — CI gate smoke wires the three permanent tests
 Task: 2026-04-30-sensor-harness-realignment-s03-t06
@@ -182,7 +182,7 @@ Given the three permanent test scripts are committed (Scenarios 15-17)
 When the smoke script for the corresponding sprint runs
 Then the smoke literally invokes the substrings `dispatch-by-type`, `body-lint`, and `consolidation-stage` (verifiable via grep) AND `bash <smoke-path>` exits 0
 Fixture: none
-Sensors: [smoke-references-three-tests, smoke-passes-end-to-end]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ## Functional requirements
 

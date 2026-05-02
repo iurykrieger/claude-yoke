@@ -412,4 +412,77 @@ section against the worktree and summing the structured findings.
 
 ---
 
+## Dogfood entry point
+
+> Appended by Sprint 04 / Task t03 (Acceptance Contract Scenario 15)
+> at the close of the v3.0 cutover. Authorized by the ratified
+> Acceptance Contract at 2026-05-01T11:31:03Z (Trigger 3) and by
+> Sprint 04 / t03's task body, mirroring the spec-edit precedent
+> established in Sprint 01 / t01 (the `## Baseline metrics` append).
+
+### First dogfood task slug
+
+`2026-05-XX-agents-have-current-sprint`
+
+The literal date is intentionally deferred to the dogfood follow-up
+PRD; the `slug:` body shape is fixed (`YYYY-MM-DD-<kebab>`) so the
+follow-up PRD's `/yoke:discover` invocation lands the file at
+`.yoke/prds/<slug>.md` deterministically.
+
+### Rationale
+
+The first dogfood task on v3.0 must clear three bars simultaneously:
+
+- **Low blast radius.** The change MUST be small enough that a
+  failure during dogfood does not destabilize Yoke's own runtime.
+  `agents-have-current-sprint` extends the existing
+  `lib/runtime/persona-loader.sh` to surface the active
+  `current_sprint:` value (already in
+  `.yoke/runtime/progress.md`) into every persona's prompt header
+  via `lib/runtime/cycle.sh pre-spawn`. Pure additive read; no
+  state machine change; no Acceptance-Contract-shape change.
+- **Clear acceptance criterion.** The change is binary-observable:
+  for any cycle on any sprint, the merged view at
+  `.yoke/runtime/cycles/<N>/<persona>.md` MUST start with a single
+  line of the form `<!-- current_sprint: <NN> -->`. Sensors:
+  `tests/runtime/agents-have-current-sprint.test.sh` (computational)
+  + a calibrated llm-as-judge that asserts the persona slices
+  reference the active sprint when their reasoning depends on it.
+- **Exercises all three personas.** Sr Eng writes the loader
+  patch + unit tests; Sr QA writes the contract-anchored acceptance
+  test under `tests/acceptance/<slug>/` carrying
+  `# criterion: <id>`; Sr Staff invokes `/review` against the
+  diff and consults canonical memory for prior persona-prompt-
+  header decisions. The change forces the council to converge on a
+  shared interpretation of "what state belongs in a persona prompt
+  header" — exactly the sort of small architectural detail the
+  council protocol is designed to mediate without escalating
+  Trigger 4.
+
+The `agents-have-current-sprint` slug was chosen over alternatives
+(e.g. `wm-helper-polish`, `sensor-toolkit-validation-tighten`,
+`council-merge-byte-stable-on-utf8`) because the first-dogfood
+task's primary value is **demonstrating the council protocol on a
+real change**, not solving the largest backlog item. The other
+candidates remain in the backlog of the v3.0-dogfood follow-up PRD.
+
+### Date target
+
+No specific deadline. The handoff sequence is: this spec ships in
+the v3.0.0 release of the plugin; the next maintainer to invoke
+`/yoke:discover` against the chosen slug authors the v3.0-dogfood
+follow-up PRD; that PRD picks up from the slug above.
+
+### Handoff to the v3.0-dogfood follow-up PRD
+
+This `## Dogfood entry point` section is the explicit handoff to
+the v3.0-dogfood follow-up PRD (working title:
+`<YYYY-MM-DD>-v3.0-dogfood-agents-have-current-sprint`). The
+follow-up PRD MUST cite this section as its origin and MUST inherit
+the rationale above; any change to the chosen slug or to the
+acceptance-criterion shape requires re-ratification of THIS
+Acceptance Contract via Trigger 3 (per the binding-spec invariant).
+
+---
+
 > When ready, run `/yoke:acceptance-contract` to advance to Phase 3.

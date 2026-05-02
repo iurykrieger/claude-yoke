@@ -3,43 +3,157 @@
 > This is a working summary for plugin contributors. The authoritative
 > source is `yoke.md` (the manifesto). When in doubt, read the manifesto.
 >
-> **Refreshed for v2.0.0** — pluggable canonical-memory providers
-> (PRD `2026-04-30-pluggable-canonical-memory`). The single-vendor
-> canonical-memory implementation that lived under `/yoke:` in v1.x has
-> been extracted into a peer plugin (`claude-bedrock`); Yoke now
-> dispatches reads and writes through two provider-agnostic facade
-> verbs.
+> **Refreshed for v3.0.0** — agent council protocol
+> (PRD `2026-05-01-agent-council`). The v2.x binary loop at Phase 4
+> (Generator + Validator + Orchestrator-monitor) is replaced by a
+> three-persona council (Sr Eng / Sr QA / Sr Staff) spawned in
+> parallel each cycle behind a deterministic sync barrier; a
+> contradiction-detection arbiter mediates Phase B; the Orchestrator
+> subagent survives in **canonize-only** mode at full-run
+> termination. The v2.0.0 pluggable canonical-memory provider
+> contract (`/yoke:search-canonical-memory` read facade,
+> `/yoke:canonize` write facade, `providers.yaml` registry) is
+> unchanged — see the `## v2.0.0 dispatch path` section below for
+> the dispatch chain that v3.0 inherits verbatim.
 
 ## Three pillars
 
-1. **Binding spec.** Three sequential artifacts (PRD, Tech Spec, Acceptance Contract) produced by **skills** with embedded persona prompts (Generator persona in `/yoke:discover` and `/yoke:tech-spec`; Validator persona in `/yoke:acceptance-contract`). The Acceptance Contract is binding: once ratified at Trigger 3, "done" is operationally "passes every Contract criterion".
+1. **Binding spec.** Three sequential artifacts (PRD, Tech Spec, Acceptance Contract) produced by **skills** with embedded persona prompts. The Acceptance Contract is binding: once ratified at Trigger 3, "done" is operationally "passes every Contract criterion".
 
-2. **Adversarial loop.** Three runtime subagents — **Generator**, **Validator**, **Orchestrator** — spawned by `/yoke:implement` in a **single concurrent Task batch per cycle**. Generator and Validator are functionally adversarial; Orchestrator consults canonical memory live and owns the canonization handoff at termination. Hard bounds (N cycles, timeout, budget) guarantee termination — no infinite loops.
+2. **Agent council at Phase 4.** Three persona subagents — **Sr Eng**, **Sr QA**, **Sr Staff** — spawned by `/yoke:implement` in a **single concurrent Task batch per cycle**, behind a deterministic sync barrier. Their lenses are independent and partially adversarial (build / verify / govern); a contradiction-detection arbiter mediates Phase B and emits a structured JSON verdict; the Orchestrator subagent survives in canonize-only mode for the canonical-memory write handoff at full-run termination. Hard bounds (≤8 cycles per sprint, council-round cap, timeout, budget) guarantee termination — no infinite loops.
 
-3. **Governed memory through pluggable providers.** Two tiers. Working memory in `.yoke/` per project. Canonical memory lives behind a curated provider entry (`providers.yaml`) that maps the abstract notion of "canonical memory" to a concrete peer plugin. Yoke does not implement a backend itself — it dispatches reads through `/yoke:search-canonical-memory` and writes through `/yoke:canonize`. Only the Orchestrator subagent invokes `/yoke:canonize`, and only in **canonize mode at loop termination**, under Model C (contextual authority by impact class).
+3. **Governed memory through pluggable providers.** Two tiers. Working memory in `.yoke/` per project. Canonical memory lives behind a curated provider entry (`providers.yaml`) that maps the abstract notion of "canonical memory" to a concrete peer plugin. Yoke does not implement a backend itself — it dispatches reads through `/yoke:search-canonical-memory` and writes through `/yoke:canonize`. Only the Orchestrator subagent invokes `/yoke:canonize`, and only in **canonize mode at full-run loop termination**, under Model C (contextual authority by impact class).
 
-## Three runtime subagents (v1.1+)
+## Three council personas + canonize-only Orchestrator (v3.0)
 
-- **Generator** (`agents/generator.md`) — runtime subagent. Iterates over the Tech Spec, writes code targeting the next failing Acceptance Contract criterion, persists `.yoke/progress.md` every cycle.
-- **Validator** (`agents/validator.md`) — runtime subagent. Runs `hooks/verify-acceptance.sh`, emits structured JSON verdicts per criterion, co-writes `.yoke/contracts.md` on consensus events.
-- **Orchestrator** (`agents/orchestrator.md`) — runtime subagent and **sole writer of canonical memory** under Model C. Three modes:
-  - **Consult** (per cycle) — invoke `/yoke:search-canonical-memory` via the Skill tool when canonical-memory context is needed; reason over the response in-conversation. The facade is provider-agnostic and writes nothing on disk.
-  - **Monitor** (per cycle) — detect Generator↔Validator divergence; escalate via `lib/ralph-loop/escalate.sh` (Trigger 4).
-  - **Canonize** (at loop termination) — apply five-criteria filter; classify Model C impact; invoke `/yoke:canonize` which dispatches to the active provider's pinned canonize skill.
+- **Sr Eng** (`agents/sr-eng.md`) — runtime persona subagent. Writes production code targeting the next failing Acceptance Contract criterion; ships unit tests; never authors acceptance tests; writes its slice at `.yoke/runtime/cycles/<N>/sr-eng.md` and its sync-barrier marker at `.yoke/runtime/.phase-a-done.sr-eng` before exit.
+- **Sr QA** (`agents/sr-qa.md`) — runtime persona subagent. Authors contract-anchored acceptance tests under `tests/acceptance/<contract-slug>/`, each carrying a `# criterion: <id>` header that resolves against the binding contract; never modifies production code; writes its slice at `.yoke/runtime/cycles/<N>/sr-qa.md`.
+- **Sr Staff** (`agents/sr-staff.md`) — runtime persona subagent. Invokes the configured `review-skill` (default `/review`), consults canonical memory via `/yoke:search-canonical-memory`, and emits a `### Review output` subsection in its slice; never invokes `/ultrareview` autonomously.
+- **Council arbiter** (`agents/council-arbiter.md`) — Phase-B contradiction-detection LLM. Spawned by `lib/runtime/council.sh phase-b` only when a réplica round produced ≥1 réplica. Emits a JSON verdict matching `{round, consensus, contradictions[], tone_only_pairs[]}`; classifies each pairwise disagreement as direct contradiction, importance disagreement, or tone-only.
+- **Orchestrator** (`agents/orchestrator.md`) — termination subagent and **sole writer of canonical memory** under Model C. Single surviving mode:
+  - **Canonize** (at full-run loop termination) — apply five-criteria filter; classify Model C impact; invoke `/yoke:canonize` which dispatches to the active provider's pinned canonize skill.
+
+The legacy `consult` and `monitor` orchestrator modes are retired in
+v3.0; per-cycle canonical-memory reads are issued by the council
+personas themselves, and divergence detection is owned by
+`lib/runtime/sync-barrier.sh` plus the council-arbiter inside Phase B.
 
 Spec-phase work is performed by skills with embedded persona — no
-spec-phase Generator/Validator subagents exist (eliminated in v1.1).
+spec-phase persona subagents exist.
 *Skills deliberate; subagents adapt.*
+
+## Council protocol
+
+The v3.0 council protocol drives every `/yoke:implement` cycle
+through three named phases. Phase boundaries are reflected in
+`.yoke/runtime/progress.md`'s per-cycle entry.
+
+```
+                    ┌────────────────────────────────────────┐
+                    │ /yoke:implement (deterministic         │
+                    │   coordinator; sprint-walk loop)       │
+                    └────────────────┬───────────────────────┘
+                                     │ per cycle
+                                     ▼
+   ┌────────────────────────────────────────────────────────────────────┐
+   │ Phase A — parallel persona spawn behind the sync barrier           │
+   │ ────────────────────────────────────────────────────────────────── │
+   │   1. lib/runtime/cycle.sh pre-spawn:                               │
+   │      • lib/runtime/sync-barrier.sh clear-markers (idempotent)      │
+   │      • lib/runtime/persona-loader.sh validate-all agents/          │
+   │      • print sorted council persona names (sr-eng, sr-qa, sr-staff)│
+   │   2. Single concurrent Task batch — three persona subagents:       │
+   │                                                                    │
+   │      ┌──────────┐  ┌──────────┐  ┌──────────┐                      │
+   │      │ Sr Eng   │  │ Sr QA    │  │ Sr Staff │  (Task batch)        │
+   │      └────┬─────┘  └────┬─────┘  └────┬─────┘                      │
+   │           │             │             │                            │
+   │           ▼             ▼             ▼                            │
+   │   .yoke/runtime/cycles/<N>/sr-eng.md   sr-qa.md   sr-staff.md      │
+   │   .yoke/runtime/.phase-a-done.sr-eng   .sr-qa     .sr-staff        │
+   │                                                                    │
+   │   3. lib/runtime/cycle.sh post-spawn:                              │
+   │      • defensive wait on every Phase-A marker (timeout → fail)     │
+   │      • lib/runtime/council-merge.sh produces a byte-deterministic  │
+   │        merged view ordered alphabetically by persona name          │
+   │   4. tests/sensors/council-sync-barrier.test.sh asserts every      │
+   │      slice mtime ≥ the latest marker mtime                         │
+   └────────────────────────────────┬───────────────────────────────────┘
+                                    │ all three slices present and ordered
+                                    ▼
+   ┌────────────────────────────────────────────────────────────────────┐
+   │ Phase B — bounded council loop with contradiction-detection        │
+   │ ────────────────────────────────────────────────────────────────── │
+   │   lib/runtime/council.sh phase-b runs ≤ council_rounds_max         │
+   │   (default 3, configurable via .yoke/config.yaml ::                │
+   │   overrides.runtime).                                              │
+   │                                                                    │
+   │   Round loop:                                                      │
+   │     • spawn personas to read merged view + emit replicas (if any)  │
+   │     • zero new replicas in a round → quiescence → CONSENSUS, exit  │
+   │     • ≥1 replica → spawn agents/council-arbiter.md                 │
+   │       JSON verdict: {round, consensus, contradictions[],           │
+   │                       tone_only_pairs[]}                           │
+   │       • consensus:true → exit (consensus)                          │
+   │       • consensus:false → next round                               │
+   │     • round-cap reached with consensus:false → exit (trigger-4)    │
+   │                                                                    │
+   │   progress.md records: round count, per-round réplica count,       │
+   │   exit status (consensus | trigger-4)                              │
+   └────────────────────────────────┬───────────────────────────────────┘
+                                    │
+                            ┌───────┴────────┐
+                            ▼                ▼
+              ┌─────────────────┐  ┌─────────────────────────────┐
+              │ Phase C — exit  │  │ Phase C — Trigger 4         │
+              │ (consensus)     │  │ (cap-exhausted divergence)  │
+              │ ─────────────── │  │ ──────────────────────────  │
+              │ next cycle opens│  │ lib/runtime/trigger-4.sh    │
+              │ OR sprint-walk  │  │   render → user-facing      │
+              │ advances current│  │   message naming every      │
+              │ _sprint and     │  │   flagged persona pair      │
+              │ resets cycle_   │  │   (e.g. sr-eng × sr-qa,     │
+              │ count           │  │   sr-qa × sr-staff)         │
+              │                 │  │ lib/ralph-loop/escalate.sh  │
+              │                 │  │   --reason divergence       │
+              │                 │  │ user replies parsed and     │
+              │                 │  │ applied (ratify <persona> | │
+              │                 │  │ rework needed: <text>)      │
+              └────────┬────────┘  └────────────┬────────────────┘
+                       │                        │
+                       ▼                        ▼
+           sprint-walk loop                  loop pauses; canonize
+           advances or terminates            handoff still fires on
+                                             eventual termination
+```
+
+At full-run termination (every sprint complete; coordinator exit
+reason `merge-ready`), `/yoke:implement` issues one final foreground
+Task call to `agents/orchestrator.md` with `mode=canonize`. The
+Orchestrator invokes `/yoke:canonize` via the Skill tool; the
+canonize skill applies the five-criterion cascade, classifies Model
+C impact, and dispatches to the active provider (whichever entry in
+`providers.yaml` the host's `.yoke/config.yaml ::
+canonical_memory.provider` selects). This is the **only** moment
+in the `/yoke:implement` lifecycle in which canonical-memory writes
+happen.
+
+The legacy v2.x agent files (`agents/generator.md`,
+`agents/validator.md`) are deleted in v3.0; the legacy `consult` and
+`monitor` Orchestrator modes are removed from
+`agents/orchestrator.md`. Reintroduction of any of those names
+under `lib/runtime/` or `skills/implement/` trips
+`tests/sensors/legacy-agents-removed.test.sh`.
 
 ## Six phases
 
 | Phase | Driver | What it does |
 | :--- | :--- | :--- |
-| 1 — Discovery | `/yoke:discover` skill (Generator persona inline) | idea → `prd.md` |
-| 2 — Tech Spec | `/yoke:tech-spec` skill (Generator persona inline) | PRD → `tech-spec.md` |
-| 3 — Acceptance Contract | `/yoke:acceptance-contract` skill (Validator persona inline) | PRD + Tech Spec → binding contract |
-| 4 — Runtime | `/yoke:implement` skill (spawns 3 subagents in parallel each cycle) | parallel ralph loop with hard bounds |
-| 5 — Canonization (auto) | Orchestrator subagent in canonize mode (final Task call from `/yoke:implement` termination) | working memory → canonical-memory PRs |
+| 1 — Discovery | `/yoke:discover` skill (Discovery persona inline) | idea → `prd.md` |
+| 2 — Tech Spec | `/yoke:tech-spec` skill (Tech-spec persona inline) | PRD → `tech-spec.md` + sprint files |
+| 3 — Acceptance Contract | `/yoke:acceptance-contract` skill (Acceptance persona inline) | PRD + Tech Spec → binding contract |
+| 4 — Runtime | `/yoke:implement` skill (spawns 3 council personas in parallel each cycle behind the sync barrier; arbiter mediates Phase B) | council protocol with hard bounds |
+| 5 — Canonization (auto) | Orchestrator subagent in canonize mode (single Task call from `/yoke:implement` full-run termination) | working memory → canonical-memory PRs |
 | 5 — Canonization (manual escape hatch) | `/yoke:canonize` skill (dispatches to the active provider's canonize verb) | re-runs canonization on existing `.yoke/` |
 | 6 — Drift sensing | `/yoke:drift-sense` skill | continuous (out of lifecycle) |
 
@@ -53,7 +167,7 @@ provider selection + v1.x → v2.0.0 migration),
 1. PRD approval (Phase 1 gate)
 2. Tech Spec approval (Phase 2 gate)
 3. Acceptance Contract ratification (Phase 3 gate, binding)
-4. Divergence arbitration (Phase 4, only on irreconcilable conflict or hard bound)
+4. Council divergence arbitration (Phase 4, fired by the round-cap path inside Phase B; the rendered message names every flagged persona pair — generalized from the v2.x binary-loop arbitration)
 5. Canonization ratification (Phase 5, Model C — auto-merge / veto window / sync ratify)
 
 ## Topology diagram
@@ -68,7 +182,7 @@ provider selection + v1.x → v2.0.0 migration),
       ┌──────────┐ ┌──────────┐ ┌────────────────┐    │
       │/discover │ │/tech-spec│ │/acceptance-    │    │
       │          │ │          │ │ contract       │    │
-      │(Generator│ │(Generator│ │(Validator      │    │
+      │(skill,   │ │(skill,   │ │(skill,         │    │
       │ persona  │ │ persona  │ │  persona       │    │
       │ inline)  │ │ inline)  │ │  inline)       │    │
       └────┬─────┘ └────┬─────┘ └────────┬───────┘    │
@@ -77,32 +191,37 @@ provider selection + v1.x → v2.0.0 migration),
                         │                             │
                        prd.md ── tech-spec.md ── acceptance-contract.md
                         │                             │
-                        ▼                             │ Trigger 4 (only on divergence)
+                        ▼                             │ Trigger 4 (council divergence,
               ┌──────────────────────────────────────────────────────┐
               │  /yoke:implement   (skill, deterministic coordinator)│
               │  ─────────────────────────────────────────────────── │
-              │  Per cycle, single concurrent Task batch:            │
+              │  Per cycle (council protocol):                       │
               │                                                      │
-              │   ┌──────────┐  ┌──────────┐  ┌──────────────────┐  │
-              │   │Generator │  │Validator │  │Orchestrator      │  │
-              │   │(runtime  │  │(runtime  │  │(consult+monitor) │  │
-              │   │ subagent)│  │ subagent)│  │                  │  │
-              │   └────┬─────┘  └────┬─────┘  └────────┬─────────┘  │
-              │        │             │                 │            │
-              │        ▼             ▼                 ▼            │
-              │   progress.md   contracts.md   /yoke:search-        │
-              │                                 canonical-memory    │
-              │                                 (Skill, facade)     │
+              │   Phase A — single concurrent Task batch behind      │
+              │             the sync barrier:                        │
+              │   ┌──────────┐  ┌──────────┐  ┌──────────┐          │
+              │   │ Sr Eng   │  │ Sr QA    │  │ Sr Staff │          │
+              │   │(persona  │  │(persona  │  │(persona  │          │
+              │   │ subagent)│  │ subagent)│  │ subagent)│          │
+              │   └────┬─────┘  └────┬─────┘  └────┬─────┘          │
+              │        ▼             ▼             ▼                 │
+              │   .yoke/runtime/cycles/<N>/{sr-eng,sr-qa,sr-staff}.md│
+              │   .yoke/runtime/.phase-a-done.<persona>              │
               │                                                      │
+              │   Phase B — bounded council loop (≤ rounds_max):     │
+              │             quiescence → consensus                   │
+              │             ≥1 réplica → council-arbiter (JSON       │
+              │                          verdict)                    │
+              │   Phase C — consensus advances OR Trigger 4 escalates│
+              │                                                      │
+              │   ── deterministic ──> persona-loader / sync-barrier │
               │   ── deterministic ──> verify-acceptance.sh          │
-              │   ── deterministic ──> check-contradiction           │
-              │   ── deterministic ──> post-iteration.sh (snapshot)  │
               │   ── deterministic ──> check-hard-bounds.sh          │
               │                                                      │
               │   Loop until criteria pass | divergence | hard bound │
               │                                                      │
-              │   ── At termination ──> single Orchestrator call     │
-              │                          (mode=canonize)             │
+              │   ── At full-run termination ──> single Orchestrator │
+              │                                  Task (mode=canonize)│
               └────────────────────────┬─────────────────────────────┘
                                        │
                                        ▼
@@ -212,7 +331,9 @@ yoke/                              # this plugin repo
 │   ├── canonize/                  # write facade
 │   ├── discover/  tech-spec/  acceptance-contract/  implement/
 │   ├── drift-sense/  status/  ack-sensors/
-├── agents/                        # 3 runtime subagents (generator, validator, orchestrator)
+├── agents/                        # council personas (sr-eng, sr-qa, sr-staff),
+│                                  # contradiction-detection arbiter (council-arbiter),
+│                                  # canonize-only orchestrator
 ├── hooks/                         # deterministic checkpoints
 ├── lib/
 │   ├── yoke-prelude.sh            # hard-break pre-flight helper

@@ -300,6 +300,69 @@ wm_judge_verdict_path() {
     printf '%s/%s--%s.json' "$dir" "$safe_criterion" "$safe_sensor"
 }
 
+# --- council cycle paths ----------------------------------------------------
+#
+# Per `.yoke/specs/2026-05-01-agent-council.md` Sprint 01 / Task t04 (and
+# Acceptance Contract Scenario 4 / FR-2), each council cycle owns a flat
+# directory at `.yoke/runtime/cycles/<N>/<persona>.md`. Each persona writes
+# its own slice file there during Phase A; the deterministic merge helper at
+# `lib/runtime/council-merge.sh` reads every slice file alphabetically and
+# emits a structured read-only view for Phase B. Slice files live under the
+# gitignored runtime directory (not under `.yoke/sprints/`) — they are
+# per-cycle ephemeral working memory, not versioned archive.
+#
+# Cites concepts/yoke-pattern-memory-model for the working-memory archive
+# layout invariants — slice files are runtime-tier (gitignored, ephemeral)
+# and never promoted to the versioned archive.
+#
+# Persona-name format: lower-case alnum-start, ≤32 chars, kebab allowed
+# (matches the persona file basenames under `agents/sr-*.md`). The regex
+# is intentionally narrower than the slug regex to keep slice filenames
+# short and obviously persona-shaped.
+
+readonly WM_PERSONA_NAME_REGEX='^[a-z0-9][a-z0-9-]{0,31}$'
+
+# wm_cycle_dir "<slug>" <cycle>
+#   echoes .yoke/runtime/cycles/<N>/ for the given cycle. The trailing
+#   slash is intentional — callers append `<persona>.md` directly.
+#   Returns non-zero with a `wm:`-prefixed message on missing/invalid
+#   slug or non-numeric cycle.
+wm_cycle_dir() {
+    local slug="${1:-}"
+    local cycle="${2:-}"
+    if [[ -z "$slug" ]]; then
+        slug="$(wm_active_slug)" || return 1
+    else
+        wm_validate_slug "$slug" || return 1
+    fi
+    if [[ -z "$cycle" || ! "$cycle" =~ ^[0-9]+$ ]]; then
+        echo "wm: wm_cycle_dir requires <slug> <cycle> (non-negative integer); got slug='$slug' cycle='$cycle'" >&2
+        return 1
+    fi
+    printf '%s/cycles/%d' "$WM_RUNTIME_DIR" "$cycle"
+}
+
+# wm_persona_slice_path "<slug>" <cycle> "<persona>"
+#   echoes .yoke/runtime/cycles/<N>/<persona>.md for the given persona.
+#   Returns non-zero with a `wm:`-prefixed message on missing/invalid
+#   slug, non-numeric cycle, or persona-name regex violation.
+wm_persona_slice_path() {
+    local slug="${1:-}"
+    local cycle="${2:-}"
+    local persona="${3:-}"
+    if [[ -z "$persona" ]]; then
+        echo "wm: wm_persona_slice_path requires <slug> <cycle> <persona>" >&2
+        return 1
+    fi
+    if [[ ! "$persona" =~ $WM_PERSONA_NAME_REGEX ]]; then
+        echo "wm: invalid persona name: '$persona' (expected [a-z0-9][a-z0-9-]{0,31})" >&2
+        return 1
+    fi
+    local dir
+    dir="$(wm_cycle_dir "$slug" "$cycle")" || return 1
+    printf '%s/%s.md' "$dir" "$persona"
+}
+
 # --- runtime wipe -----------------------------------------------------------
 
 # Removes the contents of .yoke/runtime/ but keeps the directory itself.

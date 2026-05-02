@@ -3,32 +3,44 @@
 #
 # The /yoke:implement coordinator sources this helper at preflight, then
 # passes the resolved `model: <id>` to every Task call when spawning the
-# Generator, Validator, and Orchestrator subagents.
+# council persona subagents and the termination-time Orchestrator.
+#
+# v3.0 council protocol (Sprint 04 of the agent-council PRD): the
+# legacy v2.x runtime role tokens (the binary-loop pair plus the two
+# non-canonize orchestrator modes) are retired. The surviving role
+# tokens are:
+#
+#   - council personas (sr-eng, sr-qa, sr-staff)              → inherit session model
+#   - council-arbiter (contradiction-detection JSON verdict)  → inherit session model
+#   - orchestrator.canonize (Model C governance writes)       → inherit session model
+#   - default                                                  → inherit session model
+#
+# Personas inherit the session model by default — the council protocol
+# relies on the parallel-persona richness, not on per-persona model
+# pinning. Hosts that need to pin specific personas can override under
+# `runtime.models.<role>` in `.yoke/config.yaml` (e.g.
+# `runtime.models.sr-eng: claude-sonnet-4-6`).
 #
 # Resolution order for `yoke_resolve_model <role>`:
 #   1. `.yoke/config.yaml` overrides under `runtime.models.<role>`
-#      (or `runtime.models.orchestrator.<mode>` for orchestrator modes).
-#   2. Built-in defaults:
-#        - validator                   → claude-sonnet-4-6
-#        - orchestrator.consult        → claude-sonnet-4-6
-#        - orchestrator.monitor        → claude-sonnet-4-6
-#        - generator                   → "" (inherit session model)
-#        - orchestrator.canonize       → "" (inherit session model)
-#        - default                     → "" (inherit session model)
+#      (or `runtime.models.orchestrator.<mode>` for orchestrator modes —
+#      currently only `canonize` is recognized).
+#   2. Built-in defaults (all empty in v3.0 — every recognized role
+#      inherits the user's session model unless explicitly overridden).
 #   3. Empty result means "do not pin; inherit the user's session model".
 #
 # Recognized roles (string arg to yoke_resolve_model):
-#   generator
-#   validator
-#   orchestrator.consult
-#   orchestrator.monitor
+#   sr-eng
+#   sr-qa
+#   sr-staff
+#   council-arbiter
 #   orchestrator.canonize
 #   default
 #
 # Why per-mode pinning for orchestrator: canonize writes canonical memory
-# under Model C governance — quality is king there. Consult/monitor are
-# retrieval + filter operations whose output is structurally bounded
-# (subgraph excerpts, divergence flags), so a smaller model is safe.
+# under Model C governance — quality is king there. Downgrading the
+# canonize call would erode governance judgment, so the default is to
+# inherit the session model (top-tier).
 #
 # Idempotent re-source guard.
 if [[ -n "${_YOKE_AGENT_CONFIG_LOADED:-}" ]]; then
@@ -84,7 +96,7 @@ yoke_log_resolved_models() {
     mkdir -p "$(dirname "$log_path")"
 
     local role val
-    for role in generator validator orchestrator.consult orchestrator.monitor orchestrator.canonize; do
+    for role in sr-eng sr-qa sr-staff council-arbiter orchestrator.canonize; do
         val="$(yoke_resolve_model "$role" "$config")"
         if [[ -z "$val" ]]; then
             val="<inherit-session>"
@@ -98,10 +110,7 @@ yoke_log_resolved_models() {
 _yoke_default_model() {
     local role="$1"
     case "$role" in
-        validator|orchestrator.consult|orchestrator.monitor)
-            printf 'claude-sonnet-4-6'
-            ;;
-        generator|orchestrator.canonize|default)
+        sr-eng|sr-qa|sr-staff|council-arbiter|orchestrator.canonize|default)
             printf ''
             ;;
         *)
@@ -114,9 +123,9 @@ _yoke_default_model() {
 # Supports two shapes:
 #   runtime:
 #     models:
-#       <role>: <value>                        # for generator|validator|default
+#       <role>: <value>                        # for sr-eng|sr-qa|sr-staff|council-arbiter|default
 #       orchestrator:
-#         <mode>: <value>                      # for orchestrator.<mode>
+#         <mode>: <value>                      # for orchestrator.<mode> (currently only canonize)
 _yoke_yaml_lookup_model() {
     local role="$1" file="$2"
 
