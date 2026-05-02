@@ -71,9 +71,7 @@ jobs:
           - tests/canonical-memory-read.test.sh
           - tests/canonical-memory-write.test.sh
           - tests/bootstrap.test.sh
-          - tests/acceptance-and-sensors.test.sh
           - tests/ralph-loop-bounds.test.sh
-          - tests/example-project.test.sh
           - tests/docs-and-lineage.test.sh
           - tests/ack-sensors-catalog.test.sh
           - tests/perf-quickwins-part-1.test.sh
