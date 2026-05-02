@@ -4,6 +4,42 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and this
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [3.0.0] — 2026-05-02 — Agent council protocol cutover (**Breaking**)
+
+The v2.x adversarial Generator/Validator/Orchestrator-monitor runtime is
+retired in favor of a three-persona council protocol. Each cycle drives
+through three named phases:
+
+- **Phase A** — three persona Tasks (`agents/sr-eng.md`, `agents/sr-qa.md`,
+  `agents/sr-staff.md`) spawn in parallel behind a deterministic
+  file-marker sync barrier (`lib/runtime/sync-barrier.sh`) and produce
+  per-persona slice files under `.yoke/runtime/cycles/<N>/<persona>.md`.
+- **Phase B** — `lib/runtime/council.sh phase-b` runs up to
+  `council_rounds_max` réplica rounds with quiescence detection; the new
+  `agents/council-arbiter.md` subagent classifies pairwise disagreements
+  per the dispute rubric and emits a structured JSON verdict.
+- **Phase C** — on consensus the cycle ends; on cap-exhausted divergence
+  Trigger 4 escalates with a generalized N-persona message rendered by
+  `lib/runtime/trigger-4.sh`.
+
+Legacy cutover: `agents/generator.md` and `agents/validator.md` deleted;
+`agents/orchestrator.md` reduced to canonize-only mode for the Phase 5
+termination handoff; `skills/implement/SKILL.md` rewired for the council
+protocol.
+
+Sensor harness vocabulary refactor (companion to the cutover):
+`lib/sensors/ack-sensors.sh --mode upsert` now seeds 6 standard sensors
+(`lint`, `build`, `run-project`, `fetch-logs`, `code-review`,
+`llm-as-judge`) with `command:` resolved at creation time via the host
+project's discover-from chain. Inference layer detects per-project
+sensors from `tests/<dir>/` and materializes `tests-runtime`,
+`tests-sensors`, `tests-smoke`, `tests-canonical-memory`. Upsert
+restricted to the active AC; historical ACs become read-only audit
+artifacts. 173 ad-hoc sensor files retired; canonical 10-sensor catalog.
+
+> **Breaking.** Drain in-flight v2.x cycles before upgrading; the v2.x
+> spawn surface is gone. See `docs/migration-v2-to-v3.md`.
+
 ## [2.0.0] — 2026-04-30 — Pluggable canonical-memory providers (**Breaking**)
 
 The single-vendor canonical-memory implementation that was forked from

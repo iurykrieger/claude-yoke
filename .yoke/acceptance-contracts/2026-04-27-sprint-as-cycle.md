@@ -29,7 +29,7 @@ Given the working tree carries `lib/working-memory/paths.sh` with the existing `
 When sprint 1 t01 commits the additive helpers
 Then `bash -c 'source lib/working-memory/paths.sh && wm_sprint_path 2026-04-27-sprint-as-cycle 3'` exits 0 with stdout `.yoke/sprints/2026-04-27-sprint-as-cycle-s03.md`, AND `wm_validate_sprint_id 2026-04-27-sprint-as-cycle-s03` exits 0, AND `wm_validate_sprint_id 2026-04-27-sprint-as-cycle-s3` exits non-zero, AND existing `wm_task_*` callsites continue to resolve
 Fixture: none
-Sensors: [wm-sprint-helpers-callable, wm-task-helpers-still-callable]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 2 — Add `templates/sprint.md`
 Task: 2026-04-27-sprint-as-cycle-s01-t02
@@ -37,7 +37,7 @@ Given there is no `templates/sprint.md`
 When sprint 1 t02 commits the template
 Then `templates/sprint.md` exists with exactly 5 H2 headings (`## Sprint objective`, `## Sprint DoD`, `## Tasks`, `## Functional acceptance criteria`, `## Sensors`) in that order, AND no body line matches `^#!/.*bash` (no inlined sensor logic), AND frontmatter declares the required fields (`task_id`, `sprint`, `slug`, `status`, `created_at`, `model`, `traceability`, `Migrated-from`)
 Fixture: none
-Sensors: [templates-sprint-md-shape]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 3 — Add `scaffold-sprints.sh`
 Task: 2026-04-27-sprint-as-cycle-s01-t03
@@ -45,7 +45,7 @@ Given `lib/working-memory/scaffold-tasks.sh` exists and is unchanged
 When sprint 1 t03 commits `lib/working-memory/scaffold-sprints.sh`
 Then invoking `bash lib/working-memory/scaffold-sprints.sh /tmp/test-spec.md` (where the fixture spec contains exactly one `### Sprint 1 — Test` heading and a valid frontmatter) creates `.yoke/sprints/<slug>-s01.md` matching `templates/sprint.md` and exits 0 with `wm: scaffolded 1 sprint file(s)…`, AND immediate re-run exits non-zero with conflict message
 Fixture: tests/fixtures/scaffold-sprints-input.md
-Sensors: [scaffold-sprints-functional]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 4 — Implement `legacy-parts-zero-residual` sensor
 Task: 2026-04-27-sprint-as-cycle-s01-t04
@@ -53,7 +53,7 @@ Given the working tree currently has 62 `-part-N.md` files under `.yoke/specs/` 
 When sprint 1 t04 commits the sensor and self-test
 Then `bash tests/sensors/legacy-parts-zero-residual.test.sh` exits 0, AND `bash lib/sensors/legacy-parts-zero-residual.sh` against the current working tree emits ≥ 78 newline-delimited JSON violations and exits 1, AND every emitted JSON object has exactly the keys `criterion`, `status`, `location`, `fix_instruction`, `sensor`, `evidence`
 Fixture: none
-Sensors: [legacy-parts-residual-self-test, legacy-parts-residual-shape]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 5 — Pre-flight backup
 Task: 2026-04-27-sprint-as-cycle-s02-t01
@@ -61,7 +61,7 @@ Given sprint 1 has shipped (helpers + template + sensor + scaffolder are in plac
 When sprint 2 t01 runs the backup
 Then `.yoke/.legacy-archive/2026-04-27-pre-migration/MANIFEST.txt` exists with 78 lines, AND `git check-ignore .yoke/.legacy-archive/2026-04-27-pre-migration/MANIFEST.txt` exits 0, AND a sha256 round-trip on any one archived file matches the manifest entry
 Fixture: none
-Sensors: [legacy-archive-78-files, legacy-archive-gitignored]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 6 — `git mv` 62 spec parts to sprints
 Task: 2026-04-27-sprint-as-cycle-s02-t02
@@ -69,7 +69,7 @@ Given the backup from t01 exists; 62 `-part-N.md` files live under `.yoke/specs/
 When sprint 2 t02 runs the renames
 Then `find .yoke/specs -name '*-part-[0-9]*.md' -type f | wc -l` returns 0, AND `find .yoke/sprints -name '*-s[0-9][0-9].md' -type f | wc -l` returns ≥ 62, AND `git log --follow .yoke/sprints/2026-04-25-bedrock-canonical-memory-port-s01.md --oneline | wc -l` returns ≥ 2 (history preserved via `git mv`)
 Fixture: none
-Sensors: [parts-zero-residue-specs, sprints-counterpart-exists, git-mv-history-preserved]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 7 — Reframe migrated H1 headers
 Task: 2026-04-27-sprint-as-cycle-s02-t03
@@ -77,7 +77,7 @@ Given t02 moved 62 spec parts to `.yoke/sprints/`; their H1 still reads `# Spec:
 When sprint 2 t03 runs the header reframe
 Then `grep -lE '^# Spec:.*Part [0-9]+( of [0-9]+)?$' .yoke/sprints/*.md` returns zero matches, AND `grep -lE '^# Sprint [0-9]{2}( of [0-9]{2})?:' .yoke/sprints/*.md | wc -l` returns ≥ 62, AND each migrated file body contains a `> Migrated from: # Spec: …` annotation immediately after frontmatter
 Fixture: none
-Sensors: [h1-reframe-zero-spec-residue, h1-reframe-sprint-headings]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 8 — Concatenate doctrine-canonization tasks
 Task: 2026-04-27-sprint-as-cycle-s02-t04
@@ -85,7 +85,7 @@ Given the 16 `2026-04-27-yoke-doctrine-canonization-s<NN>-t<MM>.md` task files e
 When sprint 2 t04 runs the concatenation
 Then `find .yoke/sprints -name '2026-04-27-yoke-doctrine-canonization-s*.md' -type f | wc -l` returns 5, AND `find .yoke/tasks -name '2026-04-27-yoke-doctrine-canonization-s*-t*.md' -type f | wc -l` returns 0, AND every one of the 5 sprint files has `Migrated-from: [...]` frontmatter listing the original 16 paths in aggregate, AND every `### Task <id>` subsection contains the four inline labels (`**Story:**`, `**Technical implementation:**`, `**Validation:**`, `**Acceptance criterion:**`)
 Fixture: none
-Sensors: [doctrine-canonization-5-sprints, migrated-from-frontmatter, task-anchor-labels]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 9 — Sprint-2 residual verification
 Task: 2026-04-27-sprint-as-cycle-s02-t05
@@ -93,7 +93,7 @@ Given t01–t04 of sprint 2 have shipped (legacy archive populated, spec parts m
 When sprint 2 t05 runs the filtered sensor
 Then `bash -c 'bash lib/sensors/legacy-parts-zero-residual.sh 2>/dev/null | jq -c "select(.location | test(\".yoke/tasks/2026-04-27-sprint-as-cycle-s\") | not)" | wc -l'` returns 0
 Fixture: none
-Sensors: [sprint2-residual-filtered]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 10 — Rewrite tech-spec skill
 Task: 2026-04-27-sprint-as-cycle-s03-t01
@@ -101,7 +101,7 @@ Given the running `/yoke:tech-spec` continues to use the OLD shape for THIS spec
 When sprint 3 t01 commits the rewrite
 Then `! grep -qE 'scaffold-tasks\.sh|wm_list_task_paths|\.yoke/tasks/' skills/tech-spec/SKILL.md` exits 0, AND `grep -qE 'scaffold-sprints\.sh|wm_list_sprint_paths|\.yoke/sprints/' skills/tech-spec/SKILL.md` exits 0
 Fixture: none
-Sensors: [tech-spec-skill-no-task-refs, tech-spec-skill-has-sprint-refs]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 11 — Rewrite acceptance-contract skill
 Task: 2026-04-27-sprint-as-cycle-s03-t02
@@ -109,7 +109,7 @@ Given the AC binding contract shape stays one-file-per-task
 When sprint 3 t02 commits the rewrite
 Then `! grep -qE 'wm_list_task_paths|\.yoke/tasks/' skills/acceptance-contract/SKILL.md` exits 0, AND `grep -qE 'wm_list_sprint_paths' skills/acceptance-contract/SKILL.md` exits 0, AND `grep -qE '### Task ' skills/acceptance-contract/SKILL.md` exits 0
 Fixture: none
-Sensors: [ac-skill-no-task-refs, ac-skill-has-anchor-refs]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 12 — Rewrite implement skill + ralph orchestrator
 Task: 2026-04-27-sprint-as-cycle-s03-t03
@@ -117,7 +117,7 @@ Given progress.md shape evolves in t07 (parallel within sprint 3)
 When sprint 3 t03 commits the rewrite to skills/implement and lib/ralph-loop/orchestrate.sh
 Then `! grep -qE 'wm_list_task_paths|\.yoke/tasks/' skills/implement/SKILL.md lib/ralph-loop/orchestrate.sh` exits 0, AND `grep -qE 'current_sprint:' skills/implement/SKILL.md` exits 0, AND `grep -qE 'current_sprint' lib/ralph-loop/orchestrate.sh` exits 0
 Fixture: none
-Sensors: [implement-skill-no-task-refs, ralph-orchestrate-has-current-sprint]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 13 — Rewrite status skill
 Task: 2026-04-27-sprint-as-cycle-s03-t04
@@ -125,7 +125,7 @@ Given progress.md will gain `current_sprint:` and `completed_sprints:` (in t07)
 When sprint 3 t04 commits the rewrite
 Then `! grep -qE 'wm_list_task_paths|\.yoke/tasks/' skills/status/SKILL.md` exits 0, AND `grep -qE 'current_sprint' skills/status/SKILL.md` exits 0, AND `grep -qE 'completed_sprints' skills/status/SKILL.md` exits 0
 Fixture: none
-Sensors: [status-skill-no-task-refs, status-skill-has-sprint-fields]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 14 — Update incidental skill references
 Task: 2026-04-27-sprint-as-cycle-s03-t05
@@ -133,7 +133,7 @@ Given each of {bootstrap, discover, ack-sensors, preserve} skills carries some r
 When sprint 3 t05 commits the updates
 Then `find skills/{bootstrap,discover,ack-sensors,preserve} -name 'SKILL.md' -exec grep -lE 'wm_list_task_paths|\.yoke/tasks/' {} +` returns no files, AND invoking `/yoke:bootstrap` from a clean state creates `.yoke/sprints/` (not `.yoke/tasks/`) in the resulting tree
 Fixture: tests/fixtures/bootstrap-clean-state/
-Sensors: [incidental-skills-no-task-refs, bootstrap-creates-sprints-dir]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 15 — Update agent contracts
 Task: 2026-04-27-sprint-as-cycle-s03-t06
@@ -141,7 +141,7 @@ Given the runtime subagents (Generator, Validator, Orchestrator) read working me
 When sprint 3 t06 commits agent updates
 Then `find agents -name "*.md" -exec grep -lE 'wm_list_task_paths|\.yoke/tasks/' {} +` returns no files, AND `grep -l 'current_sprint' agents/generator.md agents/validator.md agents/orchestrator.md | wc -l` returns 3
 Fixture: none
-Sensors: [agents-no-task-refs, agents-have-current-sprint]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 16 — Update progress.md shape
 Task: 2026-04-27-sprint-as-cycle-s03-t07
@@ -149,7 +149,7 @@ Given progress.md today carries cycle log without sprint-pointer fields
 When sprint 3 t07 commits the shape update (template + bootstrap seed + migration step)
 Then post-cycle `progress.md` carries `current_sprint:` and `completed_sprints:` frontmatter, AND `find .yoke/runtime -maxdepth 1 -name 'progress*.md' -type f | wc -l` returns exactly 1 (file singleton invariant)
 Fixture: none
-Sensors: [progress-md-frontmatter-shape, progress-md-singleton]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 17 — Update spec template
 Task: 2026-04-27-sprint-as-cycle-s03-t08
@@ -157,7 +157,7 @@ Given `templates/spec.md` today renders `#### Task <ID>` entries inside sprint s
 When sprint 3 t08 commits the template update
 Then `! grep -qE '^#### Task |\.yoke/tasks/' templates/spec.md` exits 0, AND `grep -qE '\.yoke/sprints/' templates/spec.md` exits 0, AND `grep -qE '^## Sprints$' templates/spec.md` exits 0 (preserves the H2)
 Fixture: none
-Sensors: [templates-spec-md-no-task-refs, templates-spec-md-preserves-sections]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 18 — Concatenate own-spec task files
 Task: 2026-04-27-sprint-as-cycle-s04-t01
@@ -165,7 +165,7 @@ Given THIS spec's 23 task files at `.yoke/tasks/2026-04-27-sprint-as-cycle-s*-t*
 When sprint 4 t01 runs the closing self-migration (with extended backup)
 Then `find .yoke/sprints -name '2026-04-27-sprint-as-cycle-s*.md' -type f | wc -l` returns 4, AND `find .yoke/tasks -name '2026-04-27-sprint-as-cycle-s*-t*.md' -type f | wc -l` returns 0
 Fixture: none
-Sensors: [own-spec-4-sprints, own-spec-zero-tasks]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 19 — Hard-remove `wm_task_*` helpers
 Task: 2026-04-27-sprint-as-cycle-s04-t02
@@ -173,7 +173,7 @@ Given all consumers have been migrated (sprints 2-3) and own-spec task files are
 When sprint 4 t02 commits the removal
 Then `! grep -qE 'wm_task_path|wm_list_task_paths|wm_validate_task_id' lib/working-memory/paths.sh` exits 0, AND `find skills/ agents/ lib/ -type f \( -name '*.sh' -o -name '*.md' \) -exec grep -lE 'wm_task_path|wm_list_task_paths|wm_validate_task_id' {} +` returns no files
 Fixture: none
-Sensors: [paths-sh-no-task-helpers, codebase-no-task-helper-refs]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 20 — Run residual sensor globally
 Task: 2026-04-27-sprint-as-cycle-s04-t03
@@ -181,7 +181,7 @@ Given migrations are complete and helpers are removed
 When sprint 4 t03 runs the unfiltered residual sensor
 Then `bash lib/sensors/legacy-parts-zero-residual.sh; [ $? -eq 0 ]` exits 0, AND `bash lib/sensors/legacy-parts-zero-residual.sh 2>/dev/null | wc -c` returns 0 (zero bytes of output, no violations)
 Fixture: none
-Sensors: [legacy-parts-residual-clean]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 21 — Sprint-2 smoke test additions
 Task: 2026-04-27-sprint-as-cycle-s04-t04
@@ -189,7 +189,7 @@ Given migration has converged and `tests/fixtures/legacy-slugs.txt` + `tests/fix
 When sprint 4 t04 commits the new assertions
 Then `bash tests/smoke/working-memory-migration.test.sh` exits 0, AND `grep -c 'legacy -part-N.md\|lost its sprint counterpart\|content drift exceeds' tests/smoke/working-memory-migration.test.sh` returns ≥ 3
 Fixture: tests/fixtures/legacy-slugs.txt, tests/fixtures/pre-migration-line-count.txt
-Sensors: [smoke-working-memory-migration-passes, smoke-working-memory-migration-has-3-assertions]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 22 — Sprint-4 smoke test additions
 Task: 2026-04-27-sprint-as-cycle-s04-t05
@@ -197,7 +197,7 @@ Given the runtime walk semantics are in place (sprint 3 t03)
 When sprint 4 t05 commits the new assertions
 Then `bash tests/smoke/ralph-loop-sprint-walk.test.sh` exits 0, AND `grep -c 'current_sprint: did not advance\|progress.md was split\|completed_sprints array does not equal' tests/smoke/ralph-loop-sprint-walk.test.sh` returns ≥ 3
 Fixture: none
-Sensors: [smoke-ralph-loop-sprint-walk-passes, smoke-ralph-loop-sprint-walk-has-3-assertions]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 23 — Draft Phase 5 canonization packet
 Task: 2026-04-27-sprint-as-cycle-s04-t06
@@ -205,7 +205,7 @@ Given canonical memory carries the existing `yoke-pattern-memory-model` and `yok
 When sprint 4 t06 drafts the packet at `.yoke/runtime/.preserve-packet.md`
 Then `test -f .yoke/runtime/.preserve-packet.md` exits 0, AND `git check-ignore .yoke/runtime/.preserve-packet.md` exits 0 (gitignored), AND the packet contains ≥ 4 H2 sections (new entity body, memory-model refinement diff, new decision body, supersession diff)
 Fixture: none
-Sensors: [preserve-packet-exists, preserve-packet-gitignored, preserve-packet-has-4-sections]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ## Functional requirements
 

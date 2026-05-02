@@ -1,36 +1,69 @@
 ---
 name: implement
 description: >
-  Phase 4 — adversarial ralph loop. Walks sprints serially: reads
-  `current_sprint:` from `.yoke/runtime/progress.md`, loads
+  Phase 4 — adversarial ralph loop (v3.0 council protocol). Walks
+  sprints serially: reads `current_sprint:` from
+  `.yoke/runtime/progress.md`, loads
   `.yoke/sprints/<slug>-s<current_sprint>.md` as the cycle's working
-  set, spawns the Generator, Validator, and Orchestrator subagents
-  concurrently each cycle (single Task batch), iterates ≤8 cycles
-  against the binding Acceptance Contract, advances the pointer and
-  resets the cycle counter on per-sprint convergence. Sprint contracts
-  on consensus persist to `.yoke/contracts/<slug>.md`; runtime state
-  under `.yoke/runtime/`. At full convergence (every sprint complete),
-  issues one final Orchestrator call with `mode=canonize` to apply the
-  five-criteria filter and propose Model C writes to canonical memory.
+  set, drives every cycle through three named phases — Phase A
+  (parallel persona Tasks behind a deterministic file-marker barrier),
+  Phase B (bounded council loop with quiescence + LLM contradiction-
+  detection arbiter), Phase C (cycle entry on consensus or Trigger 4
+  on cap-exhausted divergence). Iterates ≤8 cycles against the binding
+  Acceptance Contract, advances the pointer and resets the cycle
+  counter on per-sprint convergence. Sprint contracts on consensus
+  persist to `.yoke/contracts/<slug>.md`; runtime state under
+  `.yoke/runtime/`. At full convergence (every sprint complete),
+  issues one final Orchestrator call with `mode=canonize` to apply
+  the five-criteria filter and propose Model C writes to canonical
+  memory.
 argument-hint: ""
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Task
 ---
 
-# /yoke:implement — Phase 4 (parallel ralph loop, v1.1.0)
+# /yoke:implement — Phase 4 (council ralph loop, v3.0)
 
-Drive Generator ↔ Validator cycles inside the envelope of the binding
-Acceptance Contract, sprint by sprint, with the Orchestrator subagent
-consulting canonical memory live and owning the canonization handoff
-at full-run termination.
+Drive a 3-persona council (Sr Eng / Sr QA / Sr Staff) inside the
+envelope of the binding Acceptance Contract, sprint by sprint, with
+the Orchestrator subagent owning the canonization handoff at full-run
+termination.
 
-> **v1.1.0 architectural note.** This skill no longer routes through
-> an "Orchestrator skill in runtime-coordinator mode". Instead, it is
-> a **deterministic coordinator** that spawns three runtime subagents
-> (`agents/generator.md`, `agents/validator.md`,
-> `agents/orchestrator.md`) **in parallel** via a single Task batch
-> per cycle. No subagent spawns another. At loop termination the skill
-> issues one more Orchestrator call with `mode=canonize` to perform
-> the canonization handoff.
+> **v3.0 architectural note (Sprint 02 cutover).** The v2.x
+> Generator/Validator/Orchestrator-monitor invocation path is
+> **REMOVED** from this skill. Each cycle now has three named phases
+> reflected in `progress.md`:
+>
+> - **Phase A** — three persona Tasks (`agents/sr-eng.md`,
+>   `agents/sr-qa.md`, `agents/sr-staff.md`) spawn in parallel via
+>   a single Task batch; each writes its slice file at
+>   `.yoke/runtime/cycles/<N>/<persona>.md` and its Phase-A marker
+>   at `.yoke/runtime/.phase-a-done.<persona>` before exit.
+>   `lib/runtime/cycle.sh pre-spawn` clears stale markers and
+>   validates persona files before the spawn; `post-spawn` defensively
+>   waits on every marker after Task completion.
+> - **Phase B** — `lib/runtime/council.sh phase-b` runs up to
+>   `overrides.runtime.council_rounds_max` réplica rounds (default 3),
+>   detecting quiescence deterministically (zero new réplicas in a
+>   round → consensus) and invoking `agents/council-arbiter.md` only
+>   between rounds that produced réplicas. The arbiter emits a
+>   structured JSON verdict; the loop branches on `consensus` plus
+>   `contradictions[]` length.
+> - **Phase C** — on consensus, the cycle ends and the next cycle
+>   opens. On cap-exhausted divergence, `lib/runtime/trigger-4.sh
+>   render` produces the user-facing escalation message and
+>   `lib/ralph-loop/escalate.sh --reason divergence` emits the
+>   Trigger-4 packet.
+>
+> Per Sprint 04 of the agent-council PRD (the v3.0 cutover cleanup),
+> the legacy v2.x agent files (the binary-loop pair under `agents/`)
+> have been deleted. `agents/orchestrator.md` survives in
+> canonize-only mode for the termination handoff in §3 below; its
+> body no longer carries the legacy non-canonize mode sections.
+> Per-cycle canonical-memory reads are issued by the council
+> personas themselves via direct `/yoke:search-canonical-memory`
+> calls, and divergence detection is owned by
+> `lib/runtime/sync-barrier.sh` plus `agents/council-arbiter.md`
+> inside Phase B.
 >
 > **sprint-as-cycle refresh.** Per the 2026-04-27 sprint-as-cycle
 > PRD, one ralph cycle = one sprint file as the working set. The
@@ -87,27 +120,26 @@ at full-run termination.
   they don't exist (cycle 0 entries). The `query-trace` initialization
   was retired in ask-source-agnostic-read Part 1 — `/yoke:search-canonical-memory` is now a
   pure read and emits no trace.
-- **Resolve per-role models (perf-quickwins Part 3).** Source
+- **Resolve per-role models.** Source
   `lib/runtime/agent-config.sh`. Compute:
   ```
-  generator_model="$(yoke_resolve_model generator)"
-  validator_model="$(yoke_resolve_model validator)"
-  orch_consult_model="$(yoke_resolve_model orchestrator.consult)"
-  orch_monitor_model="$(yoke_resolve_model orchestrator.monitor)"
+  sr_eng_model="$(yoke_resolve_model sr-eng)"
+  sr_qa_model="$(yoke_resolve_model sr-qa)"
+  sr_staff_model="$(yoke_resolve_model sr-staff)"
+  arbiter_model="$(yoke_resolve_model council-arbiter)"
   orch_canonize_model="$(yoke_resolve_model orchestrator.canonize)"
   ```
-  Defaults pin `validator`, `orchestrator.consult`, and
-  `orchestrator.monitor` to `claude-sonnet-4-6`; `generator` and
-  `orchestrator.canonize` inherit the user's session model unless
-  overridden under `runtime.models.*` in `.yoke/config.yaml`. Empty
-  resolved values mean "no pinning — inherit session model". Log
-  every resolved value via
+  In v3.0 every recognized role inherits the session model by default;
+  hosts override per-role under `runtime.models.<role>` in
+  `.yoke/config.yaml` (e.g. `runtime.models.sr-eng: claude-sonnet-4-6`)
+  and per-orchestrator-mode under
+  `runtime.models.orchestrator.canonize`. Empty resolved values mean
+  "no pinning — inherit session model". Log every resolved value via
   `yoke_log_resolved_models "$(wm_runtime_dir)/.task-spawn-log"` —
   the log is append-only and lives alongside the cycle counter; it is
-  the cheapest verification gate for pinning provenance and for R2
-  (mechanism silently no-ops). Quality is king on the Generator and
-  on Model C governance writes (canonize), so those roles never
-  auto-downgrade.
+  the cheapest verification gate for pinning provenance. Quality is
+  king on Model C governance writes (canonize), so the canonize call
+  never auto-downgrades.
 
 ### 2. Cycle loop (per-sprint walk)
 
@@ -143,160 +175,168 @@ done
 ```
 
 For each cycle of the inner loop (numbered starting at 1, reset at
-sprint boundaries):
+sprint boundaries), drive the cycle through **Phase A → Phase B →
+Phase C**. The phase boundaries are reflected in `progress.md`'s
+per-cycle entry.
 
-1. **Concurrent subagent batch (single agentic turn, `3 + N` background Task calls).**
-   In a single assistant turn, issue **`3 + N` concurrent Task calls**:
-   three role calls spawning `agents/generator.md`,
-   `agents/validator.md`, and `agents/orchestrator.md` simultaneously,
-   plus **N inferential-sensor calls** with
-   `subagent_type: semantic-judge` (one per applicable inferential
-   sensor on the targeted criterion; see the inferential-sensor
-   sub-step below for how `N` is resolved). Each Task call sets
-   `run_in_background: true` so the assistant turn does not block on
-   completion. Each role Task call also passes a per-role `model:`
-   argument resolved at preflight:
-   - Generator → `model: $generator_model`
-   - Validator → `model: $validator_model`
-   - Orchestrator (consult+monitor mode) → `model: $orch_consult_model`
-     (consult and monitor modes share the per-cycle model; the
-     canonize-mode call at termination uses `$orch_canonize_model`,
-     see §3 below).
-   When a resolved value is empty, omit the `model:` argument — the
-   subagent inherits the user's session model. Each receives
-   **disjoint inputs** read from the freshest snapshot of working
-   memory at spawn time.
+1. **Phase A — parallel persona spawn (single agentic turn, three
+   background Task calls).** Each cycle's Phase A is a deterministic
+   pre-spawn step + a single Task batch + a deterministic post-spawn
+   wait.
 
-   - **Generator (`agents/generator.md`)** — input:
-     - Approved upstream artifacts at `wm_prd_path`,
-       `wm_spec_path`, the **active sprint file** at
-       `.yoke/sprints/<slug>-s<current_sprint>.md` (the cycle's
-       working set — never the full sprint set), and
-       `wm_acceptance_contract_path` (read-only).
-     - `active_sprint: <NN>` (the value of `current_sprint:` from
-       progress.md) — passed explicitly so the Generator scopes its
-       diff to the active sprint's tasks and DoD.
-     - Current runtime progress at `wm_progress_path` (last cycle's
-       state).
-     - Current sprint contracts at `wm_contracts_path "$slug"`.
-     - Last `verify-acceptance.sh` snapshot from
-       `$(wm_snapshots_dir)/cycle-<N-1>.yaml` (if any).
-     - Canonical-memory context: invoke `/yoke:search-canonical-memory` via the Skill
-       tool on demand (no on-disk handoff; the skill is a pure
-       source-agnostic read).
+   1a. **Pre-spawn (deterministic).** Source
+   `lib/runtime/cycle.sh` and call `cycle.sh pre-spawn "$slug"
+   "$cycle_count"`. The helper:
+   - Calls `bash lib/runtime/sync-barrier.sh clear-markers` to
+     clear any leftover Phase-A markers from a prior interrupted
+     cycle (idempotent — no-op when no markers exist).
+   - Calls `bash lib/runtime/persona-loader.sh validate-all
+     agents/`. Fail-fast on any invalid persona file (a
+     `wm:`-prefixed stderr line names the offending file plus
+     key); this is a pre-condition failure that surfaces to the
+     user without spawning the cycle's Tasks.
+   - Prints the sorted council persona-name list to stdout
+     (`sr-eng`, `sr-qa`, `sr-staff` for the v3.0 default;
+     arbitrary `sr-*` files for host overrides). The coordinator
+     reads the list and issues one Task per persona.
 
-     Writes code targeting the next failing Acceptance Contract
-     criterion in the **active sprint's** Functional acceptance
-     criteria list; persists `wm_progress_path` at end of turn.
+   1b. **Spawn (single assistant turn, three concurrent Task calls).**
+   Issue exactly **three concurrent Task calls** in a single
+   assistant turn — one per persona returned by `pre-spawn`. Each
+   Task call sets `run_in_background: true` so the assistant turn
+   does not block on completion. Each Task call sets
+   `subagent_type: <persona-id>` (the persona file's frontmatter
+   `name:`) so Claude Code's loader picks `agents/<persona>.md`.
+   No `model:` override is applied to council personas — they
+   inherit the user's session model. The per-role
+   `agent-config.sh::yoke_resolve_model` resolution is **retired**
+   for the council protocol; only the canonize-mode handoff at
+   §3 honors a model pin (via `$orch_canonize_model`).
 
-   - **Validator (`agents/validator.md`)** — input:
-     - Approved Acceptance Contract at `wm_acceptance_contract_path`.
-     - Last `verify-acceptance.sh` snapshot from
-       `$(wm_snapshots_dir)/cycle-<N-1>.yaml`.
-     - Current sprint contracts at `wm_contracts_path` and runtime
-       progress at `wm_progress_path` (read-only).
-     - Canonical-memory context: invoke `/yoke:search-canonical-memory` via the Skill
-       tool on demand.
+   Each persona Task is prompted with:
+   - The persona's body template (resolved by Claude Code's loader
+     from the persona file).
+   - The cycle's working set: PRD, Spec, the **active sprint file**
+     at `.yoke/sprints/<slug>-s<current_sprint>.md`, the binding
+     Acceptance Contract, the prior cycle's snapshot at
+     `$(wm_snapshots_dir)/cycle-<N-1>.yaml`, and the slice path
+     `wm_persona_slice_path "$slug" "$cycle_count" "$persona"`.
+   - An instruction to write its slice file + drop the Phase-A
+     marker `.yoke/runtime/.phase-a-done.<persona>` before
+     exiting.
 
-     Emits structured JSON verdicts per criterion against the
-     freshest snapshot's sensor output; appends sprint contracts to
-     `wm_contracts_path` only on consensus events (post-Validator
-     verdict, never concurrent with Generator's writes).
+   Per-persona file-write contracts are documented in
+   `agents/sr-*.md`'s "Anti-scope" section: each persona writes
+   only its own slice file, never another persona's; Sr QA writes
+   acceptance-contract-anchored tests under
+   `tests/acceptance/<contract-slug>/`; Sr Eng writes production
+   code + happy-path unit tests; Sr Staff writes verdicts and
+   review-skill output. No persona writes `progress.md` —
+   `progress.md` is a Phase-C artifact owned by the coordinator.
 
-   - **Orchestrator (`agents/orchestrator.md`)** — input:
-     - `mode=consult+monitor`, `cycle=<N>`, `slug=<active slug>`,
-       `active_sprint=<current_sprint>`.
-     - Current `wm_progress_path`, `wm_contracts_path`.
-     - Last `verify-acceptance.sh` snapshot.
+   1c. **Post-spawn wait (deterministic).** After dispatching the
+   three Task calls, **wait for all three completion notifications**
+   before advancing to Phase B. Do **not** poll, sleep, or
+   otherwise probe for state — Claude Code emits a completion
+   notification automatically when each background Task ends.
+   Then call `cycle.sh post-spawn "$slug" "$cycle_count"`; the
+   helper invokes `lib/runtime/sync-barrier.sh wait-all` against
+   the persona list as a defensive guard. A timeout here is
+   sensor-bug or harness-bug, not normal flow — `wait-all`'s
+   `wm: sync-barrier timeout:` stderr line names the missing
+   marker.
 
-     Consults canonical memory by invoking `/yoke:search-canonical-memory` via the Skill
-     tool when context is needed; reasons over the response inline.
-     Monitors for Generator↔Validator divergence; on divergence
-     invokes `lib/ralph-loop/escalate.sh` to emit the Trigger-4
-     packet (written to `wm_trigger4_packet_path`).
+2. **Phase B — council loop (deterministic outer wrapper, agentic
+   inner rounds).** Run `bash lib/runtime/council.sh phase-b
+   "$slug" "$cycle_count"`. The helper drives the bounded round
+   loop:
+   - Reads `overrides.runtime.council_rounds_max` from
+     `.yoke/config.yaml` (default 3).
+   - For each round R (1..cap):
+     - Merges every persona's slice via
+       `lib/runtime/council-merge.sh merge <cycle-dir>` to produce
+       the merged council view.
+     - Issues three concurrent Task calls (one per persona) prompted
+       to read the merged view and append `## Phase B round R —
+       readings` and optional `## Phase B round R — réplica`
+       sections to their slice. `run_in_background: true`. Wait
+       for all three completions.
+     - Counts non-empty `## Phase B round R — réplica` sections.
+     - If zero (quiescence) → exit `consensus`.
+     - Else → spawn `agents/council-arbiter.md` via Task tool with
+       `subagent_type: council-arbiter`, prompted with the merged
+       view + the round's réplicas. Parse the arbiter's JSON
+       verdict (round, consensus, contradictions[],
+       tone_only_pairs[]). When `consensus: true`, exit
+       `consensus`. Else continue to round R+1 if R < cap.
+   - On cap exhausted with `consensus: false`, exit `trigger-4`
+     and persist the last arbiter verdict at
+     `<cycle-dir>/.last-arbiter-verdict.json`.
+   - Emits a YAML summary on stdout (rounds_consumed,
+     per_round_replica_counts, exit_status, arbiter_verdict_summary,
+     last_arbiter_verdict_path on cap exhaustion). The coordinator
+     persists this verbatim into the cycle's `progress.md` entry.
 
-   - **Inferential sensors (`agents/semantic-judge.md`, N instances)**
-     — for each applicable inferential sensor on the targeted
-     criterion, issue one additional concurrent Task call with
-     `subagent_type: semantic-judge` and `run_in_background: true`.
-     Identification: read the active Acceptance Contract at
-     `wm_acceptance_contract_path` and select sensors whose
-     `class: inferential` and whose `criterion_scope` covers the
-     Generator's targeted criterion (read from the most recent
-     `citing_criterion:` entry in `wm_progress_path`; on cycle 1 /
-     fallback, select all inferential sensors on the contract).
-     Cap `N` at `runtime.inferential_sensor_concurrency` in
-     `.yoke/config.yaml` (default `4`); when applicable sensors
-     exceed the cap, choose deterministically (criterion order,
-     ties broken by sensor id) and **defer** the surplus by
-     appending their ids to
-     `$(wm_runtime_dir)/.deferred-sensors.json`. The next cycle's
-     spawn pass prepends deferred ids before fresh ones, so every
-     applicable sensor eventually runs without exceeding the
-     parallel-spawn cap. Inputs per spawn: criterion text, diff
-     under review, calibration block, and a verdict-output path
-     resolved via
-     `wm_judge_verdict_path "$slug" "$cycle" "$criterion-id" "$sensor-id"`
-     (`.yoke/runtime/.judge-verdicts/cycle-<N>/<criterion>--<sensor>.json`).
-     Each judge spawn is one (criterion, sensor) pairing — multiple
-     inferential sensors on the same criterion get distinct verdict
-     files, supporting `patterns/sensors.md`'s any-fail-wins
-     aggregation. Judges write their verdict JSON to the supplied
-     path; the Validator in cycle `<N+1>` reads from
-     `wm_judge_verdict_dir "$slug" "$cycle"` (Model A lag-by-one).
-     Failure policy: on non-zero judge exit, log to
-     `$(wm_runtime_dir)/.judge-verdicts/cycle-<N>/.failures.log`,
-     treat the criterion's verdict as `skip` for the cycle, and
-     surface in the cycle status block. When the same sensor fails
-     in two consecutive cycles, invoke
-     `lib/ralph-loop/escalate.sh --reason sensor-failure --sensor
-     <id>` and pause the loop.
+3. **Phase C — convergence or escalation (deterministic).** Read
+   the Phase B summary's `exit_status:`:
+   - `consensus` → continue to step 4 (sensor execution + the rest
+     of the deterministic tail).
+   - `trigger-4` → render the user-facing escalation message and
+     emit the Trigger-4 packet:
+     ```
+     bash lib/runtime/trigger-4.sh render \
+       <merged-view> \
+       <last-arbiter-verdict> \
+       .yoke/runtime/.trigger4-council-message.md
+     bash lib/ralph-loop/escalate.sh \
+       --reason divergence \
+       --category quality-policies-broken \
+       --council-merged-view <merged-view> \
+       --council-arbiter-verdict <last-arbiter-verdict>
+     ```
+     The Trigger-4 packet references the rendered message via
+     `council_message_path:`. The loop pauses for human
+     arbitration; the canonize handoff (§3 below) still fires.
 
-   Issue all `3 + N` Task calls in a **single assistant turn** so
-   they execute concurrently. Per-agent file-write contracts (in
-   `agents/*.md`) prevent within-batch collisions: Generator owns
-   the progress file; the contracts file is appended only on
-   consensus events post-batch; each judge owns its own verdict
-   file under `.yoke/runtime/.judge-verdicts/cycle-<N>/`.
+   The semantic-judge inferential-sensor batch is **retired** for
+   the council protocol — Sr QA owns the Validation interpretation
+   per the binding contract, and the council arbiter handles
+   pairwise disagreement classification. The
+   `.yoke/runtime/.judge-verdicts/` and
+   `.deferred-sensors.json` paths remain for backward compatibility
+   with sensor files that pre-date v3.0; v3.x can prune them
+   under a follow-up PRD.
 
-   After dispatching the batch, **wait for all `3 + N` completion
-   notifications** before advancing to step 2. Do **not** poll, sleep,
-   or otherwise probe for state — Claude Code emits a completion
-   notification automatically when each background Task ends, and the
-   skill resumes deterministically once the final notification
-   arrives. This wait is a deterministic node in the blueprint: no
-   agentic decision is made in it. The skill cannot run the cycle's
-   deterministic tail (sensor execution, contradiction check, persist,
-   hard-bound check, stop check) against partial state — every step
-   below in this cycle assumes all `3 + N` Task calls have returned.
-
-2. **Sensor execution — Phase A (cheap-equivalent, deterministic).** Run
+4. **Sensor execution — cheap-equivalent (deterministic).** Run
    `hooks/verify-acceptance.sh --max-time-cost 60` to capture cycle N's
    post-Generator sensor state at the cheap-equivalent cost ceiling
    (sensors whose `time_cost:` exceeds the cap are skipped; the cap is
    the coordinator's filter, replacing the retired `--tier cheap`
-   flag per the sensor-harness-realignment refactor — see
-   `agents/validator.md` "Cost-based filtering of which sensors run
-   this cycle is the coordinator's job"). Pass `--criterion <id>`
-   where `<id>` is the Generator's last targeted criterion (read from
-   the most recent `citing_criterion:` entry in `wm_progress_path`);
-   pass `--fragments-dir "$(wm_runtime_dir)/.pending-fragments"`;
+   flag per the sensor-harness-realignment refactor — cost-based
+   filtering of which sensors run this cycle is the coordinator's
+   job, not a council persona's). Pass `--criterion <id>` where
+   `<id>` is the active sprint's currently-failing criterion (read
+   from the most recent `citing_criterion:` entry in
+   `wm_progress_path`); pass
+   `--fragments-dir "$(wm_runtime_dir)/.pending-fragments"`;
    redirect stdout to `$(wm_runtime_dir)/.pending-snapshot.yaml`.
    Sensors run in parallel via `xargs -P "$(yoke_sensor_concurrency)"`
    (default 4, configurable via `runtime.sensor_concurrency` in
    `.yoke/config.yaml`). When no `citing_criterion` is recorded
    (cycle 0 / fallback) omit `--criterion` and run every sensor that
-   fits the cap. The Validator (`agents/validator.md`) reads the
-   resulting snapshot — it never invokes `verify-acceptance.sh` itself.
+   fits the cap. Sr QA reads the resulting snapshot during the next
+   cycle's Phase A (Model A lag-by-one) — Sr QA never invokes
+   `verify-acceptance.sh` itself.
 
-3. **Sensor execution — Phase B (expensive-equivalent, deterministic).**
+5. **Sensor execution — expensive-equivalent (deterministic).**
    From cycle 2 onward, run a higher-ceiling sweep that lets
    inferential / longer-running sensors fire without flooding cheap
-   cycles with their cost. The Validator no longer emits a
+   cycles with their cost. Sr QA's verdict no longer emits a
    `schedule_next:` block to gate this — that mechanism was retired
    in the sensor-harness-realignment refactor; cost-based filtering
-   moved to the coordinator. Skip Phase B on cycle 1 (no prior
-   adversarial signal yet to justify the cost). On cycle ≥ 2, run
+   moved to the coordinator. Skip the expensive sweep on cycle 1
+   (no prior adversarial signal yet to justify the cost). On
+   cycle ≥ 2, run
    `hooks/verify-acceptance.sh --max-time-cost 600 --criterion <id>
    --fragments-dir "$(wm_runtime_dir)/.pending-fragments"` and
    **append** its results to the same
@@ -314,7 +354,7 @@ sprint boundaries):
    `schedule_next` mechanism was retired by the
    `2026-04-30-sensor-harness-realignment` PRD).
 
-4. **Contradiction check (deterministic).** Run
+6. **Contradiction check (deterministic).** Run
    `lib/ralph-loop/orchestrate.sh check-contradiction`. If a sprint
    contract textually contradicts an Acceptance Contract criterion
    (heuristic: contains a relax/remove/skip/disable/bypass/ignore
@@ -322,20 +362,20 @@ sprint boundaries):
    and the loop pauses with a clear message: "Sprint contract
    contradicts Acceptance Contract. Pausing for human arbitration."
 
-5. **Persist (deterministic).** Run `hooks/post-iteration.sh`. The
+7. **Persist (deterministic).** Run `hooks/post-iteration.sh`. The
    hook:
    - Increments the cycle counter at `wm_cycle_counter_path`
      (`.yoke/runtime/.cycle-counter`).
    - Snapshots `verify-acceptance.sh` output to
      `$(wm_snapshots_dir)/cycle-<N>.yaml`.
 
-6. **Hard-bound check (deterministic).** Run
+8. **Hard-bound check (deterministic).** Run
    `hooks/check-hard-bounds.sh`. If cycles, timeout, or token
    budget is exceeded, the hook invokes
    `lib/ralph-loop/escalate.sh --reason hard-bound` and exits 10.
    The skill treats this as a pause-with-arbitration-packet.
 
-7. **Stop check — per-sprint convergence + full-run merge-ready
+9. **Stop check — per-sprint convergence + full-run merge-ready
    sweep.** This step decides three outcomes: (a) advance to the
    next sprint, (b) declare MERGE-READY (last sprint just
    converged), or (c) continue this sprint's loop.
@@ -377,7 +417,7 @@ sprint boundaries):
      between sprints.
    - On no per-sprint convergence: continue to step 8.
 
-8. **Cycle status snapshot (deterministic, exactly once per cycle).**
+10. **Cycle status snapshot (deterministic, exactly once per cycle).**
    Run `bash lib/ralph-loop/status-snapshot.sh "$(wm_runtime_dir)"`
    and emit its stdout to the user verbatim. Fires once per cycle,
    only when the loop continues to the next cycle — i.e. **after**
@@ -516,22 +556,39 @@ see `concepts/yoke-pattern-human-triggers`.
 
 ## Anti-patterns
 
-- Do NOT spawn the three subagents sequentially. They must launch in
+- Do NOT spawn the three personas sequentially. They must launch in
   a **single assistant turn with three concurrent Task calls** so
-  they execute in parallel.
-- Do NOT spawn the per-cycle batch in foreground. The three Task
-  calls in step 1 must use `run_in_background: true` so the
-  assistant turn does not block on completion. The termination
-  canonization handoff (step 3) is the **only** Task call in the
-  loop that runs foreground — its result is needed inline for the
-  exit summary.
+  they execute in parallel (Phase A step 1b).
+- Do NOT spawn the Phase A persona Tasks or the Phase B per-round
+  Tasks in foreground. They must use `run_in_background: true` so
+  the assistant turn does not block on completion. The termination
+  canonization handoff (§3) is the **only** Task call in the loop
+  that runs foreground — its result is needed inline for the exit
+  summary.
 - Do NOT poll, sleep, or otherwise probe for completion state during
-  the wait between step 1 and step 2. The skill relies on Claude
-  Code's automatic completion notifications; manual probing
-  introduces latency without changing semantics.
-- Do NOT let the subagents share context. Each Task call passes only
-  the explicit inputs listed in step 2; communication is via
-  working-memory files.
+  the Phase A or Phase B waits. The skill relies on Claude Code's
+  automatic completion notifications; manual probing introduces
+  latency without changing semantics.
+- Do NOT let the personas share context. Each Task call passes only
+  the explicit inputs listed in Phase A step 1b; communication is
+  via working-memory files (per-persona slices + the merged view
+  produced by `lib/runtime/council-merge.sh`).
+- Do NOT spawn `agents/orchestrator.md` from inside
+  `/yoke:implement`'s per-cycle loop. The legacy v2.x runtime spawn
+  path (Generator / Validator / Orchestrator-monitor) was REMOVED in
+  Sprint 02 of the v3.0 council protocol PRD
+  (`.yoke/prds/2026-05-01-agent-council.md`); the residual legacy
+  agent files were deleted in Sprint 04 of the same PRD. The
+  canonize-mode Orchestrator call at §3 is the ONLY place where
+  `agents/orchestrator.md` is spawned, and it fires exactly once at
+  full-run termination (every sprint complete).
+- Do NOT spawn `semantic-judge` for council cycles. The v3.0 council
+  protocol delegates Validation interpretation to Sr QA per the
+  binding contract and pairwise-disagreement classification to
+  `agents/council-arbiter.md`. The `semantic-judge` subagent file
+  remains on disk for legacy sensors that still reference it; new
+  inferential sensors authored under v3.0 should target the
+  council-arbiter dispatch path instead.
 - Do NOT invoke `/yoke:canonize` mid-loop. Canonization fires only
   at termination via the Orchestrator's canonize-mode handoff.
   Canonical-memory writes happen only in the termination handoff
@@ -550,18 +607,19 @@ see `concepts/yoke-pattern-human-triggers`.
 - Do NOT proceed past 5–8 cycles without an external `timeout`
   before Sprint 6's hard bounds are wired.
 - Do NOT spawn `agents/orchestrator.md` recursively from inside any
-  subagent — only this skill spawns subagents.
-- Do NOT spawn `semantic-judge` (or any inferential-sensor agent)
-  from inside any subagent — only `/yoke:implement` spawns
-  inferential-sensor agents. The Validator never invokes
-  `Agent(subagent_type: semantic-judge, …)`; it consumes verdicts
-  written to `.yoke/runtime/.judge-verdicts/cycle-<N-1>/` by judges
-  spawned in the previous cycle's batch.
-- Do NOT emit user-visible status mid-cycle — between step 1
-  (per-cycle batch dispatch) and step 8 (cycle status snapshot) the
-  skill must stay silent. The status block is a single, fixed-format
-  emission per cycle; per-notification or per-step output dilutes
-  back-pressure (`conventions.md`: "success is silent, failures are
+  council persona — only this skill spawns subagents. The canonize
+  handoff at §3 is the only orchestrator spawn under the council
+  protocol.
+- Do NOT spawn `agents/council-arbiter.md` from inside a council
+  persona Task. Only `lib/runtime/council.sh phase-b` (driven by
+  this skill) spawns the arbiter, and only between réplica rounds
+  that produced ≥ 1 réplica. Council personas reading the merged
+  view never trigger arbiter Tasks themselves.
+- Do NOT emit user-visible status mid-cycle — between Phase A spawn
+  (step 1b) and the cycle status snapshot (step 10) the skill must
+  stay silent. The status block is a single, fixed-format emission
+  per cycle; per-notification or per-step output dilutes back-
+  pressure (`conventions.md`: "success is silent, failures are
   verbose") and turns the cycle log into a scrollable mess.
 
 ## See also
@@ -570,8 +628,10 @@ see `concepts/yoke-pattern-human-triggers`.
 - `concepts/yoke-pattern-roles`.
 - `concepts/yoke-pattern-model-c-governance` — termination-time
   write protocol.
-- `agents/generator.md`, `agents/validator.md`,
-  `agents/orchestrator.md`.
+- `agents/sr-eng.md`, `agents/sr-qa.md`, `agents/sr-staff.md`
+  (council personas).
+- `agents/council-arbiter.md` (contradiction-detection JSON verdict).
+- `agents/orchestrator.md` (canonize-only termination handoff).
 - `lib/ralph-loop/orchestrate.sh`,
   `lib/ralph-loop/escalate.sh`,
   `lib/canonical-memory/canonization-criteria.sh` (invoked from

@@ -1,7 +1,7 @@
 {
   "name": "yoke",
-  "version": "2.0.0",
-  "description": "Governed adversarial development for AI agents with pluggable canonical-memory providers. Three runtime subagents (Generator, Validator, Orchestrator) spawned in parallel inside a binding human contract. Canonical-memory reads and writes dispatch through providers.yaml to a peer plugin (claude-bedrock is the reference implementation); pluggable canonical-memory providers ship via the documented working-memory contract. Manifesto: yoke.md.",
+  "version": "3.0.0",
+  "description": "Governed adversarial development for AI agents — v3.0 agent council protocol. Three runtime persona subagents (Sr Eng, Sr QA, Sr Staff) spawn in parallel each cycle behind a deterministic sync barrier (Phase A), exchange réplicas inside a bounded council loop with a contradiction-detection arbiter (Phase B), and either advance on consensus or escalate Trigger 4 on cap-exhausted divergence (Phase C). All inside a binding human contract (Acceptance Contract). Canonical-memory reads and writes dispatch through providers.yaml to a peer plugin (claude-bedrock is the reference implementation); pluggable canonical-memory providers ship via the documented working-memory contract. The Orchestrator subagent survives in canonize-only mode at full-run termination. Manifesto: yoke.md.",
   "author": {
     "name": "Iury Krieger",
     "url": "https://github.com/iurykrieger"
@@ -11,7 +11,8 @@
   "category": "ai-development",
   "keywords": [
     "harness-engineering",
-    "adversarial-loop",
+    "agent-council",
+    "council-protocol",
     "binding-spec",
     "canonical-memory",
     "canonical-memory-provider",

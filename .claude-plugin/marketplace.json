@@ -5,15 +5,15 @@
     "url": "https://github.com/iurykrieger"
   },
   "metadata": {
-    "description": "Governed adversarial development for AI agents with pluggable canonical-memory providers — Yoke as a Claude Code plugin.",
-    "version": "2.0.0"
+    "description": "Governed adversarial development for AI agents — v3.0 agent council protocol with pluggable canonical-memory providers — Yoke as a Claude Code plugin.",
+    "version": "3.0.0"
   },
   "plugins": [
     {
       "name": "yoke",
       "source": "./",
-      "description": "Binding spec + adversarial loop + pluggable canonical-memory providers for Claude Code.",
-      "version": "2.0.0",
+      "description": "Binding spec + agent council protocol (Sr Eng / Sr QA / Sr Staff) + pluggable canonical-memory providers for Claude Code.",
+      "version": "3.0.0",
       "author": {
         "name": "Iury Krieger",
         "url": "https://github.com/iurykrieger"
@@ -22,7 +22,8 @@
       "license": "MIT",
       "keywords": [
         "harness-engineering",
-        "adversarial-loop",
+        "agent-council",
+        "council-protocol",
         "binding-spec",
         "canonical-memory",
         "ralph-loop"

@@ -1,21 +1,22 @@
 #!/usr/bin/env bash
 # tests/agents-surface.test.sh
 #
-# Structural contract of the runtime subagents in agents/:
-#   (a) exactly 3 *.md files
-#   (b) the three are generator.md, validator.md, orchestrator.md
-#   (c) orchestrator declares sole write authority over canonical memory
-#   (d) validator declares the structured JSON verdict format
-#   (e) generator declares progress.md per-cycle persistence
+# Structural contract of the v3.0 council runtime subagents in agents/:
+#   (a) exactly 6 *.md files (3 personas + arbiter + canonize-only orchestrator + semantic-judge)
+#   (b) the six are sr-eng.md, sr-qa.md, sr-staff.md, council-arbiter.md,
+#       orchestrator.md, semantic-judge.md
+#   (c) orchestrator declares canonize mode + sole canonical-memory write authority
+#   (d) council-arbiter declares the structured JSON verdict format
+#   (e) sr-eng declares slice-file per-cycle persistence under .yoke/runtime/cycles/<N>/
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib/harness.sh"
 
 cd "$PLUGIN_ROOT"
 
 # ---------------------------------------------------------------------
-# (a) Expected runtime subagents enumerated; exact match (no extras)
+# (a) Expected v3.0 runtime subagents enumerated; exact match (no extras)
 # ---------------------------------------------------------------------
-expected_agents=(generator.md validator.md orchestrator.md semantic-judge.md)
+expected_agents=(sr-eng.md sr-qa.md sr-staff.md council-arbiter.md orchestrator.md semantic-judge.md)
 agent_count=$(find agents -maxdepth 1 -name '*.md' | wc -l | tr -d ' ')
 
 if [ "$agent_count" -eq "${#expected_agents[@]}" ]; then
@@ -36,7 +37,7 @@ for a in "${expected_agents[@]}"; do
 done
 
 # ---------------------------------------------------------------------
-# (c) Orchestrator declares sole write authority over canonical memory
+# (c) Orchestrator declares canonize mode + sole canonical-memory write authority
 # ---------------------------------------------------------------------
 if grep -qiE 'sole writer|only.*writer|sole .*write|write authority' agents/orchestrator.md; then
   pass "orchestrator declares sole canonical-memory write authority"
@@ -44,22 +45,29 @@ else
   err "orchestrator does not declare sole-write authority"
 fi
 
-# ---------------------------------------------------------------------
-# (d) Validator declares the structured JSON verdict format
-# ---------------------------------------------------------------------
-if grep -qiE 'structured[[:space:]]+JSON[[:space:]]+verdict|JSON[[:space:]]+verdict' agents/validator.md; then
-  pass "validator declares structured-JSON-verdict format"
+if grep -qiE 'canonize' agents/orchestrator.md; then
+  pass "orchestrator declares canonize mode"
 else
-  err "validator does not declare structured-JSON-verdict format"
+  err "orchestrator does not declare canonize mode"
 fi
 
 # ---------------------------------------------------------------------
-# (e) Generator declares progress.md per-cycle persistence
+# (d) Council-arbiter declares the structured JSON verdict format
 # ---------------------------------------------------------------------
-if grep -qiE 'progress\.md.*(every cycle|each cycle|per cycle|end of every cycle)|(every cycle|each cycle|per cycle|end of every cycle).*progress\.md' agents/generator.md; then
-  pass "generator declares progress.md per-cycle persistence"
+if grep -qiE 'structured[[:space:]]+JSON[[:space:]]+verdict|JSON[[:space:]]+verdict|verdict[[:space:]]+schema' agents/council-arbiter.md; then
+  pass "council-arbiter declares structured-JSON-verdict format"
 else
-  err "generator does not declare progress.md per-cycle persistence"
+  err "council-arbiter does not declare structured-JSON-verdict format"
+fi
+
+# ---------------------------------------------------------------------
+# (e) Sr Eng declares per-cycle slice-file persistence under
+#     .yoke/runtime/cycles/<N>/sr-eng.md
+# ---------------------------------------------------------------------
+if grep -qiE 'sr-eng\.md|cycles/[^/]+/sr-eng|Phase A.*own progress|slice file' agents/sr-eng.md; then
+  pass "sr-eng declares per-cycle slice-file persistence"
+else
+  err "sr-eng does not declare per-cycle slice-file persistence"
 fi
 
 harness::summary

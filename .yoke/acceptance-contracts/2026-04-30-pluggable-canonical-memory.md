@@ -36,7 +36,7 @@ Given the Yoke plugin source tree at the head of Sprint 1
 When `providers.yaml` is read at the plugin root
 Then the file exists with `schema_version: 1` and a single `bedrock` entry whose `skills.search == "yoke:ask"` and `skills.canonize == "yoke:teach"` and whose `config_passthrough` lists `[url, name, default_branch]`
 Fixture: none
-Sensors: [providers-yaml-shape]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 2 — resolve-provider.sh resolves the active provider
 Task: 2026-04-30-pluggable-canonical-memory-s01-t02
@@ -44,7 +44,7 @@ Given a fixture project whose `.yoke/config.yaml` sets `canonical_memory.provide
 When `lib/canonical-memory/resolve-provider.sh` is sourced and `yoke_resolve_provider` is invoked
 Then exit code is 0 and `$YOKE_PROVIDER_NAME == "bedrock"`, `$YOKE_PROVIDER_SEARCH_SKILL == "yoke:ask"`, `$YOKE_PROVIDER_CANONIZE_SKILL == "yoke:teach"`; missing-config returns 3, missing-provider-key returns 4, unknown-provider returns 5; `templates/yoke-config.yaml` carries the `provider:` placeholder line
 Fixture: tests/fixtures/resolve-provider/
-Sensors: [resolve-provider-callable, yoke-config-template-has-provider-key]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 3 — /yoke:search-canonical-memory facade dispatches and returns verbatim
 Task: 2026-04-30-pluggable-canonical-memory-s01-t03
@@ -52,7 +52,7 @@ Given `skills/search-canonical-memory/SKILL.md` exists and a fixture project wit
 When `/yoke:search-canonical-memory "what is the claude-yoke project?"` is invoked
 Then the response is byte-equivalent to `/yoke:ask "what is the claude-yoke project?"`, the skill exits 0, the body never writes any file, and an empty-query invocation aborts non-zero with `wm: query is required`
 Fixture: tests/fixtures/search-canonical-memory/
-Sensors: [search-canonical-memory-skill-shape, search-facade-equivalence]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 4 — /yoke:canonize facade dispatches with absolute path
 Task: 2026-04-30-pluggable-canonical-memory-s01-t04
@@ -60,7 +60,7 @@ Given `skills/canonize/SKILL.md` exists and a fixture Yoke project with `provide
 When `/yoke:canonize` is invoked from the project root
 Then the facade dispatches to `/yoke:teach --working-memory <abs-path-to-.yoke>`, exits 0, propagates the provider's exit code, and appends a line beginning with `canonize:` to `.yoke/runtime/progress.md`
 Fixture: tests/fixtures/canonize-converged/
-Sensors: [canonize-skill-shape, canonize-progress-log-line]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 5 — working-memory provider contract document is published
 Task: 2026-04-30-pluggable-canonical-memory-s01-t05
@@ -68,7 +68,7 @@ Given `docs/canonical-memory-provider-contract.md` exists in the plugin source
 When the file is read
 Then the file carries `contract_version: 1` and contains the seven required H2 sections (`## --working-memory argument semantics`, `## Directory tree`, `## Frontmatter shapes`, `## runtime/progress.md log conventions`, `## Soft exit-summary convention`, `## Versioning policy`, `## Anti-patterns`)
 Fixture: none
-Sensors: [provider-contract-doc-shape]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 6 — claude-bedrock peer plugin scaffold exists
 Task: 2026-04-30-pluggable-canonical-memory-s02-t01
@@ -76,7 +76,7 @@ Given the Sprint 2 working tree
 When `claude-bedrock/.claude-plugin/plugin.json` is read and the directory shape is inspected
 Then `jq -e '.name == "claude-bedrock" and .version == "0.1.0" and .license == "MIT"'` exits 0, every directory in the list `skills lib/canonical-memory entities templates/canonical docs tests` exists under `claude-bedrock/`, and the governance files `LICENSE`, `README.md`, `CHANGELOG.md` exist
 Fixture: claude-bedrock/
-Sensors: [claude-bedrock-plugin-manifest, claude-bedrock-directory-shape]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 7 — seven canonical-memory skills migrated under /bedrock: namespace
 Task: 2026-04-30-pluggable-canonical-memory-s02-t02
@@ -84,7 +84,7 @@ Given the seven Bedrock-specific skills have been copied to `claude-bedrock/skil
 When the Bedrock-side skill bodies are searched for legacy `/yoke:` namespace references
 Then `claude-bedrock/skills/` contains exactly seven directories (`ask`, `preserve`, `teach`, `compress`, `memory`, `confluence-to-markdown`, `gdoc-to-markdown`); each has a `SKILL.md`; `grep -rln "/yoke:ask\|/yoke:preserve\|/yoke:teach\|/yoke:compress\|/yoke:memory\|/yoke:confluence-to-markdown\|/yoke:gdoc-to-markdown" claude-bedrock/skills/` returns empty; and `grep -rln "/bedrock:ask\|/bedrock:preserve\|/bedrock:teach\|/bedrock:compress\|/bedrock:memory" claude-bedrock/skills/` returns ≥ 1 path
 Fixture: none
-Sensors: [claude-bedrock-skills-migrated]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 8 — lib/canonical-memory + entities + canonical templates migrated
 Task: 2026-04-30-pluggable-canonical-memory-s02-t03
@@ -92,7 +92,7 @@ Given the Bedrock-specific lib scripts, entity definitions, and canonical templa
 When the destination directories are inspected
 Then `claude-bedrock/lib/canonical-memory/` contains 8 scripts (each parses under `bash -n`); `claude-bedrock/entities/` contains 8 entity files (each begins with `---`); `claude-bedrock/templates/canonical/` contains 8 per-type subdirectories; and `claude-bedrock/templates/bedrock-memory-config.json` exists
 Fixture: none
-Sensors: [claude-bedrock-lib-migrated, claude-bedrock-entities-migrated, claude-bedrock-templates-migrated]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 9 — /bedrock:teach implements the working-memory contract
 Task: 2026-04-30-pluggable-canonical-memory-s02-t04
@@ -100,7 +100,7 @@ Given `claude-bedrock/skills/canonize/SKILL.md` exists, the `bedrock` entry in `
 When `/yoke:canonize` is invoked from the fixture project
 Then the dispatch chain reaches `/bedrock:teach --working-memory <abs-path>`, the fixture Bedrock vault grows by ≥ 1 entity, the chain exits 0, and stdout contains a line matching `^canonize: created=[0-9]+ updated=[0-9]+ skipped=[0-9]+$`; an invocation of `/bedrock:teach` without `--working-memory` exits non-zero
 Fixture: tests/fixtures/bedrock-canonize-roundtrip/
-Sensors: [bedrock-canonize-skill-shape, providers-yaml-points-at-bedrock, bedrock-canonize-roundtrip]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 10 — every Yoke internal call-site rewritten to the facade verbs
 Task: 2026-04-30-pluggable-canonical-memory-s02-t05
@@ -108,7 +108,7 @@ Given Sprint 2 has migrated and rewritten the agent prompts, spec-phase skills, 
 When the Yoke source tree is searched for legacy verbs outside the seven scheduled-for-deletion skill files
 Then `grep -rln "/yoke:ask\|/yoke:preserve\|/yoke:teach\|/yoke:compress\|/yoke:memory" claude-yoke/{agents,lib,tests,hooks} claude-yoke/skills/{discover,tech-spec,acceptance-contract,implement,drift-sense,status,bootstrap}/SKILL.md` returns no lines; `grep -rln "/yoke:search-canonical-memory" claude-yoke/agents/` returns ≥ 4 paths; `grep -rln "/yoke:canonize" claude-yoke/skills/implement/` returns ≥ 1 path; the full `tests/` suite exits 0 with Yoke + `claude-bedrock` installed; sensor self-tests for the rewritten sensors pass
 Fixture: tests/fixtures/end-to-end-implement-cycle/
-Sensors: [live-callsites-zero-legacy-refs, end-to-end-implement-cycle, sensor-self-tests-pass]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 11 — /yoke:bootstrap interactive provider selection + legacy migration
 Task: 2026-04-30-pluggable-canonical-memory-s03-t01
@@ -116,7 +116,7 @@ Given the Sprint 3 working tree with a rewritten `skills/bootstrap/SKILL.md`
 When `/yoke:bootstrap` is invoked across five fixture cases (fresh + `--provider` + `--non-interactive`; legacy-config; legacy-registry; multi-provider listing; re-bootstrap-existing-config no-op)
 Then (a) fresh bootstrap with `--provider bedrock --non-interactive` writes `.yoke/config.yaml` with `canonical_memory.provider: bedrock`; (b) legacy-config migration preserves `url`/`name` and writes `provider: bedrock`; (c) legacy-registry migration removes `<plugin_dir>/memories.json` and writes the new config; (d) multi-provider listing offers each entry from `providers.yaml`; (e) re-bootstrap on an existing v2.0.0 config and `n` reply leaves files untouched
 Fixture: tests/fixtures/bootstrap-flows/
-Sensors: [bootstrap-provider-flow, bootstrap-legacy-migration]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 12 — yoke-prelude.sh enforces the hard-break pre-flight
 Task: 2026-04-30-pluggable-canonical-memory-s03-t02
@@ -124,7 +124,7 @@ Given `lib/yoke-prelude.sh` is in place and every eligible Yoke skill sources `y
 When `/yoke:search-canonical-memory "test"` is invoked against a fixture project whose `.yoke/config.yaml` lacks `canonical_memory.provider`
 Then the call exits non-zero with stderr containing the literal string `wm: canonical_memory.provider not configured. Run /yoke:bootstrap to migrate.`; the same invocation after `/yoke:bootstrap --provider bedrock` succeeds; an audit grep confirms every Yoke skill except `bootstrap` and the seven legacy skills sources `lib/yoke-prelude.sh`
 Fixture: tests/fixtures/yoke-prelude/
-Sensors: [yoke-prelude-helper-callable, hard-break-pre-flight-enforced, prelude-source-line-audit]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 13 — legacy skills and migrated artifacts deleted from Yoke
 Task: 2026-04-30-pluggable-canonical-memory-s03-t03
@@ -132,7 +132,7 @@ Given Sprint 2 has shipped its end-to-end coverage and Sprint 3 has executed the
 When the Yoke source tree is inspected
 Then the seven legacy skill directories are absent under `claude-yoke/skills/`; `claude-yoke/lib/canonical-memory/` contains exactly `resolve-provider.sh`; `claude-yoke/entities/` does not exist; `claude-yoke/templates/canonical/` does not exist; `templates/canonical-entry-frontmatter.yaml` and `templates/yoke-memory-config.json` are absent; `bash claude-yoke/lib/sensors/no-vibeflow-refs.sh` exits 0; the updated `tests/sensors/no-vibeflow-refs.test.sh` asserts the sensor fails when `entities/` is reintroduced
 Fixture: tests/fixtures/legacy-skills-zero-residual/
-Sensors: [legacy-skills-zero-residual, no-vibeflow-refs-sensor-pins-migration]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 14 — documentation rewritten to v2.0.0 vocabulary
 Task: 2026-04-30-pluggable-canonical-memory-s03-t04
@@ -140,7 +140,7 @@ Given the eight rewritten files (`docs/canonical-memory-setup.md`, `docs/trouble
 When the documentation surface is searched for legacy verbs and facade verbs
 Then `grep -rl '/yoke:ask\|/yoke:preserve\|/yoke:teach\|/yoke:compress\|/yoke:memory' claude-yoke/docs claude-yoke/CLAUDE.md claude-yoke/README.md` returns no paths (CHANGELOG breaking-change block excluded by the test); for each of `docs/canonical-memory-setup.md`, `docs/troubleshooting.md`, `docs/architecture.md`, `docs/quickstart.md`, `CLAUDE.md`, `README.md`, both `/yoke:search-canonical-memory` and `/yoke:canonize` appear at least once; `docs/architecture.md` contains the new dispatch-path diagram
 Fixture: none
-Sensors: [docs-zero-legacy-refs, docs-facade-presence]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ### Scenario 15 — templates rewritten and plugin version bumped to 2.0.0
 Task: 2026-04-30-pluggable-canonical-memory-s03-t05
@@ -148,7 +148,7 @@ Given the rewritten templates and updated plugin manifest
 When the templates and manifest are inspected
 Then `grep -rln '/yoke:ask\|/yoke:preserve\|/yoke:teach\|/yoke:compress\|/yoke:memory' claude-yoke/templates/` returns no lines; each of `templates/acceptance-contract.md`, `templates/task.md`, `templates/project-claude-md.md` contains at least one facade-verb reference; `templates/yoke-config.yaml` no longer has the legacy `name:` field and does have the `provider:` placeholder; `jq -re '.version' .claude-plugin/plugin.json` outputs `2.0.0`; `jq -re '.description' .claude-plugin/plugin.json` contains `pluggable canonical-memory`; `docs/migration-v1-to-v2.md` exists and contains the heading `## Step 1: install`
 Fixture: none
-Sensors: [templates-zero-legacy-refs, templates-facade-presence, plugin-version-2-0-0, migration-runbook-shape]
+Sensors: [tests-runtime, tests-sensors, lint]
 
 ## Functional requirements
 

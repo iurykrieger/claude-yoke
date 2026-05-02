@@ -61,44 +61,20 @@ command: <shell command>
 
 ## How to run
 
-<!--
-Describe how to invoke this sensor end-to-end:
-- For `type: computational`: the exact shell invocation (mirrors the
-  `command:` field, but the body explains context — what working
-  directory, what env vars, expected exit codes).
-- For `type: inferential`: how the subagent is spawned, what input it
-  consumes, where the verdict JSON is written, how to read it.
-
-Single section, prose-with-code-blocks acceptable. Required, must
-be non-empty.
--->
+Run via the value of the `command:` field above. Computational
+sensors execute the literal shell command; inferential sensors are
+spawned by `/yoke:implement` via `subagent_type: $agent`, which reads
+the `## Calibration` block below for prompt + rubric + verdict
+schema.
 
 ## Known issues
 
-<!--
-Catalog of known caveats about THIS SENSOR (flakes, environmental
-dependencies, tool gotchas). Free-form bullets. Append-only via
-`/yoke:consolidate-sensors`. Required, must be non-empty.
-
-Examples:
-- Times out under 30s on cold DB; warm with `make seed-test-db`.
-- Skips on macOS — uses GNU-only `find -printf`.
-- False positive when the file ends without a trailing newline.
--->
+- (None recorded yet — populate via `/yoke:consolidate-sensors`
+  after the loop accumulates run evidence.)
 
 ## Frequent errors
 
-<!--
-Catalog of recurring pitfalls this sensor has caught in the code
-under analysis. Strict bullet format: `- <pattern>: <fix>` (single
-line per bullet). Required, must be non-empty. Multi-line bullets
-are rejected by the lint in v0.
-
-Examples:
-- Missing trailing newline on YAML frontmatter: append `\n` before save.
-- Tab indentation inside YAML block: convert to two spaces.
-- Bare `git push` without upstream: use `git push -u origin <branch>`.
--->
+- placeholder: replace this bullet with project-specific patterns once `/yoke:consolidate-sensors` distills runtime evidence.
 
 ## Calibration
 
@@ -114,31 +90,31 @@ Three mandatory sub-sections, each non-empty:
 
 ### Prompt
 
-<!-- Inferential only: the prompt the subagent receives. -->
+Inferential only: replace this paragraph with the literal prompt the
+subagent receives at spawn time. The dispatch path lifts this
+verbatim into the agent's input.
 
 ### Rubric
 
-<!-- Inferential only: the rubric the subagent applies. -->
+Inferential only: replace this paragraph with the binary pass/fail
+rubric the subagent applies. Keep it literal and binary-decidable to
+minimize verdict drift across model upgrades.
 
 ### Verdict schema
 
-<!--
-Inferential only: the JSON envelope the subagent must return. The
-parser validates the envelope; an invalid verdict equals sensor fail.
+```json
+{
+  "criterion": "<criterion-id>",
+  "sensor": "<sensor-id>",
+  "status": "pass" | "fail",
+  "location": "<file:line>" | null,
+  "fix_instruction": "<text>" | null,
+  "evidence": "<text>",
+  "confidence": 0.0,
+  "supporting_quotes": ["<quote>", "..."]
+}
+```
 
-Standard envelope:
-  {
-    "criterion": "<criterion-id>",
-    "sensor": "<sensor-id>",
-    "status": "pass" | "fail",
-    "location": "<file:line>" | null,
-    "fix_instruction": "<text>" | null,
-    "evidence": "<text>",
-    "confidence": 0.0,
-    "supporting_quotes": ["<quote>", "..."]
-  }
-
-`confidence` is a float in `[0, 1]`. `supporting_quotes` is a list of
-strings; minimum 1 entry when `status: fail`; empty list permitted
+`confidence` is a float in `[0, 1]`. `supporting_quotes` is a list
+of strings; minimum 1 entry when `status: fail`; empty list permitted
 when `status: pass`.
--->

@@ -49,6 +49,9 @@ tokens=""
 token_budget=""
 unresolved_contract="none"
 escalation_to="user"
+council_message=""
+council_merged_view=""
+council_arbiter_verdict=""
 
 while [ $# -gt 0 ]; do
   case "${1:-}" in
@@ -62,6 +65,9 @@ while [ $# -gt 0 ]; do
     --token-budget)        token_budget="${2:-}";        shift 2 ;;
     --unresolved-contract) unresolved_contract="${2:-none}"; shift 2 ;;
     --escalation-to)       escalation_to="${2:-user}";   shift 2 ;;
+    --council-message)     council_message="${2:-}";     shift 2 ;;
+    --council-merged-view) council_merged_view="${2:-}"; shift 2 ;;
+    --council-arbiter-verdict) council_arbiter_verdict="${2:-}"; shift 2 ;;
     -h|--help)             sed -n '1,30p' "$0"; exit 0 ;;
     "")                    break ;;
     *)                     echo "Unknown option: $1" >&2; exit 2 ;;
@@ -137,6 +143,22 @@ else
   contracts_path="<no-active-task>"
 fi
 
+# Council generalization (Sprint 02 / FR-3): when the loop pauses on
+# council divergence and a merged view + arbiter verdict are supplied,
+# render the user-facing council message via lib/runtime/trigger-4.sh
+# before writing the packet. The rendered message path is referenced
+# from the YAML packet via `council_message_path:` so downstream
+# readers can locate it without re-rendering.
+if [ -z "$council_message" ] && [ -n "$council_merged_view" ] && [ -n "$council_arbiter_verdict" ]; then
+  trigger4_render="${script_dir}/../runtime/trigger-4.sh"
+  if [ -f "$trigger4_render" ]; then
+    rendered_path=".yoke/runtime/.trigger4-council-message.md"
+    if bash "$trigger4_render" render "$council_merged_view" "$council_arbiter_verdict" "$rendered_path" >/dev/null 2>&1; then
+      council_message="$rendered_path"
+    fi
+  fi
+fi
+
 # Build YAML packet
 {
   printf 'trigger: 4\n'
@@ -159,6 +181,15 @@ fi
     printf '  timeout: %s\n'       "${timeout:-0}"
     printf '  tokens: %s\n'        "${tokens:-0}"
     printf '  token_budget: %s\n'  "${token_budget:-0}"
+  fi
+  if [ -n "$council_message" ]; then
+    printf 'council_message_path: "%s"\n' "$council_message"
+  fi
+  if [ -n "$council_merged_view" ]; then
+    printf 'council_merged_view_path: "%s"\n' "$council_merged_view"
+  fi
+  if [ -n "$council_arbiter_verdict" ]; then
+    printf 'council_arbiter_verdict_path: "%s"\n' "$council_arbiter_verdict"
   fi
   printf 'unresolved_sprint_contract: "%s"\n' "$unresolved_contract"
   printf 'escalation_to: %s\n' "$escalation_to"

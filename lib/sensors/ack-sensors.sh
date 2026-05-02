@@ -122,6 +122,11 @@ done
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 plugin_root="$(cd "${script_dir}/../.." && pwd)"
 
+# Source the working-memory helpers so wm_active_slug /
+# wm_acceptance_contract_path / etc. are callable from upsert_mode.
+# shellcheck source=../working-memory/paths.sh
+source "${plugin_root}/lib/working-memory/paths.sh"
+
 # ---------------------------------------------------------------------------
 # Catalog mode (unchanged from sensor-cost-tiering Part 1)
 # ---------------------------------------------------------------------------
@@ -240,6 +245,112 @@ extract_sensor_body() {
     /^---[[:space:]]*$/ { count++; next }
     count >= 2 { print }
   ' "$1"
+}
+
+# ---------------------------------------------------------------------------
+# Discover-chain helpers (used by bootstrap_mode + upsert_mode to populate
+# `command:` at sensor creation time, eliminating placeholder sensors).
+# ---------------------------------------------------------------------------
+
+# Extract the first backticked command from a host CLAUDE.md section
+# heading. Section name is matched case-insensitively against `## ` lines.
+# Returns empty when no matching section / no backticked bullets.
+extract_first_command_from_claude_md_section() {
+  local section_name="$1"
+  local claude_md="${PWD}/CLAUDE.md"
+  [ -f "$claude_md" ] || return 0
+
+  awk -v sec="$section_name" '
+    BEGIN { IGNORECASE = 1; in_section = 0 }
+    /^##[[:space:]]+/ {
+      heading = $0
+      sub(/^##[[:space:]]+/, "", heading)
+      sub(/[[:space:]]+$/, "", heading)
+      in_section = (heading == sec) ? 1 : 0
+      next
+    }
+    in_section && /^[[:space:]]*-[[:space:]]+`[^`]+`/ {
+      match($0, /`[^`]+`/)
+      if (RSTART > 0) {
+        cmd = substr($0, RSTART + 1, RLENGTH - 2)
+        print cmd
+        exit
+      }
+    }
+  ' "$claude_md"
+}
+
+# Extract the value of a package.json script entry. Empty when absent.
+extract_npm_script() {
+  local script_name="$1"
+  local pkg_json="${PWD}/package.json"
+  [ -f "$pkg_json" ] || return 0
+  if command -v jq >/dev/null 2>&1; then
+    jq -r --arg s "$script_name" '.scripts[$s] // empty' "$pkg_json" 2>/dev/null || true
+  fi
+}
+
+# Extract the recipe of a Makefile target. Returns the first command line
+# after `<target>:`. Empty when absent. Heuristic — does not handle
+# multi-line recipes or includes.
+extract_makefile_target() {
+  local target="$1"
+  local makefile="${PWD}/Makefile"
+  [ -f "$makefile" ] || return 0
+  awk -v t="$target" '
+    $0 ~ "^"t":" { in_t = 1; next }
+    in_t && /^\t/ {
+      sub(/^\t/, "")
+      print
+      exit
+    }
+    in_t && /^[^[:space:]]/ { in_t = 0 }
+  ' "$makefile"
+}
+
+# Resolve the `command:` field for a standard sensor id by walking its
+# discover-from chain. Empty result for inferential sensors (they declare
+# `agent:` instead). Each branch returns the FIRST non-empty source —
+# fall-through to a sensible default keeps the sensor decidable so
+# dependent criteria don't block on missing tooling.
+resolve_standard_command() {
+  local id="$1"
+  local cmd=""
+  case "$id" in
+    lint)
+      cmd="$(extract_first_command_from_claude_md_section "Linting")"
+      [ -z "$cmd" ] && cmd="$(extract_npm_script "lint")"
+      [ -z "$cmd" ] && cmd="$(extract_makefile_target "lint")"
+      [ -z "$cmd" ] && cmd='command -v shellcheck >/dev/null 2>&1 || exit 0; out=$(find lib hooks -name "*.sh" -exec shellcheck {} + 2>/dev/null); ! echo "$out" | grep -qE "^In "'
+      ;;
+    build)
+      cmd="$(extract_first_command_from_claude_md_section "Build")"
+      [ -z "$cmd" ] && cmd="$(extract_npm_script "build")"
+      [ -z "$cmd" ] && cmd="$(extract_makefile_target "build")"
+      [ -z "$cmd" ] && cmd='echo "build: no-op (no build system declared)"; exit 0'
+      ;;
+    run-project)
+      cmd="$(extract_first_command_from_claude_md_section "Run")"
+      [ -z "$cmd" ] && cmd="$(extract_first_command_from_claude_md_section "Running")"
+      [ -z "$cmd" ] && cmd="$(extract_first_command_from_claude_md_section "How to run")"
+      [ -z "$cmd" ] && cmd="$(extract_npm_script "start")"
+      [ -z "$cmd" ] && cmd="$(extract_npm_script "dev")"
+      [ -z "$cmd" ] && cmd="$(extract_makefile_target "run")"
+      [ -z "$cmd" ] && cmd="$(extract_makefile_target "start")"
+      [ -z "$cmd" ] && cmd='echo "run: not applicable for plugin"; exit 0'
+      ;;
+    fetch-logs)
+      cmd="$(extract_first_command_from_claude_md_section "Logs")"
+      [ -z "$cmd" ] && cmd="$(extract_first_command_from_claude_md_section "Observability")"
+      [ -z "$cmd" ] && cmd="$(extract_npm_script "logs")"
+      [ -z "$cmd" ] && cmd="$(extract_makefile_target "logs")"
+      [ -z "$cmd" ] && cmd='echo "logs: no log source declared"; exit 0'
+      ;;
+    code-review|llm-as-judge)
+      cmd=""  # inferential — uses agent:, not command:
+      ;;
+  esac
+  printf '%s' "$cmd"
 }
 
 # Emit a structured YAML failure block.
@@ -498,6 +609,153 @@ validate_frequent_errors_bullets() {
 #      `- **<sensor-id>** — ...`.
 #   2. Legacy `## Sensors registry` block (YAML `- id: <sensor-id>`).
 # Stdin: contract path. Stdout: one id per line, sorted unique.
+# Parse the contract's `## Sensors registry` YAML block. The registry
+# binds each sensor id to its concrete command (computational) or
+# agent + optional calibration_template (inferential), so upsert can
+# materialize sensor files with command/agent pre-populated rather
+# than left as `<!-- TODO: fill -->` placeholders.
+#
+# Accepts both legacy `class:` and new `type:` field names (mapped to
+# `type:` on output). Handles single-line `command: <text>` and
+# multi-line `command: |` block scalars (continuation lines are joined
+# with `; ` to produce a single-line shell-friendly command, since
+# `hooks/verify-acceptance.sh`'s parser only reads single-line YAML
+# scalars).
+#
+# Stdin: contract path. Stdout: TSV per entry —
+#   id\ttype\tcommand\tagent\tcalibration_template\ttime_cost\ttoken_cost
+parse_sensors_registry() {
+  local contract_path="$1"
+  awk '
+    BEGIN {
+      in_section = 0; in_yaml = 0; in_entry = 0
+      multiline_field = ""
+      reset_entry()
+    }
+
+    function reset_entry() {
+      id = ""; type = ""; command = ""; agent = ""
+      calib = ""; time_cost = ""; token_cost = ""
+      multiline_field = ""
+    }
+
+    function flush_entry() {
+      if (id != "") {
+        printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", id, type, command, agent, calib, time_cost, token_cost
+      }
+      reset_entry()
+      in_entry = 0
+    }
+
+    function strip_quotes(s,    t) {
+      t = s
+      sub(/^"/, "", t); sub(/"$/, "", t)
+      sub(/^'\''/, "", t); sub(/'\''$/, "", t)
+      return t
+    }
+
+    /^## Sensors registry/ { in_section = 1; in_yaml = 0; reset_entry(); next }
+    in_section && /^## / && !/^## Sensors registry/ {
+      flush_entry(); in_section = 0; in_yaml = 0
+    }
+    in_section && /^```yaml/ { in_yaml = 1; next }
+    in_section && in_yaml && /^```/ {
+      flush_entry(); in_yaml = 0
+    }
+    !in_yaml { next }
+
+    # New entry boundary: `  - id: <value>`
+    /^[[:space:]]*-[[:space:]]+id:[[:space:]]/ {
+      flush_entry()
+      v = $0
+      sub(/^[[:space:]]*-[[:space:]]+id:[[:space:]]+/, "", v)
+      sub(/[[:space:]]+$/, "", v)
+      id = strip_quotes(v)
+      in_entry = 1
+      multiline_field = ""
+      next
+    }
+
+    !in_entry { next }
+
+    # Single-line scalar fields. Order matters: command/agent come
+    # first because they may be block-scalar headers.
+    /^[[:space:]]+command:[[:space:]]*\|[[:space:]]*$/ {
+      multiline_field = "command"
+      command = ""
+      next
+    }
+    /^[[:space:]]+command:[[:space:]]+/ {
+      v = $0
+      sub(/^[[:space:]]+command:[[:space:]]+/, "", v)
+      sub(/[[:space:]]+$/, "", v)
+      command = strip_quotes(v)
+      multiline_field = ""
+      next
+    }
+    /^[[:space:]]+agent:[[:space:]]+/ {
+      v = $0
+      sub(/^[[:space:]]+agent:[[:space:]]+/, "", v)
+      sub(/[[:space:]]+$/, "", v)
+      agent = strip_quotes(v)
+      multiline_field = ""
+      next
+    }
+    /^[[:space:]]+(class|type):[[:space:]]+/ {
+      v = $0
+      sub(/^[[:space:]]+(class|type):[[:space:]]+/, "", v)
+      sub(/[[:space:]]+$/, "", v)
+      type = strip_quotes(v)
+      multiline_field = ""
+      next
+    }
+    /^[[:space:]]+calibration_template:[[:space:]]+/ {
+      v = $0
+      sub(/^[[:space:]]+calibration_template:[[:space:]]+/, "", v)
+      sub(/[[:space:]]+$/, "", v)
+      calib = strip_quotes(v)
+      multiline_field = ""
+      next
+    }
+    /^[[:space:]]+time_cost:[[:space:]]+/ {
+      v = $0
+      sub(/^[[:space:]]+time_cost:[[:space:]]+/, "", v)
+      sub(/[[:space:]]+$/, "", v)
+      time_cost = strip_quotes(v)
+      multiline_field = ""
+      next
+    }
+    /^[[:space:]]+token_cost:[[:space:]]+/ {
+      v = $0
+      sub(/^[[:space:]]+token_cost:[[:space:]]+/, "", v)
+      sub(/[[:space:]]+$/, "", v)
+      token_cost = strip_quotes(v)
+      multiline_field = ""
+      next
+    }
+
+    # Multi-line continuation for command (4+ space indent under the
+    # block scalar marker `|`).
+    multiline_field == "command" && /^[[:space:]][[:space:]]+/ {
+      v = $0
+      sub(/^[[:space:]]+/, "", v)
+      if (v == "") next
+      if (command == "") command = v
+      else command = command "; " v
+      next
+    }
+
+    # End of multi-line block (line at a shallower indent or new key).
+    multiline_field == "command" && /^[[:space:]]*[a-z_]+:/ {
+      multiline_field = ""
+      # fall through — re-evaluate this line (awk does not reprocess,
+      # so this case is rare; the next iteration picks it up).
+    }
+
+    END { flush_entry() }
+  ' "$contract_path"
+}
+
 extract_contract_sensor_ids() {
   local contract_path="$1"
   {
@@ -639,8 +897,19 @@ readiness_for_contract() {
 # Upsert mode — create new sensor files; never touch existing ones.
 # ---------------------------------------------------------------------------
 upsert_mode() {
-  # Default: walk every contract under <root>/.yoke/acceptance-contracts/
-  # or, with --root <dir>, under <dir>/contracts/.
+  # Two responsibilities, in order:
+  #   1. Seed the 6 standard sensors (lint, build, run-project,
+  #      fetch-logs, code-review, llm-as-judge) with `command:`
+  #      pre-populated from the host project's discover-chain.
+  #      Idempotent — existing files preserved.
+  #   2. If `<root>/.yoke/acceptance-contracts/` exists, walk every
+  #      contract and materialize any AC-referenced sensor id whose
+  #      file does not yet exist. Project-specific sensors get
+  #      command bindings from one of two sources, in order:
+  #      (a) the contract's `## Sensors registry` block
+  #          (parse_sensors_registry → command/agent verbatim);
+  #      (b) fallback to a `<!-- TODO: fill -->` placeholder, with a
+  #          stderr warning naming the unresolved id.
   local contracts_glob sensors_dir
   if [ -n "$root_dir" ]; then
     contracts_glob="${root_dir%/}/contracts"
@@ -650,42 +919,72 @@ upsert_mode() {
     sensors_dir=".yoke/sensors"
   fi
 
-  if [ ! -d "$contracts_glob" ]; then
-    echo "Error: contracts directory '${contracts_glob}' not found." >&2
-    exit 3
-  fi
-
   mkdir -p "$sensors_dir"
 
-  # Collect deduplicated id set across all contracts.
-  local ids="" cf
-  shopt -s nullglob
-  for cf in "$contracts_glob"/*.md; do
-    if [ -f "$cf" ]; then
-      ids+="$(extract_contract_sensor_ids "$cf")"$'\n'
+  local upserted_yaml=""
+  local failures_yaml=""
+  local invalid_count=0
+
+  # Step 1 — seed the 6 standards.
+  seed_standard_sensors upserted_yaml "$sensors_dir"
+
+  # Step 1b — infer project-specific sensors (test directories etc.).
+  infer_project_sensors upserted_yaml "$sensors_dir"
+
+  # Step 2 — process ONLY the ACTIVE AC (resolved via
+  # `.yoke/runtime/.current` → `wm_acceptance_contract_path`). Historical
+  # ACs in `<contracts_glob>/` remain read-only audit artifacts; their
+  # ad-hoc sensor IDs do not pollute the live project catalog. If
+  # `.yoke/runtime/.current` is absent (e.g. `/yoke:bootstrap` first
+  # invocation, no active task yet), the standards seed is the only
+  # output and historical ACs are skipped silently.
+  local active_cf=""
+  if [ -d "$contracts_glob" ] && [ -f ".yoke/runtime/.current" ]; then
+    local active_slug
+    active_slug="$(wm_active_slug 2>/dev/null || true)"
+    if [ -n "$active_slug" ]; then
+      active_cf="${contracts_glob}/${active_slug}.md"
+      if [ ! -f "$active_cf" ]; then
+        active_cf=""
+      fi
     fi
-  done
-  shopt -u nullglob
+  fi
+
+  if [ -z "$active_cf" ]; then
+    if [ ! -d "$contracts_glob" ]; then
+      printf 'wm: contracts directory %s not found — seeded standards only.\n' "$contracts_glob" >&2
+    else
+      printf 'wm: no active AC resolved (.yoke/runtime/.current empty or missing) — seeded standards only.\n' >&2
+    fi
+    if [ -z "$upserted_yaml" ]; then
+      printf 'status: ok\nupserted: []\nfailures: []\n'
+    else
+      printf 'status: ok\nupserted:\n%sfailures: []\n' "$upserted_yaml"
+    fi
+    return 0
+  fi
+
+  # Build a lookup table of registry overrides for the active AC only.
+  # Historical ACs are NOT consulted — they may carry legacy ad-hoc
+  # registry entries that should not seed live sensor files.
+  local registry_idx
+  registry_idx="$(mktemp)"
+  parse_sensors_registry "$active_cf" >> "$registry_idx"
+
+  # Collect deduplicated id set from the active AC only.
+  local ids
   ids="$(printf '%s\n' "$ids" | LC_ALL=C sort -u | grep -v '^$' || true)"
 
   # Sensor-id regex — matches `wm_sensor_path` in
   # lib/working-memory/paths.sh. Kebab-or-snake plus '.' / '-' / '_';
-  # lower-case alnum start; ≤64 chars total. The path constructor
-  # honors `--root` so we cannot dispatch through `wm_sensor_path`
-  # directly — duplicating the validation regex here keeps the two
-  # call sites in sync (any tightening must touch both).
+  # lower-case alnum start; ≤64 chars total.
   local sensor_id_regex='^[a-z0-9][a-z0-9_.-]{0,63}$'
 
-  local upserted_yaml=""
-  local failures_yaml=""
-  local id sf action
-  local invalid_count=0
+  local id sf action resolved_type resolved_cmd resolved_agent
   if [ -n "$ids" ]; then
     while IFS= read -r id; do
       [ -z "$id" ] && continue
       if [[ ! "$id" =~ $sensor_id_regex ]]; then
-        # Structured failure per concepts/yoke-pattern-sensors —
-        # sensor / expected / actual / reason / correction.
         failures_yaml+="  - sensor: \"${id}\""$'\n'
         failures_yaml+="    expected: \"sensor id matching ${sensor_id_regex}\""$'\n'
         failures_yaml+="    actual: \"${id}\""$'\n'
@@ -696,21 +995,49 @@ upsert_mode() {
       fi
       sf="${sensors_dir}/${id}.md"
       if [ -f "$sf" ]; then
+        # Existing file (may be a standard seeded above, or a previous
+        # ad-hoc materialization). Curated content is preserved.
         action="unchanged"
-      else
-        render_new_sensor_file "$id" "computational" > "$sf"
-        action="created"
+        # Only emit if we did NOT already record this id in the
+        # standards seeding pass.
+        if ! grep -qE "^  - id: \"${id}\"$" <<< "$upserted_yaml"; then
+          upserted_yaml+="  - id: \"${id}\""$'\n'
+          upserted_yaml+="    path: \"${sf}\""$'\n'
+          upserted_yaml+="    action: ${action}"$'\n'
+        fi
+        continue
       fi
+
+      # Resolve type / command / agent from the registry index, if any.
+      resolved_type=""; resolved_cmd=""; resolved_agent=""
+      local registry_line
+      registry_line="$(awk -F'\t' -v target="$id" '$1 == target { print; exit }' "$registry_idx")"
+      if [ -n "$registry_line" ]; then
+        resolved_type="$(printf '%s\n' "$registry_line" | awk -F'\t' '{ print $2 }')"
+        resolved_cmd="$(printf '%s\n' "$registry_line" | awk -F'\t' '{ print $3 }')"
+        resolved_agent="$(printf '%s\n' "$registry_line" | awk -F'\t' '{ print $4 }')"
+      fi
+      [ -z "$resolved_type" ] && resolved_type="computational"
+
+      render_new_sensor_file "$id" "$resolved_type" "$resolved_cmd" "$resolved_agent" > "$sf"
+      action="created"
+
+      if [ -z "$resolved_cmd" ] && [ "$resolved_type" = "computational" ]; then
+        printf 'wm: sensor %s created with placeholder command — add an entry to the AC `## Sensors registry` block to bind a real command.\n' "$id" >&2
+      fi
+      if [ -z "$resolved_agent" ] && [ "$resolved_type" = "inferential" ]; then
+        printf 'wm: sensor %s created with placeholder agent — add an entry to the AC `## Sensors registry` block to bind a real subagent id.\n' "$id" >&2
+      fi
+
       upserted_yaml+="  - id: \"${id}\""$'\n'
       upserted_yaml+="    path: \"${sf}\""$'\n'
       upserted_yaml+="    action: ${action}"$'\n'
     done <<< "$ids"
   fi
 
+  rm -f "$registry_idx"
+
   if [ "$invalid_count" -gt 0 ]; then
-    # Surface the same structured failures on stderr so callers piping
-    # stdout into a parser still see the violation list. Exit 4 per
-    # the upsert contract.
     {
       printf 'wm: ack-sensors --mode upsert rejected %d invalid sensor id(s):\n' "$invalid_count"
       printf '%s' "$failures_yaml"
@@ -731,13 +1058,15 @@ upsert_mode() {
 }
 
 # Render a fresh sensor file from `templates/sensor.md` for a given id.
-# Defaults: type=computational, token_cost=0, time_cost=30,
-# command=<!-- TODO: fill -->. Body sections inherit the template's
-# placeholder comments, so readiness will warn until the human fills
-# them.
+# Args: id, type (computational|inferential), command_resolved (optional),
+# agent_resolved (optional). When the resolved value is empty, the
+# template's `<!-- TODO: fill -->` placeholder is emitted and the caller
+# (upsert_mode) surfaces a stderr warning.
 render_new_sensor_file() {
   local id="$1"
   local type="${2:-computational}"
+  local command_resolved="${3:-}"
+  local agent_resolved="${4:-}"
   local template="${plugin_root}/templates/sensor.md"
 
   if [ ! -f "$template" ]; then
@@ -754,23 +1083,29 @@ render_new_sensor_file() {
     default_time_cost=30
   fi
 
-  awk -v id="$id" -v type="$type" -v token_cost="$default_token_cost" -v time_cost="$default_time_cost" '
+  local effective_command="${command_resolved:-<!-- TODO: fill -->}"
+  local effective_agent="${agent_resolved:-<!-- TODO: fill -->}"
+
+  awk -v id="$id" \
+      -v type="$type" \
+      -v token_cost="$default_token_cost" \
+      -v time_cost="$default_time_cost" \
+      -v cmd="$effective_command" \
+      -v agent="$effective_agent" '
     /^id: <kebab-case-id>$/             { print "id: " id; next }
     /^type: <computational \| inferential>$/ { print "type: " type; next }
     /^token_cost: 0$/                   { print "token_cost: " token_cost; next }
     /^time_cost: 30$/                   { print "time_cost: " time_cost; next }
     /^command: <shell command>$/ {
       if (type == "computational") {
-        print "command: <!-- TODO: fill -->"
-      } else {
-        # Skip the command line; inferential gets agent instead.
-        next
+        print "command: " cmd
       }
+      # inferential: skip — agent: replaces command:
       next
     }
     /^# agent: <subagent-id>$/ {
       if (type == "inferential") {
-        print "agent: <!-- TODO: fill -->"
+        print "agent: " agent
       } else {
         print
       }
@@ -779,22 +1114,129 @@ render_new_sensor_file() {
     /^# command is required iff type: computational$/ {
       if (type == "computational") {
         print
-      } else {
-        next
       }
       next
     }
     /^# agent is required iff type: inferential .and command MUST be absent.$/ {
-      if (type == "inferential") {
-        print
-      } else {
-        print
-      }
+      print
       next
     }
     /^# <human-readable sensor name>$/  { print "# " id; next }
     { print }
   ' "$template"
+}
+
+# ---------------------------------------------------------------------------
+# Standard-sensor seeding — invoked at the start of upsert_mode.
+#
+# The 6 standards live under `templates/sensors/standard/`:
+#   lint, build, run-project, fetch-logs           (computational)
+#   code-review, llm-as-judge                      (inferential)
+#
+# Computational standards carry a `command: <DISCOVER>` placeholder
+# that this function resolves via `resolve_standard_command()` (which
+# walks the host project's CLAUDE.md / package.json / Makefile chain).
+# Inferential standards ship their calibration block verbatim — the
+# AC's `### Validation` block specializes the rubric per criterion.
+#
+# Idempotent: existing sensor files at `.yoke/sensors/<id>.md` are
+# preserved (curated content stays). Only missing files are created.
+# Output: appends YAML entries to the supplied accumulator variable
+# (passed by name via $1; bash 4.3+ namerefs).
+# ---------------------------------------------------------------------------
+seed_standard_sensors() {
+  local -n acc="$1"
+  local sensors_dir="$2"
+
+  local standards_dir="${plugin_root}/templates/sensors/standard"
+  if [ ! -d "$standards_dir" ]; then
+    return 0  # no standards shipped — quiet skip, upsert continues
+  fi
+
+  local tpl id sf resolved_cmd tmp action
+  shopt -s nullglob
+  for tpl in "$standards_dir"/*.md; do
+    [ -f "$tpl" ] || continue
+    id="$(awk '/^id:/ { sub(/^id:[[:space:]]*/, ""); print; exit }' "$tpl")"
+    [ -z "$id" ] && continue
+
+    sf="${sensors_dir}/${id}.md"
+    if [ -f "$sf" ]; then
+      action="unchanged"
+    else
+      cp "$tpl" "$sf"
+      resolved_cmd="$(resolve_standard_command "$id")"
+      if [ -n "$resolved_cmd" ]; then
+        tmp="$(mktemp)"
+        awk -v cmd="$resolved_cmd" '
+          /^command:[[:space:]]*<DISCOVER>$/ { print "command: " cmd; next }
+          { print }
+        ' "$sf" > "$tmp" && mv "$tmp" "$sf"
+      fi
+      action="created"
+    fi
+    acc+="  - id: \"${id}\""$'\n'
+    acc+="    path: \"${sf}\""$'\n'
+    acc+="    action: ${action}"$'\n'
+    acc+="    standard: true"$'\n'
+  done
+  shopt -u nullglob
+}
+
+# ---------------------------------------------------------------------------
+# Project-specific sensor inference — invoked by upsert_mode after the
+# standards are seeded. Detects per-project capabilities not covered by
+# the standard 6 and materializes per-capability sensor files with
+# `command:` already populated.
+#
+# Currently inferred:
+#   - test directories under `tests/` → one sensor per top-level subdir
+#     named `tests-<subdir>` with command running every `*.test.sh` in
+#     that subdir. Skips when `tests/` is absent.
+#
+# Future extensions: package.json scripts, Makefile targets, pyproject
+# tools — same pattern, append a new helper per source.
+# ---------------------------------------------------------------------------
+infer_project_sensors() {
+  local -n acc="$1"
+  local sensors_dir="$2"
+
+  # Test directory inference. Each top-level directory under `tests/`
+  # becomes its own sensor `tests-<name>` running every `*.test.sh`
+  # inside. The wrapper exits non-zero if any contained test fails.
+  if [ -d "tests" ]; then
+    local d name id sf
+    for d in tests/*/; do
+      [ -d "$d" ] || continue
+      name="${d%/}"; name="${name##*/}"
+      # Sanitize to kebab-shaped id; if name contains underscores etc,
+      # the regex check downstream catches malformed ids.
+      id="tests-${name}"
+      sf="${sensors_dir}/${id}.md"
+      if [ -f "$sf" ]; then
+        acc+="  - id: \"${id}\""$'\n'
+        acc+="    path: \"${sf}\""$'\n'
+        acc+="    action: unchanged"$'\n'
+        acc+="    inferred: tests-directory"$'\n'
+        continue
+      fi
+
+      # Only emit the sensor if the directory actually contains
+      # *.test.sh files — empty dirs (or fixtures-only dirs) skip.
+      if ! find "$d" -maxdepth 2 -name "*.test.sh" 2>/dev/null | grep -q .; then
+        continue
+      fi
+
+      local cmd
+      cmd="set -e; for t in \$(find ${d%/} -maxdepth 2 -name '*.test.sh' | LC_ALL=C sort); do bash \"\$t\" || exit 1; done"
+
+      render_new_sensor_file "$id" "computational" "$cmd" "" > "$sf"
+      acc+="  - id: \"${id}\""$'\n'
+      acc+="    path: \"${sf}\""$'\n'
+      acc+="    action: created"$'\n'
+      acc+="    inferred: tests-directory"$'\n'
+    done
+  fi
 }
 
 case "$mode" in
