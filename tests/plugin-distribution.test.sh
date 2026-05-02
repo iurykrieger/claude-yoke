@@ -86,7 +86,6 @@ expected_dirs=(
   lib/ralph-loop
   lib/sensors
   docs
-  examples
   tests
 )
 
