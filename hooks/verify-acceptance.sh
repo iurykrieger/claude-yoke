@@ -424,6 +424,33 @@ declare -A sensor_meta_time_cost=()
 declare -A sensor_meta_command=()
 declare -A sensor_meta_agent=()
 
+# Detect doctrinal-placeholder values that would otherwise execute as
+# garbage commands at dispatch time and resolve to status: skip — never
+# pass — exhausting the per-sprint hard bound with no organic path to
+# convergence (issue #29). Recognized shapes:
+#   - HTML-comment placeholder: `<!-- TODO: fill -->`
+#   - Angle-bracketed slot markers: `<TODO>`, `<FIXME>`, `<TBD>`,
+#     `<placeholder>`, `<fill in>`, `<your-...>`, `<insert-...>`,
+#     `<edit-...>`
+#   - Bare-token markers as the first word: `TODO`, `FIXME`, `TBD`
+# Pre-flight rejection is the actionable failure mode the convergence
+# rule requires — `skip != pass`, so a placeholder must never reach
+# `run_one_sensor`.
+sensor_value_is_placeholder() {
+  local v="$1"
+  v="${v#"${v%%[![:space:]]*}"}"
+  case "$v" in
+    '<!--'*) return 0 ;;
+  esac
+  if printf '%s' "$v" | grep -qiE '^<(todo|fixme|tbd|placeholder|fill|your|insert|edit)\b'; then
+    return 0
+  fi
+  if printf '%s' "$v" | grep -qE '^(TODO|FIXME|TBD)([[:space:]:]|$)'; then
+    return 0
+  fi
+  return 1
+}
+
 load_sensor_metadata() {
   local id="$1"
   local criterion_for_error="${2:-<unspecified>}"
@@ -464,10 +491,20 @@ load_sensor_metadata() {
         echo "Error: sensor file '${sensor_file}' is type 'computational' but missing 'command:' (criterion '${criterion_for_error}')." >&2
         return 4
       fi
+      if sensor_value_is_placeholder "$v_command"; then
+        echo "Error: sensor file '${sensor_file}' is type 'computational' but 'command:' is a placeholder ('${v_command}') (criterion '${criterion_for_error}')." >&2
+        echo "  Resolve the placeholder before invoking /yoke:implement; the convergence rule treats placeholders as 'skip', not 'pass' (issue #29)." >&2
+        return 4
+      fi
       ;;
     inferential)
       if [ -z "$v_agent" ]; then
         echo "Error: sensor file '${sensor_file}' is type 'inferential' but missing 'agent:' (criterion '${criterion_for_error}')." >&2
+        return 4
+      fi
+      if sensor_value_is_placeholder "$v_agent"; then
+        echo "Error: sensor file '${sensor_file}' is type 'inferential' but 'agent:' is a placeholder ('${v_agent}') (criterion '${criterion_for_error}')." >&2
+        echo "  Resolve the placeholder before invoking /yoke:implement; the convergence rule treats placeholders as 'skip', not 'pass' (issue #29)." >&2
         return 4
       fi
       ;;
