@@ -1,26 +1,9 @@
 #!/usr/bin/env bash
-# criterion: AC-004-4
 #
-# Binding Acceptance Criterion (PRD US-004, ratified 2026-05-03T10:44:11Z):
+# Binding Acceptance Criterion (binding contract):
 #   "Each `/yoke:search-canonical-memory` invocation produces exactly one
 #    `search:` line in `.yoke/runtime/progress.md` for the active cycle."
 #
-# Sprint-3 anchors:
-#   - s03-t01 technical implementation: "the skill MAY invoke
-#     `/yoke:search-canonical-memory` for cross-task context — log each
-#     call once to `.yoke/runtime/progress.md` as a `search:` event".
-#   - functional acceptance criterion id: synthesis-task-list-non-empty.
-#
-# Sr Eng's Sprint-3 contract: the LLM-driven search call lives inside
-# the skill body (no executable spine wraps it). Therefore the binding
-# audit-trail contract is verified at two layers:
-#   (1) The skill body documents the `search:` log convention adjacent
-#       to the canonical-memory invocation (static check).
-#   (2) When the skill body's "Synthesis" section references
-#       `/yoke:search-canonical-memory`, it MUST also reference the
-#       `search:` audit literal in close proximity (≤ 50 lines), so
-#       the runtime logging step is documented (not just the call).
-
 set -euo pipefail
 
 sleep 600 && kill -TERM $$ &
@@ -87,10 +70,10 @@ else
 fi
 
 if [[ "$FAIL" -ne 0 ]]; then
-  printf '\n--- Result ---\nFAIL: us-004-search-call-logged\n' >&2
+  printf '\n--- Result ---\nFAIL: generate-sprints-skill-documents-search-audit\n' >&2
   exit 1
 fi
 
 printf 'PASS: skill body documents `/yoke:search-canonical-memory` invocation AND `search:` log convention with proximity ≤ 50 lines\n'
-printf '\n--- Result ---\nPASS: us-004-search-call-logged\n'
+printf '\n--- Result ---\nPASS: generate-sprints-skill-documents-search-audit\n'
 exit 0

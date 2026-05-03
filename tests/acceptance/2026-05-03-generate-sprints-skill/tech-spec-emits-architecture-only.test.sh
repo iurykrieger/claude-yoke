@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# criterion: AC-001-1, AC-001-2, AC-001-3, AC-001-4
 #
-# Binding Acceptance Criteria (PRD US-001, ratified 2026-05-03T10:44:11Z):
+# Binding Acceptance Criteria (binding contract):
 #   AC-001-1: `grep -RIn 'sprints/' skills/tech-spec/` returns zero
 #             matches post-cutover.
 #   AC-001-2: `grep -RIn 'scaffold-sprints' skills/tech-spec/` returns
@@ -10,26 +9,6 @@
 #             produces zero files under `.yoke/sprints/`.
 #   AC-001-4: The produced spec contains zero `### Task <slug>-s` headings.
 #
-# Sprint-4 anchor:
-#   - sprint task s04-t01 acceptance criterion: "grep -RIn 'sprints/'
-#     skills/tech-spec/ returns zero matches AND grep -RIn
-#     'scaffold-sprints' skills/tech-spec/ returns zero matches AND
-#     running /yoke:tech-spec against the new-flow fixture produces
-#     no file under .yoke/sprints/."
-#   - functional acceptance criterion id: tech-spec-no-sprint-output.
-#
-# Test strategy:
-#   AC-001-1, AC-001-2 are static-grep gates against the post-cutover
-#     skill source under skills/tech-spec/.
-#   AC-001-3 / AC-001-4 are exercised via a fixture-only proxy: the
-#     skill body is parsed for any reference to writing under
-#     `.yoke/sprints/` or to any `### Task <slug>-s` heading authoring;
-#     full LLM invocation is out of scope for a council-cycle Sr-QA
-#     test (the LLM step is the agentic node bracketed by deterministic
-#     bash, per concepts/yoke-pattern-blueprints). The fixture exists
-#     to anchor the future runtime check; today the static gate is
-#     binding via the same evidence path.
-
 set -euo pipefail
 
 sleep 600 && kill -TERM $$ &
@@ -129,5 +108,5 @@ if [[ -n "$TASK_HEAD_REFS" ]]; then
 fi
 printf 'PASS: AC-001-4 — tech-spec SKILL.md emits no `### Task <slug>-s` headings\n'
 
-printf '\n--- Result ---\nPASS: us-001-tech-spec-no-sprint-output\n'
+printf '\n--- Result ---\nPASS: tech-spec-emits-architecture-only\n'
 exit 0

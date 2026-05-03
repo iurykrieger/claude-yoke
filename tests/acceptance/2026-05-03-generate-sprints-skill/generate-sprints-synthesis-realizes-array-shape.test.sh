@@ -1,23 +1,10 @@
 #!/usr/bin/env bash
-# criterion: AC-004-3
 #
-# Binding Acceptance Criterion (PRD US-004, ratified 2026-05-03T10:44:11Z):
+# Binding Acceptance Criterion (binding contract):
 #   "Each task in the produced plan carries a non-empty
 #    `realizes_user_stories` array; the array entries match the regex
 #    `^US-[0-9]{3}$`."
 #
-# Sprint-3 anchors:
-#   - s03-t01 technical implementation: synthesis output shape.
-#   - functional acceptance criterion id: synthesis-task-list-non-empty.
-#
-# Then-clause (binding):
-#   GIVEN a successful `synthesize_write_tasks` run against the
-#   happy-path fixture
-#   WHEN the produced plan at .yoke/runtime/.generate-sprints-plan.yaml
-#   is read
-#   THEN every task entry MUST carry a non-empty `realizes_user_stories`
-#   array, AND every array element MUST match the regex `^US-[0-9]{3}$`.
-
 set -euo pipefail
 
 sleep 600 && kill -TERM $$ &
@@ -123,9 +110,9 @@ sys.exit(0)
 PY
 RC=$?
 if [[ "$RC" -ne 0 ]]; then
-  printf '\n--- Result ---\nFAIL: us-004-realizes-array-shape\n' >&2
+  printf '\n--- Result ---\nFAIL: generate-sprints-synthesis-realizes-array-shape\n' >&2
   exit 1
 fi
 
-printf '\n--- Result ---\nPASS: us-004-realizes-array-shape\n'
+printf '\n--- Result ---\nPASS: generate-sprints-synthesis-realizes-array-shape\n'
 exit 0

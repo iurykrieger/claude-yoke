@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# criterion: AC-002-1 / sprint-01 ac-template-shape
 #
 # Binding Acceptance Criteria (re-ratified 2026-05-03T10:44:11Z):
 #   US-002 — Reshape acceptance-criteria around the canonical shape.
@@ -23,11 +22,6 @@
 #   `UC-` for backward compatibility with cycle-0 fixtures; the
 #   template assertion is strictly `US-` per the canonical contract.
 #
-# Sprint anchors (from .yoke/sprints/2026-05-03-generate-sprints-skill-s01.md):
-#   ac-template-shape (Functional acceptance criterion id).
-#
-# Watchdog convention — keep the smoke-test guard.
-
 set -euo pipefail
 
 sleep 600 && kill -TERM $$ &
@@ -73,8 +67,8 @@ fi
 rm -f /tmp/ac-template-tids.out
 
 if [[ "$FAIL" -ne 0 ]]; then
-  printf '\n--- Result ---\nFAIL: scenario-01\n' >&2
+  printf '\n--- Result ---\nFAIL: acceptance-criteria-template-shape\n' >&2
   exit 1
 fi
-printf '\n--- Result ---\nPASS: scenario-01\n'
+printf '\n--- Result ---\nPASS: acceptance-criteria-template-shape\n'
 exit 0

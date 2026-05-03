@@ -1,21 +1,11 @@
 #!/usr/bin/env bash
-# criterion: AC-005-2
 #
-# Binding Acceptance Criterion (PRD US-005, ratified 2026-05-03T10:44:11Z):
+# Binding Acceptance Criterion (binding contract):
 #   "tests/smoke/partition-determinism.test.sh exits 0 with stdout
 #    `PASS: byte-identical across two runs`."
 #
 # Also satisfies FR-3 of the binding AC.
 #
-# Sprint-3 anchors:
-#   - sprint task s03-t02 acceptance criterion: "bash exits 0 AND prints
-#     `PASS: byte-identical across two runs`".
-#   - functional acceptance criterion id: partition-deterministic.
-#
-# Sr Eng's contract: `partition_tasks <plan-yaml-path>` mutates the plan
-# in place. Re-running on the same `tasks` array MUST produce a
-# byte-identical `sprint_partition` block.
-
 set -euo pipefail
 
 sleep 600 && kill -TERM $$ &
@@ -86,5 +76,5 @@ if ! diff -q "$WORK_TREE/run1.yaml" "$WORK_TREE/run2.yaml" >/dev/null 2>&1; then
 fi
 
 printf 'PASS: byte-identical across two runs\n'
-printf '\n--- Result ---\nPASS: us-005-partition-determinism\n'
+printf '\n--- Result ---\nPASS: generate-sprints-partition-is-deterministic\n'
 exit 0

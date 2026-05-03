@@ -1,23 +1,9 @@
 #!/usr/bin/env bash
-# criterion: AC-005-5
 #
-# Binding Acceptance Criterion (PRD US-005, ratified 2026-05-03T10:44:11Z):
+# Binding Acceptance Criterion (binding contract):
 #   "No produced sprint contains more than 8 `### Task <ID>` anchors and
 #    no produced sprint contains fewer than 1."
 #
-# Sprint-3 anchors:
-#   - sprint task s03-t02 technical implementation: "Cap sprint size at 8
-#     tasks" + "no empty sprints".
-#   - functional acceptance criterion id: partition-cap-eight-tasks.
-#
-# Then-clause (binding):
-#   GIVEN the partition stage runs against any plan
-#   THEN every sprint_partition entry's task count MUST sit within [1, 8].
-#   Verified against:
-#     (a) tests/fixtures/generate-sprints/partition/small/ (5 tasks → 1 sprint);
-#     (b) tests/fixtures/generate-sprints/partition/large-24-tasks/
-#         (24 tasks → ≥ 3 sprints, each ≤ 8).
-
 set -euo pipefail
 
 sleep 600 && kill -TERM $$ &
@@ -126,5 +112,5 @@ PY
 run_one "tests/fixtures/generate-sprints/partition/small" "small" || exit 1
 run_one "tests/fixtures/generate-sprints/partition/large-24-tasks" "large-24-tasks" || exit 1
 
-printf '\n--- Result ---\nPASS: us-005-task-count-bounds\n'
+printf '\n--- Result ---\nPASS: generate-sprints-respects-task-count-bounds\n'
 exit 0

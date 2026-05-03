@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# criterion: AC-003-4 / sprint-02 plan-yaml-schema-callable
 #
 # Binding Acceptance Criteria (PRD US-003 + US-004 cross-anchor,
 # ratified 2026-05-03T06:39:27Z):
@@ -54,7 +53,7 @@ FAIL=0
 # ---------------------------------------------------------------------------
 if [[ ! -f "$PLAN_LIB" ]]; then
   printf 'FAIL: %s does not exist (Sr Eng output pending; expected in s02-t04)\n' "$PLAN_LIB" >&2
-  printf '\n--- Result ---\nFAIL: us-003-plan-yaml-init\n' >&2
+  printf '\n--- Result ---\nFAIL: generate-sprints-plan-yaml-init\n' >&2
   exit 1
 fi
 printf 'PASS: %s exists\n' "$PLAN_LIB"
@@ -85,7 +84,7 @@ INIT_RC=0
 
 if [[ "$INIT_RC" -ne 0 ]]; then
   printf 'FAIL: init_plan_file returned rc=%d on happy path\n' "$INIT_RC" >&2
-  printf '\n--- Result ---\nFAIL: us-003-plan-yaml-init\n' >&2
+  printf '\n--- Result ---\nFAIL: generate-sprints-plan-yaml-init\n' >&2
   exit 1
 fi
 printf 'PASS: init_plan_file returned rc=0\n'
@@ -95,7 +94,7 @@ printf 'PASS: init_plan_file returned rc=0\n'
 # ---------------------------------------------------------------------------
 if [[ ! -f "$PLAN_OUT" ]]; then
   printf 'FAIL: plan file not written at %s\n' "$PLAN_OUT" >&2
-  printf '\n--- Result ---\nFAIL: us-003-plan-yaml-init\n' >&2
+  printf '\n--- Result ---\nFAIL: generate-sprints-plan-yaml-init\n' >&2
   exit 1
 fi
 printf 'PASS: plan file written at %s\n' "$PLAN_OUT"
@@ -202,8 +201,8 @@ PY
 fi
 
 if [[ "$FAIL" -ne 0 ]]; then
-  printf '\n--- Result ---\nFAIL: us-003-plan-yaml-init\n' >&2
+  printf '\n--- Result ---\nFAIL: generate-sprints-plan-yaml-init\n' >&2
   exit 1
 fi
-printf '\n--- Result ---\nPASS: us-003-plan-yaml-init\n'
+printf '\n--- Result ---\nPASS: generate-sprints-plan-yaml-init\n'
 exit 0

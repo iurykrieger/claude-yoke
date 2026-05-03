@@ -1,16 +1,8 @@
 #!/usr/bin/env bash
-# criterion: AC-008-2
 #
-# Binding Acceptance Criterion (PRD US-008, ratified 2026-05-03T10:44:11Z):
+# Binding Acceptance Criterion (binding contract):
 #   AC-008-2: grep -c 'skills/generate-sprints' docs/lineage.md returns ≥ 1.
 #
-# Sprint-4 anchor:
-#   - sprint task s04-t07 (covering both architecture and lineage
-#     doc updates) acceptance criterion: "grep -c 'skills/generate-sprints'
-#     docs/lineage.md returns 0 status with stdout integer ≥ 1."
-#   - functional acceptance criterion id:
-#     lineage-doc-mentions-generate-sprints.
-
 set -euo pipefail
 
 sleep 600 && kill -TERM $$ &
@@ -49,5 +41,5 @@ else
   printf 'PASS: lineage entry tagged native (proximity match found)\n'
 fi
 
-printf '\n--- Result ---\nPASS: us-008-lineage-doc\n'
+printf '\n--- Result ---\nPASS: lineage-doc-mentions-generate-sprints\n'
 exit 0

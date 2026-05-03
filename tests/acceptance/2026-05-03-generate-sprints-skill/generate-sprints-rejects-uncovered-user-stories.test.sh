@@ -1,27 +1,9 @@
 #!/usr/bin/env bash
-# criterion: AC-004-2
 #
-# Binding Acceptance Criterion (PRD US-004, ratified 2026-05-03T10:44:11Z):
+# Binding Acceptance Criterion (binding contract):
 #   "The uncovered-US negative branch causes the skill to abort non-zero
 #    with stderr `wm: unrealized USs: US-<NNN>[, US-<MMM>]`."
 #
-# Sprint-3 anchors:
-#   - sprint task s03-t01 acceptance criterion (negative branch).
-#   - functional acceptance criterion id: synthesis-us-coverage-enforced.
-#
-# Sr Eng's Sprint-3 contract: `synthesize_write_tasks <plan> <tasks-json>
-# <ac-json>` enforces US-coverage by aborting non-zero with the literal
-# `wm: unrealized USs: US-NNN[, US-MMM]` when the LLM-emitted tasks
-# leave any AC US unrealized. We exercise the validator with a stub
-# tasks JSON that deliberately omits US-003 (the engineered orphan in
-# the uncovered-US fixture).
-#
-# Then-clause (binding):
-#   GIVEN the uncovered-US fixture and a tasks JSON omitting US-003
-#   WHEN `synthesize_write_tasks` runs
-#   THEN it MUST exit non-zero AND emit on stderr a line matching
-#   `^wm: unrealized USs: US-003`.
-
 set -euo pipefail
 
 sleep 600 && kill -TERM $$ &
@@ -102,5 +84,5 @@ if ! grep -qE 'US-003' "$WORK_TREE/synth.stderr"; then
 fi
 
 printf 'PASS: synthesize_write_tasks aborted on uncovered US-003 with documented stderr literal\n'
-printf '\n--- Result ---\nPASS: us-004-uncovered-us-rejection\n'
+printf '\n--- Result ---\nPASS: generate-sprints-rejects-uncovered-user-stories\n'
 exit 0

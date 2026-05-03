@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# criterion: AC-003-2 / sprint-02 generate-sprints-preflight-rejects-five-modes
 #
-# Binding Acceptance Criteria (PRD US-003, ratified 2026-05-03T06:39:27Z):
+# Binding Acceptance Criteria (binding contract):
 #   "Pre-flight refuses to run when .yoke/config.yaml is missing or
 #    lacks `canonical_memory.provider`, surfacing the standard
 #    `yoke_require_provider` stderr verbatim."
@@ -135,8 +134,8 @@ for mode in "${modes[@]}"; do
 done
 
 if [[ "$FAIL" -ne 0 ]]; then
-  printf '\n--- Result ---\nFAIL: us-003-preflight-five-modes\n' >&2
+  printf '\n--- Result ---\nFAIL: generate-sprints-preflight-rejects-bad-state\n' >&2
   exit 1
 fi
-printf '\n--- Result ---\nPASS: us-003-preflight-five-modes (5 modes covered)\n'
+printf '\n--- Result ---\nPASS: generate-sprints-preflight-rejects-bad-state (5 modes covered)\n'
 exit 0

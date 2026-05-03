@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# criterion: AC-007-1, AC-007-2
 #
-# Binding Acceptance Criteria (PRD US-007, ratified 2026-05-03T10:44:11Z):
+# Binding Acceptance Criteria (binding contract):
 #   AC-007-1: tests/smoke/legacy-task-walk.test.sh exits 0; the frozen
 #             legacy fixture walks Phase A pre-spawn unchanged.
 #   AC-007-2: tests/smoke/generate-sprints-rejects-legacy.test.sh
@@ -9,28 +8,6 @@
 #             exact stderr literal AND no file under .yoke/sprints/
 #             had its mtime bumped.
 #
-# Sprint-4 anchor:
-#   - sprint task s04-t04 acceptance criterion: "bash
-#     tests/smoke/generate-sprints-rejects-legacy.test.sh exits 0
-#     AND stdout contains `PASS: legacy task rejected, sprints
-#     untouched`."
-#   - sprint task s04-t06 acceptance criterion: "bash
-#     tests/smoke/legacy-task-walk.test.sh exits 0 AND stdout
-#     contains `PASS: legacy task walked Phase A pre-spawn`."
-#   - functional acceptance criterion ids:
-#     generate-sprints-rejects-legacy-task, legacy-task-walks-clean.
-#
-# Exact stderr literal (binding):
-#   wm: legacy task — generate-sprints does not migrate
-#
-# Test strategy:
-#   The legacy-task fixture under tests/fixtures/legacy-task is the
-#   frozen anchor for both criteria. The rejection path is gated on
-#   the generate-sprints SKILL.md body referencing the binding stderr
-#   literal AND on a runtime check that — when invokable — confirms
-#   no file under .yoke/sprints/ was touched. The walk-clean branch
-#   asserts the legacy fixture's sprint file is intact post-call.
-
 set -euo pipefail
 
 sleep 600 && kill -TERM $$ &
@@ -181,5 +158,5 @@ if ! diff -q "$PRE_MTIME_FILE" "$POST_MTIME_FILE" >/dev/null 2>&1; then
 fi
 printf 'PASS: legacy task rejected, sprints untouched\n'
 
-printf '\n--- Result ---\nPASS: us-007-generate-sprints-rejects-legacy\n'
+printf '\n--- Result ---\nPASS: generate-sprints-rejects-legacy-task\n'
 exit 0

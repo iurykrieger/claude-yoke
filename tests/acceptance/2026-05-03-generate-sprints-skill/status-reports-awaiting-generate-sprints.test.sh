@@ -1,30 +1,11 @@
 #!/usr/bin/env bash
-# criterion: AC-006-2
 #
-# Binding Acceptance Criterion (PRD US-006, ratified 2026-05-03T10:44:11Z):
+# Binding Acceptance Criterion (binding contract):
 #   AC-006-2: tests/smoke/status-awaiting-generate-sprints.test.sh
 #             exits 0; the new-flow fixture reports
 #             `awaiting:generate-sprints`; the legacy-flow fixture
 #             surfaces the legacy ladder.
 #
-# Sprint-4 anchor:
-#   - sprint task s04-t02 acceptance criterion: "bash
-#     tests/smoke/status-awaiting-generate-sprints.test.sh exits 0
-#     AND stdout contains both `PASS: new-flow gate state surfaced`
-#     and `PASS: legacy ladder selected on legacy fixture`."
-#   - functional acceptance criterion id:
-#     status-awaiting-generate-sprints-state.
-#
-# Test strategy:
-#   `/yoke:status` is a dialogue-driven skill body — the gate-detection
-#   logic that surfaces awaiting:generate-sprints lives in the SKILL.md
-#   body and (per Sprint 4 plan) in a new shared helper
-#   `lib/working-memory/gate-state.sh :: detect_gate_state`. This test
-#   prefers the helper when present (deterministic check) and falls
-#   back to a static gate against the skill body (the helper has not
-#   yet shipped at the point Sr QA authors this test, per cycle 4
-#   Sr-Eng schedule).
-
 set -euo pipefail
 
 sleep 600 && kill -TERM $$ &
@@ -111,7 +92,7 @@ if [[ -f "$HELPER" ]]; then
         ;;
     esac
 
-    printf '\n--- Result ---\nPASS: us-006-status-awaiting-state\n'
+    printf '\n--- Result ---\nPASS: status-reports-awaiting-generate-sprints\n'
     exit 0
   fi
 else
@@ -147,5 +128,5 @@ if ! grep -qE 'acceptance-contract' "$SKILL_BODY"; then
 fi
 printf 'PASS: legacy ladder selected on legacy fixture (static gate)\n'
 
-printf '\n--- Result ---\nPASS: us-006-status-awaiting-state\n'
+printf '\n--- Result ---\nPASS: status-reports-awaiting-generate-sprints\n'
 exit 0

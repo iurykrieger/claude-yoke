@@ -1,37 +1,10 @@
 #!/usr/bin/env bash
-# criterion: AC-006-1
 #
-# Binding Acceptance Criterion (PRD US-006, ratified 2026-05-03T10:44:11Z):
+# Binding Acceptance Criterion (binding contract):
 #   "tests/smoke/trigger-2-5-menu.test.sh exits 0 with stdout containing
 #    `PASS: menu shape correct`, `PASS: approve flips status atomically`,
 #    `PASS: reject deletes bundles`."
 #
-# Sprint-3 anchors:
-#   - sprint task s03-t04 acceptance criterion: "bash exits 0 AND the
-#     test prints all of: `PASS: menu shape correct`,
-#     `PASS: approve flips status atomically`, `PASS: reject deletes
-#     bundles`".
-#   - functional acceptance criterion ids: trigger-2-5-menu-shape,
-#     approve-flips-status-atomically, reject-deletes-bundles.
-#
-# Then-clause (binding):
-#   GIVEN the skill has rendered ≥ 1 sprint file at .yoke/sprints/<slug>-s*.md
-#   WHEN it renders the Trigger 2.5 approval menu
-#   THEN
-#     (a) the menu MUST display exactly 4 options with the documented
-#         digit-to-verb mapping (1: approve_and_continue, 2: approve,
-#         3: reject, 4: revise);
-#     (b) when the user enters `2` (approve), every produced sprint
-#         file's frontmatter MUST flip from `status: draft` to
-#         `status: approved` atomically (verified post-input);
-#     (c) when the user enters `3` followed by `yes` (reject + confirm),
-#         every produced sprint file MUST be deleted.
-#
-# This test SIMULATES user input via heredoc / pre-canned response —
-# stdin is not actually waited on. The skill body MUST honour the
-# digit-to-verb mapping and the contract behaviours; the simulation
-# pipes the digit in and asserts post-condition on filesystem state.
-
 set -euo pipefail
 
 sleep 600 && kill -TERM $$ &
@@ -283,5 +256,5 @@ if [[ "${#REMAINING[@]}" -ne 0 ]]; then
 fi
 printf 'PASS: reject deletes bundles\n'
 
-printf '\n--- Result ---\nPASS: us-006-trigger-25-menu (3/3 sub-assertions)\n'
+printf '\n--- Result ---\nPASS: acceptance-criteria-offers-trigger-25-menu (3/3 sub-assertions)\n'
 exit 0

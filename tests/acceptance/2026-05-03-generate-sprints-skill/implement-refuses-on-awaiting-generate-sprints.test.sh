@@ -1,34 +1,11 @@
 #!/usr/bin/env bash
-# criterion: AC-006-3
 #
-# Binding Acceptance Criterion (PRD US-006, ratified 2026-05-03T10:44:11Z):
+# Binding Acceptance Criterion (binding contract):
 #   AC-006-3: tests/smoke/implement-refuses-on-awaiting.test.sh exits
 #             0; the new-flow fixture causes /yoke:implement to exit
 #             non-zero with the documented exact stderr literal; the
 #             legacy-flow fixture walks Phase A pre-spawn unchanged.
 #
-# Sprint-4 anchor:
-#   - sprint task s04-t03 acceptance criterion: "bash
-#     tests/smoke/implement-refuses-on-awaiting.test.sh exits 0 AND
-#     stdout contains both `PASS: new-flow refusal correct` and
-#     `PASS: legacy walks unaffected`."
-#   - functional acceptance criterion id:
-#     implement-refuses-on-awaiting-state.
-#
-# Exact stderr literal (binding):
-#   wm: run /yoke:generate-sprints to advance to Phase 4
-#
-# Test strategy:
-#   The refusal is a deterministic pre-cycle gate. The shipped surface
-#   is either:
-#     (a) `lib/working-memory/gate-state.sh :: detect_gate_state`
-#         consumed by the implement entry-point script; OR
-#     (b) the SKILL.md body documents the literal stderr verbatim
-#         AND a runtime guard in lib/runtime/cycle.sh or
-#         lib/ralph-loop/orchestrate.sh that emits it.
-#   The test prefers (a) when present (executable check); falls back
-#   to (b) when (a) has not yet shipped.
-
 set -euo pipefail
 
 sleep 600 && kill -TERM $$ &
@@ -129,7 +106,7 @@ if [[ -f "$HELPER" ]]; then
         ;;
     esac
 
-    printf '\n--- Result ---\nPASS: us-006-implement-refuses-awaiting\n'
+    printf '\n--- Result ---\nPASS: implement-refuses-on-awaiting-generate-sprints\n'
     exit 0
   fi
 else
@@ -152,5 +129,5 @@ fi
 printf 'PASS: new-flow refusal correct (static gate)\n'
 printf 'PASS: legacy walks unaffected (static gate over implement runtime surface)\n'
 
-printf '\n--- Result ---\nPASS: us-006-implement-refuses-awaiting\n'
+printf '\n--- Result ---\nPASS: implement-refuses-on-awaiting-generate-sprints\n'
 exit 0

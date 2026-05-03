@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# criterion: AC-003-3 / sprint-02 parse-inputs-emits-ucs-json
 #
 # Binding Acceptance Criteria (PRD US-003 + FR-3, ratified
 # 2026-05-03T06:39:27Z):
@@ -62,7 +61,7 @@ FAIL=0
 # ---------------------------------------------------------------------------
 if [[ ! -f "$PARSE_LIB" ]]; then
   printf 'FAIL: %s does not exist (Sr Eng output pending; expected in s02-t03)\n' "$PARSE_LIB" >&2
-  printf '\n--- Result ---\nFAIL: us-003-parse-inputs-shape\n' >&2
+  printf '\n--- Result ---\nFAIL: generate-sprints-parses-acceptance-criteria\n' >&2
   exit 1
 fi
 printf 'PASS: %s exists\n' "$PARSE_LIB"
@@ -77,14 +76,14 @@ if ! source "$PARSE_LIB" 2>/tmp/parse-inputs-source.err; then
   printf 'FAIL: cannot source %s:\n' "$PARSE_LIB" >&2
   sed 's/^/    /' /tmp/parse-inputs-source.err >&2 || true
   rm -f /tmp/parse-inputs-source.err
-  printf '\n--- Result ---\nFAIL: us-003-parse-inputs-shape\n' >&2
+  printf '\n--- Result ---\nFAIL: generate-sprints-parses-acceptance-criteria\n' >&2
   exit 1
 fi
 rm -f /tmp/parse-inputs-source.err
 
 if ! declare -F parse_acceptance_criteria >/dev/null 2>&1; then
   printf 'FAIL: function `parse_acceptance_criteria` not defined after sourcing %s\n' "$PARSE_LIB" >&2
-  printf '\n--- Result ---\nFAIL: us-003-parse-inputs-shape\n' >&2
+  printf '\n--- Result ---\nFAIL: generate-sprints-parses-acceptance-criteria\n' >&2
   exit 1
 fi
 printf 'PASS: function `parse_acceptance_criteria` defined\n'
@@ -166,8 +165,8 @@ else
 fi
 
 if [[ "$FAIL" -ne 0 ]]; then
-  printf '\n--- Result ---\nFAIL: us-003-parse-inputs-shape\n' >&2
+  printf '\n--- Result ---\nFAIL: generate-sprints-parses-acceptance-criteria\n' >&2
   exit 1
 fi
-printf '\n--- Result ---\nPASS: us-003-parse-inputs-shape\n'
+printf '\n--- Result ---\nPASS: generate-sprints-parses-acceptance-criteria\n'
 exit 0

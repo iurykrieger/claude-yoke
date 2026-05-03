@@ -1,16 +1,9 @@
 #!/usr/bin/env bash
-# criterion: AC-005-4
 #
-# Binding Acceptance Criterion (PRD US-005, ratified 2026-05-03T10:44:11Z):
+# Binding Acceptance Criterion (binding contract):
 #   "Frontmatter `traceability` contains both spec and AC paths
 #    (semicolon-separated)."
 #
-# Sprint-3 anchors:
-#   - s03-t03 technical implementation: "Set frontmatter `traceability`
-#     to the literal string
-#     `.yoke/specs/<slug>.md; .yoke/acceptance-criteria/<slug>.md`".
-#   - functional acceptance criterion id: traceability-cites-spec-and-ac.
-
 set -euo pipefail
 
 sleep 600 && kill -TERM $$ &
@@ -124,9 +117,9 @@ for sprint_file in "${PRODUCED[@]}"; do
 done
 
 if [[ "$FAIL" -ne 0 ]]; then
-  printf '\n--- Result ---\nFAIL: us-005-traceability-frontmatter\n' >&2
+  printf '\n--- Result ---\nFAIL: generate-sprints-traceability-frontmatter\n' >&2
   exit 1
 fi
 
-printf '\n--- Result ---\nPASS: us-005-traceability-frontmatter\n'
+printf '\n--- Result ---\nPASS: generate-sprints-traceability-frontmatter\n'
 exit 0

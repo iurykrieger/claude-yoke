@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# criterion: AC-003-1 / sprint-02 generate-sprints-skill-exists
 #
-# Binding Acceptance Criteria (PRD US-003, ratified 2026-05-03T06:39:27Z):
+# Binding Acceptance Criteria (binding contract):
 #   "skills/generate-sprints/SKILL.md exists with frontmatter declaring
 #    `name: generate-sprints`, an `argument-hint`, and an `allowed-tools`
 #    list that includes `Read, Write, Edit, Bash, Skill`."
@@ -42,7 +41,7 @@ FAIL=0
 # ---------------------------------------------------------------------------
 if [[ ! -f "$SKILL" ]]; then
   printf 'FAIL: %s does not exist (Sr Eng output pending; expected in s02-t01)\n' "$SKILL" >&2
-  printf '\n--- Result ---\nFAIL: us-003-skill-frontmatter\n' >&2
+  printf '\n--- Result ---\nFAIL: generate-sprints-skill-frontmatter\n' >&2
   exit 1
 fi
 printf 'PASS: %s exists\n' "$SKILL"
@@ -106,8 +105,8 @@ else
 fi
 
 if [[ "$FAIL" -ne 0 ]]; then
-  printf '\n--- Result ---\nFAIL: us-003-skill-frontmatter\n' >&2
+  printf '\n--- Result ---\nFAIL: generate-sprints-skill-frontmatter\n' >&2
   exit 1
 fi
-printf '\n--- Result ---\nPASS: us-003-skill-frontmatter\n'
+printf '\n--- Result ---\nPASS: generate-sprints-skill-frontmatter\n'
 exit 0

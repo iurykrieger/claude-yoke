@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# criterion: scenario-04-sprint-template-realizes-clause
 #
 # Acceptance Contract Scenario 4 (binding):
 #   "`templates/sprint.md` documents the `(Realizes: UC-N)` clause"
@@ -11,9 +10,6 @@
 #   AND `grep -c 'legacy-flow' templates/sprint.md` returns 0
 #   status with stdout integer >= 1.
 #
-# Sprint anchor (sprint file's `## Functional acceptance criteria`):
-#   sprint-template-realizes-clause-documented
-
 set -euo pipefail
 
 sleep 600 && kill -TERM $$ &
@@ -54,8 +50,8 @@ else
 fi
 
 if [[ "$FAIL" -ne 0 ]]; then
-  printf '\n--- Result ---\nFAIL: scenario-04\n' >&2
+  printf '\n--- Result ---\nFAIL: sprint-template-documents-realizes-clause\n' >&2
   exit 1
 fi
-printf '\n--- Result ---\nPASS: scenario-04\n'
+printf '\n--- Result ---\nPASS: sprint-template-documents-realizes-clause\n'
 exit 0

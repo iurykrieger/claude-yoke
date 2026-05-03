@@ -1,19 +1,10 @@
 #!/usr/bin/env bash
-# criterion: AC-008-1
 #
-# Binding Acceptance Criterion (PRD US-008, ratified 2026-05-03T10:44:11Z):
+# Binding Acceptance Criterion (binding contract):
 #   AC-008-1: grep -c 'Phase 2\.5' docs/architecture.md returns ≥ 1;
 #             grep -c '/yoke:generate-sprints' docs/architecture.md
 #             returns ≥ 1.
 #
-# Sprint-4 anchor:
-#   - sprint task s04-t07 acceptance criterion: "grep -c 'Phase 2\.5'
-#     docs/architecture.md returns 0 status with stdout integer ≥ 1
-#     AND grep -c 'skills/generate-sprints' docs/lineage.md returns 0
-#     status with stdout integer ≥ 1."
-#   - functional acceptance criterion id:
-#     architecture-doc-mentions-phase-25.
-
 set -euo pipefail
 
 sleep 600 && kill -TERM $$ &
@@ -46,5 +37,5 @@ if (( SKILL_COUNT < 1 )); then
 fi
 printf 'PASS: AC-008-1 — `/yoke:generate-sprints` mentions in %s = %s\n' "$DOC" "$SKILL_COUNT"
 
-printf '\n--- Result ---\nPASS: us-008-architecture-docs\n'
+printf '\n--- Result ---\nPASS: architecture-doc-mentions-phase-2-5\n'
 exit 0

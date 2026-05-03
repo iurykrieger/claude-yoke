@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# criterion: AC-003-5 / sprint-02 runtime-plan-gitignored
 #
 # Binding Acceptance Criteria (PRD US-004 — runtime plan path is
 # gitignored, ratified 2026-05-03T06:39:27Z):
@@ -55,8 +54,8 @@ for p in "${paths[@]}"; do
 done
 
 if [[ "$FAIL" -ne 0 ]]; then
-  printf '\n--- Result ---\nFAIL: us-003-gitignore\n' >&2
+  printf '\n--- Result ---\nFAIL: runtime-plan-path-is-gitignored\n' >&2
   exit 1
 fi
-printf '\n--- Result ---\nPASS: us-003-gitignore\n'
+printf '\n--- Result ---\nPASS: runtime-plan-path-is-gitignored\n'
 exit 0

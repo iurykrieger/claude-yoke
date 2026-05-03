@@ -1,34 +1,9 @@
 #!/usr/bin/env bash
-# criterion: AC-004-1
 #
-# Binding Acceptance Criterion (PRD US-004, ratified 2026-05-03T10:44:11Z):
+# Binding Acceptance Criterion (binding contract):
 #   "tests/smoke/synthesis-us-coverage.test.sh exits 0; the happy-path
 #    branch prints `PASS: <N> USs covered by <M> tasks` (M ≥ N)."
 #
-# Sprint-3 anchors:
-#   - sprint task s03-t01 acceptance criterion: bash exits 0 AND prints
-#     `PASS: 4 USs covered by N tasks` (N integer ≥ 4).
-#   - functional acceptance criterion id: synthesis-task-list-non-empty.
-#
-# Sr Eng's Sprint-3 contract: the LLM-driven synthesis step lives
-# *inside* the skill body; the deterministic spine
-# (`lib/generate-sprints/synthesize.sh`) ships
-# `synthesize_validate_inputs` (input shape gate) and
-# `synthesize_write_tasks <plan> <tasks-json> <ac-json>` (post-LLM
-# validate + plan write + US-coverage enforcement). We exercise the
-# spine with a deterministic stub of the LLM emission (`_lib/build-stub-tasks.sh`).
-#
-# Then-clause (binding):
-#   GIVEN the synthesis happy-path fixture (4 USs in
-#   tests/fixtures/generate-sprints/synthesis/happy/)
-#   WHEN the deterministic spine is exercised end-to-end against it
-#   THEN
-#     (a) `synthesize_write_tasks` MUST exit 0;
-#     (b) the produced plan's `tasks` array MUST be non-empty AND
-#         have length ≥ N (number of USs in the fixture);
-#     (c) every US-NNN heading from the AC MUST appear in at least
-#         one task's `realizes_user_stories`.
-
 set -euo pipefail
 
 sleep 600 && kill -TERM $$ &
@@ -159,5 +134,5 @@ if [[ "${#MISSING[@]}" -gt 0 ]]; then
 fi
 
 printf 'PASS: %d USs covered by %d tasks\n' "$N_US" "$M_TASKS"
-printf '\n--- Result ---\nPASS: us-004-synthesis-us-coverage\n'
+printf '\n--- Result ---\nPASS: generate-sprints-synthesis-covers-every-user-story\n'
 exit 0

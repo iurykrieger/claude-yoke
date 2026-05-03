@@ -1,14 +1,10 @@
 #!/usr/bin/env bash
-# criterion: AC-005-3
 #
-# Binding Acceptance Criterion (PRD US-005, ratified 2026-05-03T10:44:11Z):
-#   "Every produced `**Story:**` line ends with a clause matching
-#    `\(Realizes: US-[0-9]{3}(, US-[0-9]{3})*\)`."
+# Binding Acceptance Criterion (binding contract):
+#   "tests/smoke/render-bundle-shape.test.sh exits 0; every produced
+#    sprint file passes the 5-H2-headings + 4-inline-labels +
+#    Realizes-clause checks."
 #
-# Sprint-3 anchors:
-#   - s03-t03 technical implementation.
-#   - functional acceptance criterion id: realizes-clause-on-every-task.
-
 set -euo pipefail
 
 sleep 600 && kill -TERM $$ &
@@ -37,7 +33,7 @@ fi
 WORK_TREE="$(mktemp -d)"
 trap 'kill -TERM "${WATCHDOG_PID}" 2>/dev/null || true; rm -rf "$WORK_TREE"' EXIT
 
-SLUG="2026-05-03-realizes-clause-fixture"
+SLUG="2026-05-03-render-shape-fixture"
 PLAN_REL=".yoke/runtime/.generate-sprints-plan.yaml"
 
 (
@@ -62,6 +58,8 @@ PLAN_REL=".yoke/runtime/.generate-sprints-plan.yaml"
     ensure_plan_tmp_dir || exit 1
     parse_acceptance_criteria '.yoke/acceptance-criteria/${SLUG}.md' \
       > .yoke/runtime/.generate-sprints-tmp/ac.json
+    parse_spec_architecture '.yoke/specs/${SLUG}.md' \
+      > .yoke/runtime/.generate-sprints-tmp/spec.json
     build_stub_tasks_json .yoke/runtime/.generate-sprints-tmp/ac.json \
       > .yoke/runtime/.generate-sprints-tmp/tasks.json
     synthesize_write_tasks \
@@ -70,14 +68,14 @@ PLAN_REL=".yoke/runtime/.generate-sprints-plan.yaml"
       .yoke/runtime/.generate-sprints-tmp/ac.json
     partition_tasks $PLAN_REL || exit 1
     render_all_bundles '$SLUG' $PLAN_REL || exit 1
-  " 2>"$WORK_TREE/pipe.stderr"
-  echo $? > "$WORK_TREE/pipe.rc"
+  " 2>"$WORK_TREE/render.stderr"
+  echo $? > "$WORK_TREE/render.rc"
 )
 
-RC="$(cat "$WORK_TREE/pipe.rc" 2>/dev/null || echo 1)"
+RC="$(cat "$WORK_TREE/render.rc" 2>/dev/null || echo 1)"
 if [[ "$RC" -ne 0 ]]; then
-  printf 'FAIL: pipeline exited rc=%d before realizes-clause regex could be checked\n' "$RC" >&2
-  sed 's/^/        /' "$WORK_TREE/pipe.stderr" >&2 || true
+  printf 'FAIL: render pipeline exited rc=%d before shape could be asserted\n' "$RC" >&2
+  sed 's/^/        /' "$WORK_TREE/render.stderr" >&2 || true
   exit 1
 fi
 
@@ -86,39 +84,68 @@ PRODUCED=("$WORK_TREE"/.yoke/sprints/${SLUG}-s*.md)
 shopt -u nullglob
 
 if [[ "${#PRODUCED[@]}" -eq 0 ]]; then
-  printf 'FAIL: pipeline produced zero sprint files; AC-005-3 cannot be checked\n' >&2
+  printf 'FAIL: render produced zero sprint files at %s/.yoke/sprints/\n' "$WORK_TREE" >&2
   exit 1
 fi
 
-REGEX='\(Realizes: US-[0-9]{3}(, US-[0-9]{3})*\)'
+EXPECTED_H2=(
+  "## Sprint objective"
+  "## Sprint DoD"
+  "## Tasks"
+  "## Functional acceptance criteria"
+  "## Sensors"
+)
+INLINE_LABELS=(
+  "**Story:**"
+  "**Technical implementation:**"
+  "**Validation:**"
+  "**Acceptance criterion:**"
+)
+
 FAIL=0
 for sprint_file in "${PRODUCED[@]}"; do
-  STORY_TOTAL="$(grep -cE '^\*\*Story:\*\*' "$sprint_file" || true)"
-  if [[ "$STORY_TOTAL" -eq 0 ]]; then
-    printf 'FAIL: %s — no Story lines found\n' "$sprint_file" >&2
+  ACTUAL_H2_ORDER="$(grep -E '^## ' "$sprint_file" | head -5)"
+  EXPECTED_H2_BLOCK="$(printf '%s\n' "${EXPECTED_H2[@]}")"
+  if [[ "$ACTUAL_H2_ORDER" != "$EXPECTED_H2_BLOCK" ]]; then
+    printf 'FAIL: %s — H2 headings do not match expected order\n' "$sprint_file" >&2
+    printf '      expected:\n%s\n' "$EXPECTED_H2_BLOCK" | sed 's/^/        /' >&2
+    printf '      actual:\n%s\n'   "$ACTUAL_H2_ORDER"  | sed 's/^/        /' >&2
     FAIL=1
     continue
   fi
-  STORY_OK="$(grep -cE "^\\*\\*Story:\\*\\*.*${REGEX}\\s*$" "$sprint_file" || true)"
-  if [[ "$STORY_OK" -ne "$STORY_TOTAL" ]]; then
-    printf 'FAIL: %s — %d Story lines but only %d match the binding regex `%s`\n' \
-      "$sprint_file" "$STORY_TOTAL" "$STORY_OK" "$REGEX" >&2
+
+  TASK_BLOCKS="$(grep -cE '^### Task ' "$sprint_file" || true)"
+  if [[ "$TASK_BLOCKS" -eq 0 ]]; then
+    printf 'FAIL: %s — no `### Task <ID>` subsections found\n' "$sprint_file" >&2
+    FAIL=1
+    continue
+  fi
+  for label in "${INLINE_LABELS[@]}"; do
+    found="$(grep -cF "$label" "$sprint_file" || true)"
+    if [[ "$found" -lt "$TASK_BLOCKS" ]]; then
+      printf 'FAIL: %s — inline label `%s` appears %d times but %d task subsections present\n' \
+        "$sprint_file" "$label" "$found" "$TASK_BLOCKS" >&2
+      FAIL=1
+    fi
+  done
+
+  STORY_LINES="$(grep -cE '^\*\*Story:\*\*' "$sprint_file" || true)"
+  REALIZES_LINES="$(grep -cE '^\*\*Story:\*\*.*\(Realizes: US-[0-9]{3}(, US-[0-9]{3})*\)\s*$' "$sprint_file" || true)"
+  if [[ "$STORY_LINES" -ne "$REALIZES_LINES" ]]; then
+    printf 'FAIL: %s — %d Story lines but only %d carry the Realizes clause matching the regex\n' \
+      "$sprint_file" "$STORY_LINES" "$REALIZES_LINES" >&2
     grep -nE '^\*\*Story:\*\*' "$sprint_file" | sed 's/^/        /' >&2 || true
     FAIL=1
     continue
   fi
-  if grep -qE '\(Realizes: UC-' "$sprint_file"; then
-    printf 'FAIL: %s — legacy `(Realizes: UC-...)` shape detected; binding shape is US-NNN\n' "$sprint_file" >&2
-    FAIL=1
-    continue
-  fi
-  printf 'PASS: %s — every Story line ends with the binding Realizes clause\n' "$sprint_file"
+
+  printf 'PASS: bundle shape conforms — %s\n' "$sprint_file"
 done
 
 if [[ "$FAIL" -ne 0 ]]; then
-  printf '\n--- Result ---\nFAIL: us-005-realizes-clause-regex\n' >&2
+  printf '\n--- Result ---\nFAIL: generate-sprints-render-sprint-bundle-shape\n' >&2
   exit 1
 fi
 
-printf '\n--- Result ---\nPASS: us-005-realizes-clause-regex\n'
+printf '\n--- Result ---\nPASS: generate-sprints-render-sprint-bundle-shape (%d sprint files)\n' "${#PRODUCED[@]}"
 exit 0
