@@ -33,21 +33,20 @@ contract_version: 1
 The provider's canonize skill is invoked exactly as:
 
 ```text
-<provider-canonize-skill> --working-memory <abs-path-to-.yoke>
+<provider-canonize-skill> --working-memory <abs-path-to-stage>
 ```
 
 Invariants:
 
-1. **Path is absolute.** The Yoke facade resolves the absolute path via
-   `cd "$PWD/.yoke" && pwd` before dispatch. Providers MUST NOT
-   re-resolve, follow `..` segments, or accept relative input as a
-   workaround.
+1. **Path is absolute.** The Yoke facade produces the absolute path
+   via `mktemp -d` before dispatch (see "Active-task staging" below).
+   Providers MUST NOT re-resolve, follow `..` segments, or accept
+   relative input as a workaround.
 2. **Path is read-only from the provider's perspective.** Providers
    MUST NOT create, modify, rename, or delete any file under the
-   given `.yoke/` directory. The directory is the framework's
-   working memory; only Yoke skills (the Generator, Validator, and
-   the runtime coordinator) write here. Violating this invariant is
-   a contract breach.
+   given staging directory. The directory contains a per-task slice
+   of the framework's working memory; only Yoke skills write here.
+   Violating this invariant is a contract breach.
 3. **Path is a single directory.** The provider receives one path,
    not a list. Multi-project ingestion is out of scope at
    `contract_version: 1`.
@@ -62,28 +61,80 @@ Invariants:
 The provider MAY copy any portion of the working memory into its own
 private staging area to perform graphification, classification, or
 git operations — that is implementation freedom. The on-disk
-contents of `.yoke/` MUST be byte-identical before and after the
-canonize call.
+contents of the staging directory MUST be byte-identical before and
+after the canonize call.
+
+## Active-task staging (issue #40, contract_version: 1)
+
+The path `<abs-path-to-stage>` is NOT the host's `.yoke/` directly.
+Yoke's `/yoke:canonize` facade invokes
+`lib/working-memory/canonize-stage.sh` to materialize a fresh tmp
+directory (under `${TMPDIR:-/tmp}/yoke-canonize-stage.<RAND>`)
+shaped exactly like `.yoke/` but containing only the active slug's
+artifacts:
+
+```text
+<stage>/
+├── config.yaml                                  # always staged
+├── .gitignore                                   # always staged (when present in host)
+├── prds/<active-slug>.md                        # when present in host
+├── specs/<active-slug>.md                       # when present
+├── sprints/<active-slug>-s<NN>.md               # every match (zero or more)
+├── acceptance-criteria/<active-slug>.md         # when present (post-v4.0.0)
+├── acceptance-contracts/<active-slug>.md        # when present (legacy, pre-v4.0.0)
+├── contracts/<active-slug>.md                   # when present
+└── runtime/                                     # full subtree (per-task, transient)
+```
+
+What the stage does NOT contain:
+
+- Any `prds/<other-slug>.md`, `specs/<other-slug>.md`,
+  `sprints/<other-slug>-s*.md`, or `acceptance-*/<other-slug>.md`
+  for any historical task. Those were canonized in their own
+  `/yoke:canonize` runs and re-feeding them re-runs the provider's
+  graphify and entity-matching against artifacts already in the
+  vault — wasteful and prone to vault pollution if any historical
+  file's frontmatter has drifted.
+- Any `sensors/<sensor-id>.md`. Sensors are project-scoped, not
+  per-task; including them in every canonize run is exactly the
+  bloat issue #40 documented.
+
+Empty archive directories are pruned from the stage so the directory
+tree the provider sees mirrors what a fresh `.yoke/` for the active
+task would look like — no scaffolding artifacts.
+
+The active slug is read from `.yoke/runtime/.current` by the staging
+helper; an explicit `--slug <slug>` flag overrides it (used for
+catch-up canonizations and tests). When `.current` is missing the
+helper exits 3 with a `wm:`-prefixed diagnostic; when `.yoke/`
+itself is missing it exits 2.
+
+Cleanup is the facade's responsibility: `/yoke:canonize` Phase 5
+runs `rm -rf "$stage_dir"` unconditionally (even on non-zero
+provider exit) so failed runs do not leave tmp directories behind.
 
 ## Directory tree
 
-`.yoke/` layout the provider can rely on. Annotations: **REQUIRED**
-files are present whenever Yoke has reached the relevant phase;
-**OPTIONAL** files appear only when the corresponding workflow has
-run. The set is derived from `lib/working-memory/paths.sh` helpers.
+The staged directory layout the provider can rely on. The shape
+mirrors `.yoke/` exactly, but every per-task file is keyed off the
+active slug only (per "Active-task staging" above). Annotations:
+**REQUIRED** files are present whenever Yoke has reached the
+relevant phase; **OPTIONAL** files appear only when the corresponding
+workflow has run. The set is derived from
+`lib/working-memory/paths.sh` helpers.
 
 ```text
-.yoke/
+<stage>/                                       # mktemp -d under TMPDIR
 ├── config.yaml                                # REQUIRED
-├── .gitignore                                 # REQUIRED (versioned)
-├── prds/<slug>.md                             # REQUIRED — one per task
-├── specs/<slug>.md                            # REQUIRED — one per task
-├── sprints/<slug>-s<NN>.md                    # REQUIRED — one or more per slug
-├── acceptance-criteria/<slug>.md              # REQUIRED
-├── contracts/<slug>.md                        # OPTIONAL — present iff sprint
+├── .gitignore                                 # REQUIRED (versioned in host)
+├── prds/<active-slug>.md                      # REQUIRED — one per active task
+├── specs/<active-slug>.md                     # REQUIRED — one per active task
+├── sprints/<active-slug>-s<NN>.md             # REQUIRED — one or more
+├── acceptance-criteria/<active-slug>.md       # REQUIRED — post v4.0.0
+├── acceptance-contracts/<active-slug>.md      # OPTIONAL — pre-v4.0.0 legacy
+├── contracts/<active-slug>.md                 # OPTIONAL — present iff sprint
 │                                              #   contracts emerged at runtime
-├── sensors/<sensor-id>.md                     # OPTIONAL — project-scoped
-└── runtime/                                   # OPTIONAL — gitignored
+└── runtime/                                   # OPTIONAL — gitignored in host
     ├── .current                               # OPTIONAL — active-task pointer
     ├── progress.md                            # OPTIONAL — present iff a ralph
     │                                          #   loop has run; carries the
@@ -93,6 +144,11 @@ run. The set is derived from `lib/working-memory/paths.sh` helpers.
     ├── .snapshots/cycle-N.yaml                # OPTIONAL — sensor snapshots
     └── .judge-verdicts/cycle-N/               # OPTIONAL — per-criterion JSON
 ```
+
+Note: `sensors/<sensor-id>.md` is intentionally absent from the
+staged tree even though it lives at `.yoke/sensors/<sensor-id>.md`
+in the host. Sensors are project-scoped, not per-task — see
+"Active-task staging" above for the rationale.
 
 The slug regex (filename without `.md`) is fixed at:
 
