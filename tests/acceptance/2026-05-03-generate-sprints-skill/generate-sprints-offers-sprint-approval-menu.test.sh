@@ -33,9 +33,11 @@ if [[ ! -f "$APPROVAL_TEMPLATE" ]]; then
   exit 1
 fi
 
-# Step 1a — skill body references the Trigger 2.5 stage by H3 header.
-if ! grep -qE '^### [0-9]+\. Trigger 2\.5' "$SKILL_BODY"; then
-  printf 'FAIL: %s missing `### N. Trigger 2.5` H3 header (required by sprint task s03-t04)\n' "$SKILL_BODY" >&2
+# Step 1a — skill body references the sprint-approval Trigger stage
+# by H3 header. Either `Trigger 2.5` (transitional naming) or
+# `Trigger 3.5` (chain-aware naming) satisfies the durable contract.
+if ! grep -qE '^### [0-9]+\. Trigger (2\.5|3\.5)' "$SKILL_BODY"; then
+  printf 'FAIL: %s missing `### N. Trigger 2.5` (or Trigger 3.5) H3 header\n' "$SKILL_BODY" >&2
   exit 1
 fi
 
@@ -256,5 +258,5 @@ if [[ "${#REMAINING[@]}" -ne 0 ]]; then
 fi
 printf 'PASS: reject deletes bundles\n'
 
-printf '\n--- Result ---\nPASS: acceptance-criteria-offers-trigger-25-menu (3/3 sub-assertions)\n'
+printf '\n--- Result ---\nPASS: generate-sprints-offers-sprint-approval-menu (3/3 sub-assertions)\n'
 exit 0

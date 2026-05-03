@@ -80,14 +80,21 @@ express measurable rigor:
 - Resolve the active task: `slug="$(wm_active_slug)"`. If `.yoke/runtime/.current` is missing, surface "no active task" and instruct the user to run `/yoke:discover`.
 - Verify `wm_prd_path "$slug"` exists AND its header carries `Status: approved`. Abort otherwise: "PRD missing or unapproved at <path>. Run `/yoke:discover` first."
 - Verify `wm_spec_path "$slug"` exists AND its header carries `Status: approved`. Abort otherwise: "Tech Spec missing or unapproved at <path>. Run `/yoke:tech-spec` first."
-- Read the sprint list via `wm_list_sprint_paths "$slug"`. Abort non-zero if it returns zero paths or if any sprint file lacks `status: approved` in frontmatter — surface the offending path and instruct the user to re-run `/yoke:tech-spec` Trigger 2.
 - If `wm_acceptance_criteria_path "$slug"` already exists: offer **overwrite** (replace in place — same path) or **abort**. No `-v2.md` shadowing — the per-task slug already provides versioning across tasks.
+
+> **Flow note.** `/yoke:acceptance-criteria` runs **before**
+> `/yoke:generate-sprints` in the canonical chain (tech-spec →
+> acceptance-criteria → generate-sprints → implement). Sprint
+> files do not exist yet at this point and are not a prerequisite;
+> the binding criteria are derived from the approved PRD and Tech
+> Spec only. Phase 2.5 (`/yoke:generate-sprints`) consumes the
+> ratified Acceptance Criteria document together with the Tech
+> Spec to synthesize sprint partitions.
 
 ### 2. Read upstream context
 
 - Read the approved PRD at `wm_prd_path "$slug"` (read-only).
-- Read the approved Tech Spec at `wm_spec_path "$slug"` (read-only).
-- Read **every** path returned by `wm_list_sprint_paths "$slug"` (read-only) — each sprint file carries `## Sprint objective`, `## Sprint DoD`, and per-task `### Task <ID>` subsections with the four inline labels (`**Story:**`, `**Technical implementation:**`, `**Validation:**`, `**Acceptance criterion:**`).
+- Read the approved Tech Spec at `wm_spec_path "$slug"` (read-only). The spec carries the architectural envelope (Context and Scope, Goals/Non-Goals, System Context, Architecture, Stack, APIs and Data Model, NFRs, Alternatives, Trade-offs, Cross-cutting, Technical Use Cases, Open Questions). Sprint files do not yet exist at this stage — derive User Stories from the spec's `## Technical Use Cases` section together with the PRD goals.
 - Read `templates/acceptance-criteria.md` for the artifact shape you will materialize in step 6.
 - For applicable canonical-memory policies (regulatory or framework MUSTs) and prior calibration: invoke `/yoke:search-canonical-memory`. Never read canonical memory directly.
 
@@ -100,9 +107,10 @@ visible lines. The resume MUST cover, in order:
 - **Problem** (1–2 lines from the PRD's `## Introduction / Overview`).
 - **Goals** (bullet list from the PRD's `## Goals`, one line each).
 - **Non-goals** (bullet list from the PRD's `## Non-Goals`).
-- **Sprint breakdown** (one line per sprint: `<sprint-id> — <name>`
-  followed by the sprint's `## Sprint DoD` checklist condensed into
-  ≤ 2 bullets per sprint).
+- **Architecture envelope** (one line per spec H2 from the Tech
+  Spec's `## Architecture` and `## APIs and Data Model` sections,
+  condensed — what components and contracts will be the criteria's
+  observable surface).
 
 The resume is the user's hand-off from "remember this task" to "now
 decide its quality gates". Print it verbatim and pause for the user
@@ -117,9 +125,12 @@ After the resume, evaluate three checks:
 2. **DoD vs AC distinguishable?** Can each candidate User Story carry
    a binary completion checklist (DoD) AND a separate set of
    observable quality conditions (AC)?
-3. **Sensor pool obvious?** Do the active sprint files' `## Sensors`
-   reference IDs that all resolve to existing
-   `.yoke/sensors/<id>.md` files?
+3. **Sensor pool obvious?** Do the candidate sensor IDs derivable
+   from the Tech Spec's `## Architecture` + `## Cross-cutting
+   Concerns` sections all resolve to existing
+   `.yoke/sensors/<id>.md` files? Sensor selection here is
+   forward-looking (sprints do not yet exist); the runtime council
+   refines per-criterion sensor mapping at Phase 4.
 
 **If all 3 pass:** use the **Quick Round** (4a).
 **If not:** use the **Full Flow** grill (4b).
@@ -128,7 +139,8 @@ After the resume, evaluate three checks:
 
 1. Propose a complete draft of the artifact: User Stories with DoD +
    AC, Functional Requirements, Sensor pool — derived directly from
-   upstream goals + sprint DoDs + sprint sensors.
+   PRD goals + the Tech Spec's `## Technical Use Cases` and `##
+   Architecture` sections (sprint files do not yet exist).
 2. Print the proposed draft to the user.
 3. Ask exactly one prompt:
 
@@ -162,7 +174,8 @@ reasonably be enumerated.
 The grill MUST cover, at minimum, in this order:
 
 **Round 1 — User Story enumeration.** Propose 3–8 candidate user
-stories derived from PRD goals + sprint task stories. Ask the user
+stories derived from PRD goals + the Tech Spec's `## Technical
+Use Cases` section (one US-### per spec subsection). Ask the user
 to keep / merge / split / drop each candidate via lettered options.
 
 **Round 2 — Definition of Done per User Story.** For each accepted
@@ -286,7 +299,7 @@ On `reject` (after secondary confirmation): the artifact is marked rejected (no 
 - `.yoke/runtime/.current` exists and points at a valid slug.
 - `.yoke/prds/<slug>.md` exists and is approved.
 - `.yoke/specs/<slug>.md` exists and is approved.
-- `.yoke/sprints/<slug>-s*.md` is non-empty AND every sprint file carries `status: approved` in its frontmatter (the Phase 2 approve flow flips them all together; partial approval is a fail-closed pre-condition).
+- `.yoke/sprints/<slug>-s*.md` is **not** a precondition — `/yoke:acceptance-criteria` runs before `/yoke:generate-sprints` in the canonical chain.
 
 ## Output contract
 

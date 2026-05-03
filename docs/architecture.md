@@ -160,12 +160,18 @@ sprint runtime bundles consumed by `/yoke:implement`.
 The new flow chain is:
 
 ```
-/yoke:discover
-    → /yoke:tech-spec        (Phase 2  — architecture only)
-    → /yoke:acceptance-criteria  (Phase 3  — binding criteria)
-    → /yoke:generate-sprints (Phase 2.5 — sprint synthesis)
-    → /yoke:implement        (Phase 4  — council protocol)
+/yoke:discover               (Phase 1   — product discovery)
+    → /yoke:tech-spec        (Phase 2   — architecture spec)
+    → /yoke:acceptance-criteria  (Phase 3   — binding criteria)
+    → /yoke:generate-sprints (Phase 3.5 — sprint synthesis)
+    → /yoke:implement        (Phase 4   — council protocol)
 ```
+
+Sprint synthesis sits at **Phase 3.5** — between binding criteria
+and runtime — because the synthesis consumes both the Spec
+(architecture) and the ratified Acceptance Criteria (user stories +
+DoD + AC). The earlier "Phase 2.5" label predates the flow
+ordering decision and is retired in favor of "Phase 3.5".
 
 `/yoke:generate-sprints` is a **blueprint wrapping a single LLM-
 driven synthesis stage** bracketed by deterministic Bash:

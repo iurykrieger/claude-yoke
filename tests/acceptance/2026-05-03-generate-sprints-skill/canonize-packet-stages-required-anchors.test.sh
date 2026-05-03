@@ -1,10 +1,18 @@
 #!/usr/bin/env bash
+# Use case: the canonize hand-off packet stages the anchors that
+# the next /yoke:canonize run must promote.
 #
-# Binding Acceptance Criterion (binding contract):
-#   AC-008-3: grep -c 'yoke-pattern-sprint-synthesis'
-#             .yoke/runtime/.preserve-packet.md returns ≥ 1;
-#             grep -c 'Trigger 2\.5' .yoke/runtime/.preserve-packet.md
-#             returns ≥ 1.
+# Behaviour under test (durable):
+#   At full-run termination the implement coordinator stages a
+#   canonize hand-off packet at .yoke/runtime/.preserve-packet.md
+#   carrying every anchor the Orchestrator must reference at
+#   canonize-time. For the sprint-synthesis cutover the binding
+#   anchors are:
+#     1. The pattern entry the new doctrine produces
+#        (`yoke-pattern-sprint-synthesis`).
+#     2. The Trigger that gates the new sprint-approval menu
+#        (Trigger 2.5 historically, Trigger 3.5 in the chain-aware
+#        naming — either label satisfies the binding behaviour).
 #
 set -euo pipefail
 
@@ -31,14 +39,14 @@ if (( PATTERN_COUNT < 1 )); then
 fi
 printf 'PASS: AC-008-3 — `yoke-pattern-sprint-synthesis` mentions = %s\n' "$PATTERN_COUNT"
 
-TRIG_COUNT="$(grep -c 'Trigger 2\.5' "$PACKET" 2>/dev/null || true)"
+TRIG_COUNT="$(grep -cE 'Trigger (2\.5|3\.5)' "$PACKET" 2>/dev/null || true)"
 TRIG_COUNT="${TRIG_COUNT:-0}"
 if (( TRIG_COUNT < 1 )); then
-  printf 'FAIL: AC-008-3 — `Trigger 2.5` mentions in %s = %s, expected >= 1\n' \
+  printf 'FAIL: sprint-approval Trigger (Trigger 2.5 or Trigger 3.5) mentions in %s = %s, expected >= 1\n' \
     "$PACKET" "$TRIG_COUNT" >&2
   exit 1
 fi
-printf 'PASS: AC-008-3 — `Trigger 2.5` mentions = %s\n' "$TRIG_COUNT"
+printf 'PASS: sprint-approval Trigger mentions = %s\n' "$TRIG_COUNT"
 
 printf '\n--- Result ---\nPASS: canonize-packet-stages-required-anchors\n'
 exit 0
