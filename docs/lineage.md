@@ -214,6 +214,34 @@ The whole script (and the read skill that wrapped it) moved to
   is one of Yoke's distinctive contributions — see manifesto §8.3 and
   §19.5 contribution #2.
 
+### `skills/generate-sprints/SKILL.md` and `lib/generate-sprints/`
+
+- **Lineage:** native (no upstream). Introduced by PRD
+  `.yoke/prds/2026-05-03-generate-sprints-skill.md` (approved
+  2026-05-03) to decouple sprint generation from `/yoke:tech-spec`
+  (Phase 2 / architecture-only) and from `/yoke:acceptance-criteria`
+  (Phase 3 / binding criteria). The skill is the Phase 2.5 producer
+  of `.yoke/sprints/<slug>-s<NN>.md` runtime bundles; it sits between
+  Phase 3 ratification and Phase 4 council protocol invocation. The
+  producer split was a deliberate refactor — sprint partitioning is
+  conceptually the synthesis of (architecture + use cases) into
+  delivery units, not a downstream artifact of either single input.
+  No fork from Vibeflow or any other upstream applies; the
+  canonical-memory facade and the approval-menu template are reused
+  unchanged. The doctrine entry
+  `concepts/yoke-pattern-sprint-synthesis` is staged at full-run
+  termination via `.yoke/runtime/.preserve-packet.md` for the
+  Orchestrator's canonize handoff.
+
+  Companion deterministic helpers under `lib/generate-sprints/`
+  (`parse-inputs.sh`, `synthesize.sh`, `partition.sh`,
+  `render-bundle.sh`, `plan-io.sh`, `legacy-detect.sh`) are also
+  Yoke-native; they bracket the LLM synthesis stage with strict input
+  parsing and deterministic output generation. The legacy-task
+  rejection branch in `legacy-detect.sh` realizes Decision 6A of the
+  parent PRD — no automatic migration of legacy tasks; the cut-over
+  is coexistence-only.
+
 ### `skills/implement/SKILL.md`
 
 - **Source:** Yoke-original. The runtime ralph-loop coordinator is

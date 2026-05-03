@@ -73,7 +73,7 @@ not a free-text guess.
 
 API shapes, data models, integration contracts. Name the schemas, the
 endpoints, the message formats. Include any contract tests that
-should be generated for the Acceptance Contract (Phase 3).
+should be generated for the Acceptance Criteria (Phase 3).
 
 - **<contract name>** — <description>. Schema: <path or shape>.
   Tests: <approach>.
@@ -162,6 +162,28 @@ inputs / states the implementation must handle>
 **Contracts used:** <…>
 **NFRs applied:** <…>
 **Edge cases:** <…>
+
+## Sprints (deferred)
+
+Sprint partitioning is deferred to Phase 2.5
+(`/yoke:generate-sprints`). The Spec carries the architecture envelope
+— overall objective, contracts and interfaces, dependencies, and out-
+of-scope items. Once this Spec and the Acceptance Criteria
+(`.yoke/acceptance-criteria/<slug>.md`) are both approved/ratified,
+`/yoke:generate-sprints` synthesizes the task list, partitions it into
+sprints with explicit delivery objectives and binary DoD, and writes
+the runtime bundles at `.yoke/sprints/<slug>-s<NN>.md`. **This file
+contains no sprint headings and no per-task bodies.**
+
+Sprint ID shape (produced by Phase 2.5): `<slug>-s<NN>`, where
+`<slug>` matches the existing working-memory slug regex
+(`<YYYY-MM-DD>-<kebab-slug>`) and `<NN>` is the sprint number
+zero-padded to 2 digits. Padding is what makes lexical sort =
+positional order in `wm_list_sprint_paths`. Per the canonized
+supersession of the per-task-file zero-pad rule, the zero-pad
+invariant now applies to sprint IDs only; task IDs (anchors inside
+sprint files) keep `t<MM>` zero-padding by convention but are not a
+filename concern.
 
 ## Open Questions
 

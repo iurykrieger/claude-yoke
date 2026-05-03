@@ -1,0 +1,5 @@
+# Fixture config for preflight/no-provider mode.
+# `canonical_memory.provider` is intentionally empty — the
+# yoke_require_provider helper treats empty / null / "~" as unset.
+canonical_memory:
+  provider: ""

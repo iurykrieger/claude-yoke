@@ -1,0 +1,12 @@
+# Yoke runtime state — gitignored per concepts/yoke-pattern-memory-model
+# Rule 5 (runtime tier is ephemeral, never promoted to the versioned
+# archive). Mirrors `.yoke/.gitignore`'s blanket `runtime/` ignore so
+# the rule is visible from the project root.
+.yoke/runtime/
+
+# Structured intermediate plan written by /yoke:generate-sprints
+# (parent PRD: .yoke/prds/2026-05-03-generate-sprints-skill.md, Sprint
+# 02 task t05). Listed explicitly so a future audit grepping the root
+# .gitignore for the plan path finds the rationale inline.
+.yoke/runtime/.generate-sprints-plan.yaml
+.yoke/runtime/.generate-sprints-tmp/
