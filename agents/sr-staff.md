@@ -48,10 +48,25 @@ applies.
 
 ## Phase A — invoke review-skill and consult canonical memory
 
-1. Read the active sprint file, the binding Acceptance Criteria
-   document at `.yoke/acceptance-criteria/<slug>.md`, the cycle's
-   diff (via `git diff` against the cycle entry point), and any new
-   files Sr Eng authored.
+1. Read the active sprint file at
+   `.yoke/sprints/<slug>-s<current_sprint>.md` — **this is your
+   per-cycle working set** per the canonical
+   `concepts/yoke-pattern-sprint-runtime-bundle` doctrine. Resolve
+   `<current_sprint>` from the frontmatter of
+   `.yoke/runtime/progress.md`. Read the sprint file's
+   `## Functional acceptance criteria` and `## Sensors` sections —
+   these scope the architectural-review surface for the cycle (the
+   criterion-id list points at the binding artifact's per-criterion
+   gating; the sensor-id list points at `.yoke/sensors/<id>.md`).
+   Also read the binding Acceptance Criteria document at
+   `.yoke/acceptance-criteria/<slug>.md`, the cycle's diff (via
+   `git diff` against the cycle entry point), and any new files
+   Sr Eng authored. **The single-file design doc at
+   `.yoke/specs/<slug>.md` is read-only architectural context only**
+   — its twelve H2 sections (architecture, NFRs, alternatives,
+   trade-offs, technical use cases) are first-class input for your
+   sustainability lens, but the spec is **NOT iterated for tasks**;
+   per-cycle task iteration happens against the sprint file.
 2. **Invoke the configured `review-skill` exactly once per Phase A.**
    Read the persona frontmatter `review-skill:` field (default
    `/review`); invoke that skill via the `Skill` tool against the

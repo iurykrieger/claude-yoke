@@ -1,37 +1,42 @@
 ---
 name: tech-spec
 description: >
-  Phase 2 — Technical specification. Turns an approved PRD into a Spec
-  divided into sprints with delivery objectives; each sprint is
-  rendered as a self-contained runtime bundle (sprint objective +
-  sprint DoD + tasks-as-anchors + functional acceptance criteria +
-  sensors). The skill drives a 3-stage blueprint (LLM drafts the
-  sprint index, bash scaffolds empty per-sprint files, LLM fills each
-  sprint file one-by-one) and saves to `.yoke/specs/<slug>.md` plus
-  `.yoke/sprints/<slug>-s<NN>.md`. Pauses for Trigger 2 approval,
-  which marks the spec **and** every sprint file `Status: approved`.
+  Phase 2 — Technical specification (design doc). Turns an approved PRD
+  into a single-file design doc at `.yoke/specs/<slug>.md` carrying the
+  twelve canonical H2 sections (Context and Scope; Goals and Non-Goals;
+  System Context; Architecture; Stack and Dependencies; APIs and Data
+  Model; Non-Functional Requirements; Alternatives Considered;
+  Trade-offs; Cross-cutting Concerns; Technical Use Cases; Open
+  Questions). Negotiates stack via host-project auto-detection plus a
+  curated market menu by feature category, queries canonical memory
+  for applicable architectural patterns first and falls back to
+  `WebSearch` only when fewer than the configured threshold of pattern
+  entities is returned. Phase 2 NEVER writes any sprint file and NEVER
+  emits a `### Task <ID>` anchor — sprint partition + task breakdown
+  are owned by Phase 3 (`/yoke:acceptance-criteria`). Pauses for
+  Trigger 2 approval, which marks only the spec.
 argument-hint: ""
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash
 ---
 
-# /yoke:tech-spec — Phase 2 (Technical specification)
+# /yoke:tech-spec — Phase 2 (Technical specification — design doc)
 
-Turn an approved PRD into a Spec partitioned into sprints with
-binary, observable acceptance criteria, where every task has its own
-file describing the technical implementation and validation in full.
+Turn an approved PRD into a single-file architectural design doc — the
+spec **is** the architectural decision record (Nygard / MADR shape:
+context, decision, alternatives, consequences encoded across the
+twelve H2 sections). Phase 2 produces no sprint files and no task
+anchors; sprint partition lives in Phase 3.
 
-> **Lineage.** Forked structurally from
-> [vibeflow:gen-spec](https://github.com/pe-menezes/vibeflow), one-time
-> at Yoke v0.2.0; refreshed in v1.1.0 to drive dialogue inline (no
-> subagent spawn); refreshed in the `tech-spec-task-split` rollout
-> (Part 2) to produce a sprint index plus per-task files via a
-> 3-stage blueprint; refreshed again in the `sprint-as-cycle` rollout
-> (sprint 3) to consolidate per-task files into per-sprint runtime
-> bundles — one ralph cycle = one sprint file. Adaptations:
-> namespaced under `/yoke:*`, blueprint stages bracketed by
-> deterministic bash, per-sprint LLM calls scoped to a single empty
-> sprint file, routes canonical-memory queries through `/yoke:search-canonical-memory`.
-> Per-skill mapping in `docs/lineage.md` at Sprint 8.
+> **Lineage.** v0.2.0 forked structurally from
+> [vibeflow:gen-spec](https://github.com/pe-menezes/vibeflow); v1.1.0
+> drove dialogue inline (no subagent spawn); the `tech-spec-task-split`
+> rollout (Part 2) and the `sprint-as-cycle` rollout grew a 3-stage
+> blueprint that emitted sprint files. Per the
+> 2026-05-03-tech-spec-as-design-doc PRD + Spec, the 3-stage blueprint
+> is retired: stages 2 (sprint-file scaffolder) and 3 (LLM-per-sprint
+> fill) move to `/yoke:acceptance-criteria`. This skill is now a
+> single LLM stage wrapping a deterministic post-draft self-check.
+> Per-skill mapping in `docs/lineage.md`.
 
 ## Your role (Senior Engineer persona, inline)
 
@@ -39,265 +44,342 @@ You are running this skill as the **Senior Engineer persona** (CTO-
 style): a technical lead who has shipped systems in real production.
 You translate product intent into architecture you can defend. You
 force framework / library choices to be named with explicit
-trade-offs, you refuse vague task descriptions, and you insist on
-binary, observable acceptance criteria — "works correctly" is not a
-criterion.
+trade-offs, you refuse adjective-only NFRs, and you insist on
+quantitative targets — "performant" is not a non-functional
+requirement.
 
-You partition delivery into sprints that ship coherent value
-increments, not infinite dependency chains. You challenge unsafe
-dependency directions, you reject hand-waved integration contracts,
-and you propose alternatives when the proposed structure is wrong.
+You produce a design doc that reads as an architectural decision
+record. You do not partition delivery into sprints (Phase 3 does
+that). You do not emit task anchors (Phase 3 does that). You force
+every alternative considered to carry a trade-off, a reason for
+rejection, and a source — canonical-memory wikilink, WebSearch URL
+that actually appeared in this session, or `internal experience`.
 
-## The 3-stage blueprint
+## The blueprint (single LLM stage + deterministic post-draft self-check)
 
 This skill is a **blueprint wrapping agentic nodes** per
 `concepts/yoke-conventions`:
 
-1. **Stage 1 — LLM (sprint index draft).** You (Generator persona)
-   draft `.yoke/specs/<slug>.md` end-to-end: overall objective,
-   sprints with delivery objectives and a per-sprint reference to
-   `.yoke/sprints/<slug>-s<NN>.md`, contracts, dependencies,
-   out-of-scope. The spec carries **no inline task entries** — task
-   bodies live inside the per-sprint runtime bundle file produced in
-   stage 3.
-2. **Stage 2 — bash (deterministic scaffold).** You invoke
-   `lib/working-memory/scaffold-sprints.sh "$(wm_spec_path "$slug")"`.
-   This script parses the sprint headings from the spec, creates one
-   empty `.yoke/sprints/<slug>-s<NN>.md` per sprint id, and seeds
-   each with the YAML frontmatter stub plus the 5-H2 skeleton from
-   `templates/sprint.md`. Pure bash; zero LLM cost.
-3. **Stage 3 — LLM-per-sprint (fill).** For each empty sprint file
-   (read in lexical order via `wm_list_sprint_paths "$slug"`), you
-   fill the five required body sections — *Sprint objective*,
-   *Sprint DoD*, *Tasks* (each `### Task <ID>` subsection carries the
-   four inline labels `**Story:**`, `**Technical implementation:**`,
-   `**Validation:**`, `**Acceptance criterion:**`), *Functional
-   acceptance criteria* (criterion IDs only — never inline), and
-   *Sensors* (sensor IDs only — never inline). Each per-sprint call
-   carries **only** the sprint preamble (sprint name + delivery
-   objective lifted from the spec) plus the single empty sprint file
-   under work — never the entire spec, never sibling sprint files.
-   This directly serves *progressive disclosure*.
+1. **Stage 1 — LLM (dialogue + draft).** You (Senior Engineer
+   persona) run four dialogue rounds (stack, architecture, NFRs,
+   use-cases) and then draft `.yoke/specs/<slug>.md` end-to-end in a
+   single `Write` call.
+2. **Stage 2 — bash (deterministic post-draft self-check).** A
+   sequence of `grep`s validates the twelve H2 sections in order, the
+   quantitative-NFR regex, the `### Alt:` triple-shape, the US-###
+   lift, the absence of `### Task` anchors, and the absence of
+   sprint files. Any failure aborts the skill non-zero with a
+   `wm:`-prefixed message naming the offending location.
 
-The three stages are explicit so a future reader can audit the
-deterministic-vs-agentic boundary without re-deriving it from the
-prose.
+Phase 2 produces exactly one file (`.yoke/specs/<slug>.md`) and zero
+files under `.yoke/sprints/`. This is enforced both by the dialogue
+discipline (no sprint round) and by the post-draft self-check
+(filesystem assertion). Cite `concepts/yoke-pattern-phase-flow` —
+Phase 2 still produces tech-spec.md as the binding artifact; sprint
+files are downstream Phase-3 outputs and do not change the phase-flow
+shape.
 
 ## Process
 
 ### 1. Pre-flight
 
-- Enforce the v2.0.0 hard break: `source <plugin_dir>/lib/yoke-prelude.sh && yoke_require_provider || exit 1`. The helper aborts non-zero with a stderr diagnostic when `canonical_memory.provider` is missing or empty (unmigrated v1.x projects); surface its stderr verbatim and exit. See Acceptance Contract Scenario 12 / FR-6.
-- Source `lib/working-memory/paths.sh`. All paths below resolve through `wm_*` helpers.
-- Verify `.yoke/config.yaml` exists. If not, abort: "Run `/yoke:bootstrap` first."
-- Resolve the active task: `slug="$(wm_active_slug)"`. If `.yoke/runtime/.current` is missing, the helper aborts with "no active task" — surface that and instruct the user to run `/yoke:discover`.
+- Enforce the v2.0.0 hard break: `source <plugin_dir>/lib/yoke-prelude.sh && yoke_require_provider || exit 1`. The helper aborts non-zero with a stderr diagnostic when `canonical_memory.provider` is missing or empty (unmigrated v1.x projects); surface its stderr verbatim and exit.
+- Source `<plugin_dir>/lib/working-memory/paths.sh`. All paths below
+  resolve through `wm_*` helpers.
+- Source `<plugin_dir>/lib/config-overrides.sh`. `yoke_get_override`
+  is consumed in step 5 (architecture round) to read the
+  canonical-pattern threshold.
+- Verify `.yoke/config.yaml` exists. If not, abort: "Run
+  `/yoke:bootstrap` first."
+- Resolve the active task: `slug="$(wm_active_slug)"`. If
+  `.yoke/runtime/.current` is missing, the helper aborts with "no
+  active task" — surface that and instruct the user to run
+  `/yoke:discover`.
 - Verify `wm_prd_path "$slug"` exists AND is approved (header carries
   `Status: approved`). If missing or unapproved, abort: "PRD missing
   or unapproved at <path>. Run `/yoke:discover` first."
-- If `wm_spec_path "$slug"` already exists OR `wm_list_sprint_paths
-  "$slug"` returns any path: offer **overwrite** (delete + rewrite —
-  see step 4) or **abort**. No `-v2.md` shadowing — the per-task slug
-  already provides versioning across tasks.
+- If `wm_spec_path "$slug"` already exists: offer **overwrite**
+  (delete + rewrite — see step 9) or **abort**. No `-v2.md`
+  shadowing. **Never** check or touch `wm_list_sprint_paths "$slug"`
+  here — Phase 2 has nothing to do with sprint files; if any exist,
+  they belong to a prior Phase 3 run on this slug.
 
 ### 2. Read upstream context
 
 - Read the approved PRD at `wm_prd_path "$slug"` (read-only).
-- Read `templates/spec.md` for the sprint-index shape.
-- Read `templates/sprint.md` for the per-sprint runtime-bundle shape
-  (you will use it in stage 3 to know which sections to fill).
-- For topology templates, prior decisions, or applicable patterns from
-  canonical memory, invoke `/yoke:search-canonical-memory`. Never read canonical memory
-  directly.
+- Read `<plugin_dir>/templates/spec.md` for the twelve-section
+  design-doc shape (this skill writes that shape; deviations break the
+  post-draft self-check).
+- For applicable architectural patterns from canonical memory, invoke
+  `/yoke:search-canonical-memory` (see step 5). Never read canonical
+  memory directly.
 
-### 3. Clarity evaluation
+### 3. Stack auto-detection (host-project signal)
 
-After reading the PRD, evaluate three engineering checks:
+Read the following manifest files via the `Read` tool when present
+(skip absent files; never use `cat`):
 
-1. **Stack fit confirmed?** Does the PRD's proposed solution fit the
-   stack named in `projects/claude-yoke` without major upgrades or
-   substitutions?
-2. **Framework / library choices named with trade-offs?** For every
-   non-trivial dependency the spec will introduce, is there a named
-   choice with at least one trade-off articulated (latency vs.
-   ergonomics, maturity vs. capability, lock-in vs. velocity)?
-3. **Sprint partitionable with binary acceptance criterion per task?**
-   Can v0 be split into ≥ 1 sprint where every task has an acceptance
-   criterion that is binary and observable (e.g., "endpoint returns
-   200 with JWT", "linter exits 0 on src/auth/")?
+- `package.json` → Node.js / TypeScript family
+- `go.mod` → Go family
+- `Cargo.toml` → Rust family
+- `requirements.txt` → Python family (pip)
+- `pyproject.toml` → Python family (modern)
+- `pom.xml` → Java / JVM family
+- `Gemfile` → Ruby family
 
-**If all 3 pass:** proceed to stage 1 (step 4).
-**If not:** ask 1-2 targeted questions before drafting (e.g., "PRD
-proposes feature X but the stack in `projects/claude-yoke` is Y —
-confirm framework choice and trade-off?", or "scope items A–E look
-like 3 sprints — confirm split?").
+Capture the detected stack signature for the dialogue's default
+offer in step 4. When **two or more** manifest types are detected
+(polyglot repo), do NOT auto-pick — the dialogue round in step 4 must
+list every detected stack as a candidate and force the user to reply.
 
-### 4. Stage 1 — Draft the sprint index
+### 4. Round 1 — stack negotiation
+
+Render a curated stack menu **by feature category** with 3-5 lettered
+options + an `Other:` escape. The category itself is inferred from
+the PRD's Goals / User Stories (web-api / web-ui / cli / library /
+data-pipeline). The menu shape is:
+
+```
+Stack — pick the family that matches this work (auto-detected default
+in **bold**):
+
+1A. **<auto-detected default — e.g. bash 4+ / shell helpers>**
+1B. <market-default option for the inferred category>
+1C. <market-default option>
+1D. <market-default option>
+1E. Other: <your free-text>
+```
+
+Print the auto-detected default in **bold** when exactly one manifest
+type was detected; print every detected stack as a candidate (1A,
+1B, …) when ≥ 2 manifests were detected (no auto-pick on polyglot
+repos). The `Other:` escape captures stacks the curated menu does not
+list. Wait for a single response. Capture the choice; record it for
+the spec's `## Stack and Dependencies` section.
+
+### 5. Round 2 — architecture (canonical-memory first, WebSearch as fallback)
+
+Lift the feature's domain phrase from the PRD's Introduction /
+Overview (one-line scope statement). Invoke
+`/yoke:search-canonical-memory` via the `Skill` tool with a
+domain-scoped query: `"applicable architectural patterns for
+<domain phrase>"`. Count the **pattern-typed entities** in the
+response (entries whose entity type is `pattern` —
+`concepts/yoke-pattern-*`).
+
+Resolve the threshold:
+
+```
+threshold="$(yoke_get_override overrides.tech_spec.canonical_pattern_threshold 3)"
+```
+
+If `pattern_count >= threshold`, **skip** WebSearch. Surface the
+canonical-memory pattern entities to the user with their trade-offs
+and capture the chosen pattern. Cite the chosen wikilink in the
+spec's `## Alternatives Considered` `Source:` lines.
+
+Otherwise (pattern_count < threshold), load `WebSearch` via
+`ToolSearch` (`select:WebSearch`) — `WebSearch` is a deferred tool
+and is not preloaded in this runtime. Run a single targeted query:
+`"<domain phrase> architecture pattern"` (or a closely-scoped variant
+informed by the PRD). Surface the top 2-3 industry results to the
+user with explicit trade-offs and capture the chosen pattern. Cite
+the consulted URLs verbatim in the spec's `## Alternatives Considered`
+`Source:` lines — fabricated URLs fail the post-draft self-check.
+
+### 6. Round 3 — Non-Functional Requirements (quantitative only)
+
+Prompt the user for quantitative NFRs the system must satisfy:
+latency, availability, throughput, consistency, token cost, disk
+footprint. Each NFR captured in the dialogue MUST carry a numeric
+target with a unit (e.g., `p95 < 200ms`, `≥ 99.9%`, `≥ 50 rps`,
+`≤ 2000 tokens per cycle`). Adjective-only answers ("performant",
+"secure", "reliable" without numbers) are **challenged inline** —
+ask the user to convert the adjective into a measurable target. Do
+not proceed until every captured NFR matches the post-draft regex
+`\d+(\.\d+)?\s*(ms|s|%|rps|qps|req/s|MB|GB|TB|users)` (case-insensitive).
+
+### 7. Round 4 — Technical Use Cases (PRD US-### lift)
+
+Walk **every** PRD `US-###` in PRD order. For each, prompt the user
+for: components involved, contracts used, NFRs applied, edge cases.
+Allow the user to defer a US-### only with an explicit `Deferred:
+<reason>` answer; record the deferral so step 8's draft surfaces it
+in `## Open Questions`. Silently skipping a US-ID is a hard error
+(the post-draft self-check catches it; do not let the dialogue allow
+silent drops).
+
+### 8. Stage 1 — Draft the design doc
 
 Ensure `.yoke/specs/` exists (`mkdir -p "$(dirname "$(wm_spec_path
-"$slug")")"`). Draft the sprint index at `wm_spec_path "$slug"`
-(i.e., `.yoke/specs/<slug>.md`) matching `templates/spec.md`:
+"$slug")")"`). Draft `.yoke/specs/<slug>.md` end-to-end in a single
+`Write` call matching `templates/spec.md`'s twelve H2 sections in
+fixed order:
 
-- ≥ 1 sprint with a delivery objective (a coherent value increment).
-- Each sprint rendered as a heading of the shape:
+1. `## Context and Scope`
+2. `## Goals and Non-Goals`
+3. `## System Context`
+4. `## Architecture`
+5. `## Stack and Dependencies`
+6. `## APIs and Data Model`
+7. `## Non-Functional Requirements`
+8. `## Alternatives Considered`
+9. `## Trade-offs`
+10. `## Cross-cutting Concerns`
+11. `## Technical Use Cases`
+12. `## Open Questions`
 
-  ```
-  ### Sprint <NN> — <name>
-  **Delivery objective:** <one-paragraph delivery objective>
+Section-by-section discipline:
 
-  **Tasks:** see `.yoke/sprints/<slug>-s<NN>.md` `## Tasks` section.
-  ```
+- **Context and Scope** — concrete; name the files and modules. The
+  scope statement says what changes and what does not.
+- **Goals and Non-Goals** — measurable goals; non-goals defend
+  against scope creep.
+- **System Context** — actors, components, data flows. ASCII /
+  mermaid diagram welcome.
+- **Architecture** — name the chosen pattern (canonical-memory
+  wikilink or industry name from WebSearch). Spell out the invariants
+  the architecture guarantees.
+- **Stack and Dependencies** — exactly the choice from round 1.
+  External libraries with version constraints. Internal prior work
+  (canonical-memory pattern wikilinks, prior specs).
+- **APIs and Data Model** — schemas, endpoints, message formats.
+  Name contracts the Acceptance Contract will exercise.
+- **Non-Functional Requirements** — bullet list. Every bullet
+  matches the quantitative-target regex.
+- **Alternatives Considered** — one `### Alt: <name>` subsection
+  per rejected approach, with the three labels (`**Trade-off vs.
+  chosen:**`, `**Reason for rejection:**`, `**Source:**`). Source =
+  canonical-memory wikilink, WebSearch URL surfaced this session, or
+  `internal experience`.
+- **Trade-offs** — what the chosen approach itself gives up.
+- **Cross-cutting Concerns** — observability, security, error
+  handling, i18n / a11y when applicable.
+- **Technical Use Cases** — one `### US-### — <title>` subsection
+  per PRD US-ID, in PRD order, with the four labels (`**Components
+  involved:**`, `**Contracts used:**`, `**NFRs applied:**`, `**Edge
+  cases:**`). Deferred entries: `Deferred: <reason>` with the
+  deferral surfaced in `## Open Questions`.
+- **Open Questions** — anything the spec does not yet resolve;
+  deferred US-### entries surface here verbatim.
 
-  where `<NN>` is a 2-digit zero-padded positive integer (1..99).
-  This shape is what `lib/working-memory/scaffold-sprints.sh` parses
-  in stage 2 — deviations break the scaffolder.
+The spec carries **no `## Sprints` section** and **no `### Task <ID>`
+anchors**. Sprint partition + task breakdown are Phase 3's
+responsibility.
 
-- **No inline task entries** in the spec — task bodies live inside
-  the per-sprint runtime-bundle file produced in stage 3 (per
-  `templates/sprint.md`).
-- **Acceptance criterion per task is the load-bearing requirement.**
-  Every `### Task <ID>` subsection inside the per-sprint file produced
-  in stage 3 carries an explicit `**Acceptance criterion:**` inline
-  label that is binary, observable, and decidable. This is the
-  contract Phase 3's BDD scenarios are drafted against.
-  - Examples that PASS the bar: "endpoint returns 200 with JWT in
-    body", "linter exits 0 on src/auth/", "user can upload PDF and
-    see it in the list within 3s".
-  - Examples that FAIL: "feature works", "looks good", "passes
-    review".
+### 9. Stage 2 — Deterministic post-draft self-check
 
+After the `Write` call, run the following bash checks against
+`spec="$(wm_spec_path "$slug")"`:
 
-- Contracts and interfaces (API shapes, data models, integration
-  contracts, message schemas).
+1. **Twelve-H2 in order.** `grep -nE '^## '` lists exactly twelve
+   lines whose headings match the documented order. Failure: abort
+   with `wm: tech-spec self-check: spec at $spec must carry the
+   twelve H2 sections in the documented order; got: <ordered list
+   from grep>`.
+2. **Quantitative NFR.** Every bullet line under `## Non-Functional
+   Requirements` (a region scanned via `awk '/^## Non-Functional
+   Requirements$/,/^## /'`) matches the regex
+   `\d+(\.\d+)?\s*(ms|s|%|rps|qps|req/s|MB|GB|TB|users)`
+   (case-insensitive). Failure: abort with `wm: tech-spec self-check:
+   adjective-only NFR rejected at line <N>: <line text>`.
+3. **`### Alt:` triple-shape.** For each `### Alt: <name>`
+   subsection in `## Alternatives Considered`, the three labels
+   `**Trade-off vs. chosen:**`, `**Reason for rejection:**`, and
+   `**Source:**` MUST all appear within the subsection body before
+   the next `### `, `## `, or end-of-file. Failure: abort with `wm:
+   tech-spec self-check: Alternative '<name>' missing label
+   '<label>'`.
+4. **US-### lift.** For each `US-###` ID present in the approved
+   PRD's body, the spec MUST contain either a heading
+   `### US-### — <title>` under `## Technical Use Cases` or a line
+   `Deferred: <reason>` referencing the US-### plus a matching entry
+   under `## Open Questions`. Failure: abort with `wm: tech-spec
+   self-check: PRD US-### '<id>' silently dropped (no subsection,
+   no deferral)`.
+5. **No task anchors.** `grep -cE '^### Task ' "$spec"` returns `0`.
+   Failure: abort with `wm: tech-spec self-check: spec body contains
+   '### Task ' anchor at line <N> — sprint partition and task
+   breakdown are Phase 3's responsibility`.
+6. **No sprint files.** `find .yoke/sprints -name "${slug}-s*.md" |
+   wc -l` returns `0`. Failure: abort with `wm: tech-spec
+   self-check: sprint files exist for '$slug' under .yoke/sprints/
+   — Phase 2 must not write there`. (If sprint files are present
+   from a prior Phase 3 run on the same slug, the user should pick
+   `revise` at Trigger 3 to wipe them, not at Trigger 2; surface
+   the conflict explicitly.)
 
-- External and internal dependencies (other sprints, external
-  services, shared libraries).
+WebSearch source verification: when WebSearch fired in step 5, every
+`Source:` line in `## Alternatives Considered` that is not a
+canonical-memory wikilink and is not the literal string `internal
+experience` MUST match a URL that actually appeared in the WebSearch
+tool result of this session. Implementation: capture the URLs from
+the WebSearch result into a runtime list, then `grep -F` each
+non-wikilink, non-internal-experience `Source:` URL against that
+list. Failure: abort with `wm: tech-spec self-check: Source URL
+'<url>' was not returned by any WebSearch call this session`.
 
-- Out-of-scope items per sprint or for the whole spec.
+Any failure aborts the skill non-zero. Do NOT proceed to Trigger 2.
 
-Apply discipline: cut scope aggressively. Ship the smallest sprint
-that delivers value. Push speculative work to "Out of scope" or
-"Future".
+### 10. Trigger 2 — Spec approval
 
-### 5. Stage 2 — Scaffold empty sprint files
-
-Invoke `lib/working-memory/scaffold-sprints.sh "$(wm_spec_path
-"$slug")"` via the `Bash` tool. The script:
-
-- Parses sprint-heading lines (`### Sprint <NN> — <name>`) from the
-  spec body using a deterministic regex.
-- Creates one `.yoke/sprints/<slug>-s<NN>.md` per sprint id, seeded
-  from `templates/sprint.md` with substitutions for `<slug>`, `<N>`,
-  `<NN>` (in `task_id` / `sprint`), and `<iso8601>` for `created_at`.
-- Refuses to overwrite any existing sprint file (exits non-zero with
-  the conflict list — relevant only on a re-run, since pre-flight
-  already cleared the slug or the user picked overwrite).
-
-If the script exits non-zero, surface its stderr verbatim and stop —
-do NOT proceed to stage 3.
-
-### 6. Stage 3 — Fill each sprint file (LLM-per-sprint)
-
-Read `wm_list_sprint_paths "$slug"` to enumerate the empty sprint
-files in lexical = positional order. For each sprint file, in order:
-
-1. Lift the sprint preamble (sprint name + delivery objective) for
-   this sprint from `.yoke/specs/<slug>.md`.
-2. Read the empty sprint file (frontmatter + 5-H2 skeleton at this
-   point).
-3. Construct a tight prompt: the sprint preamble + the empty sprint
-   file's current contents + the request to fill the five required
-   body sections — *Sprint objective*, *Sprint DoD*, *Tasks* (one
-   `### Task <ID>` subsection per task with the four inline labels
-   `**Story:**`, `**Technical implementation:**`, `**Validation:**`,
-   `**Acceptance criterion:**`), *Functional acceptance criteria*
-   (criterion IDs only — never inline), and *Sensors* (sensor IDs
-   only — never inline) — per `templates/sprint.md`. Carry **no
-   sibling sprint files**, **no full spec**, **no canonical memory**
-   in this prompt.
-4. Generate the five body sections.
-5. Write the filled body back to the sprint file via the `Edit` or
-   `Write` tool. Validate post-write that the file contains all five
-   required H2 headings in order (`## Sprint objective`, `## Sprint
-   DoD`, `## Tasks`, `## Functional acceptance criteria`, `##
-   Sensors`) and that every `### Task <ID>` subsection carries the
-   four inline labels. If any heading or label is missing, treat it
-   as a **stage-3 partial failure** (see below).
-
-#### Stage-3 partial failure recovery
-
-If any per-sprint generation fails — LLM error, missing heading or
-inline label, write error — exit the skill with a clear
-`wm:`-prefixed message naming the failed sprint file path:
-
-```
-wm: stage-3 fill failed at <path>. Files filled before this point
-remain on disk in their partial state. To recover, re-run
-/yoke:tech-spec and pick `revise` (deletes spec + every sprint file
-for this slug, then runs stages 1-3 from scratch).
-```
-
-Do NOT roll back files filled before the failure. Do NOT proceed to
-Trigger 2.
-
-### 7. Trigger 2 — Spec approval
-
-Display the drafted spec and the list of filled sprint files, then
-render the **shared approval menu** defined in
-`templates/approval-menu.md`. The menu is the surface for
+Display the drafted spec, then render the **shared approval menu**
+defined in `templates/approval-menu.md`. The menu is the surface for
 **Trigger 2 — Tech Spec approval**, which blocks Phase 3.
 
 Inputs passed to the menu:
 
 - `artifact_path`: `wm_spec_path "$slug"` (resolves to
   `.yoke/specs/<slug>.md`).
-- `artifact_label`: `Tech Spec`. The menu template renders a
-  per-sprint summary block when this label is set (see the
-  "Tech-Spec-only block" section in `templates/approval-menu.md`).
+- `artifact_label`: `Tech Spec`. The menu template's Tech-Spec-only
+  summary block adapts to the new shape: instead of a per-sprint
+  summary, the block lists the twelve H2 sections present in the
+  spec with a one-line summary per section (lifted from each
+  section's first non-empty line).
 - `next_skill`: `/yoke:acceptance-criteria`.
 - `language`: the language detected for the dialogue.
 - `binding_statement`: empty (Trigger 2 is not a binding gate;
   Trigger 3 carries the binding statement).
-- `sprint_summary`: an ordered list constructed from
-  `wm_list_sprint_paths "$slug"` — one entry per sprint file:
-  `<sprint-id> — <name> (<file-path>)`. The `<name>` comes from each
-  sprint file's `# Sprint <NN> of <MM>: <name>` heading (filled in
-  stage 3).
+- `section_summary`: ordered list of the twelve H2 sections present
+  in the spec, one entry per section: `<section name> — <one-line
+  summary>`.
 
-The menu renders, every time, in this order: (a) the per-sprint
-summary block (Tech-Spec-only), (b) the open-questions detection
-block (scans the spec **and every sprint file** for inline `TODO:` /
-`TBD` / `FIXME:` / `<placeholder>` markers), then (c) the 4-option
-prompt mapping to internal verbs `approve_and_continue` / `approve` /
+The menu renders, every time, in this order: (a) the
+twelve-section summary block (Tech-Spec-only), (b) the open-questions
+detection block (scans the spec body for inline `TODO:` / `TBD` /
+`FIXME:` / `<placeholder>` markers), then (c) the 4-option prompt
+mapping to internal verbs `approve_and_continue` / `approve` /
 `reject` / `revise`.
 
 The skill does not return until the user replies. `revise` loops
-back through stage 1 (see step 8). `reject` is the **back to PRD**
-escape — it prompts for the secondary confirmation; on `yes`, the
-skill aborts and instructs the user to re-run `/yoke:discover`
+back through stages 1-2 (see step 11). `reject` is the **back to
+PRD** escape — it prompts for the secondary confirmation; on `yes`,
+the skill aborts and instructs the user to re-run `/yoke:discover`
 (which creates a *new* task with a new slug). `approve` records
-approval and stops. `approve_and_continue`
-records approval and chains into `/yoke:acceptance-criteria` via the
-`Skill` tool in the same turn — but if the open-questions detection
-returned at least one match, the template requires a `yes` / `no`
-warning confirmation before chaining; on `no`, the skill records
-approval and stops (collapses to `approve`).
+approval and stops. `approve_and_continue` records approval and
+chains into `/yoke:acceptance-criteria` via the `Skill` tool in the
+same turn — but if the open-questions detection returned at least
+one match, the template requires a `yes` / `no` warning confirmation
+before chaining; on `no`, the skill records approval and stops
+(collapses to `approve`).
 
-### 8. `revise` — delete + rewrite
+### 11. `revise` — delete + rewrite
 
 When the user picks `revise`:
 
-1. Print a loud `wm:`-prefixed warning naming the spec path and
-   every sprint file path that will be deleted, plus the captured
-   feedback.
-2. Delete `.yoke/specs/<slug>.md` and every path returned by
-   `wm_list_sprint_paths "$slug"` for the active slug. Use plain `rm`
-   on each path; do NOT use `rm -rf` on directories.
-3. Re-run stages 1-3 from scratch with the captured feedback as
-   additional context for stage 1 (Generator drafts an updated spec
-   addressing the feedback).
+1. Print a loud `wm:`-prefixed warning naming the spec path that
+   will be deleted plus the captured feedback.
+2. Delete `.yoke/specs/<slug>.md`. Use plain `rm` on the path; do
+   NOT use `rm -rf` on directories. **Do NOT touch
+   `.yoke/sprints/`** — Phase 2 has no business deleting Phase 3
+   artifacts. Sprint files (if present from a prior Phase 3 run)
+   remain on disk; the user picks `revise` at Trigger 3 to wipe
+   them.
+3. Re-run stages 1-2 from scratch with the captured feedback as
+   additional context for the dialogue.
 4. Re-render the Trigger 2 menu.
 
-Hand-edits to sprint files are NOT preserved across `revise`. The
+Hand-edits to the spec are NOT preserved across `revise`. The
 warning makes this explicit.
 
 ## Recording approval
@@ -306,15 +388,10 @@ On `approve` or `approve_and_continue`:
 
 - Write `Status: approved`, `Approved by`, `Approved at` headers to
   `wm_spec_path "$slug"` (after the `Status:` line in the spec body).
-- Iterate `wm_list_sprint_paths "$slug"`. For each sprint file, set
-  the `status:` frontmatter field to `approved` (Edit tool). All
-  sprint files MUST flip together — partial-write failures
-  (filesystem errors, not LLM) abort the skill non-zero before
-  chaining into `/yoke:acceptance-criteria`.
 
-This atomic-at-bash-level approval is what makes
-`Status: approved` on the spec a **meaningful gate** — it covers the
-entire sprint set, not just the index.
+This is a single-file flip — no sprint files exist at Phase 2, so the
+v1.x atomic-multi-file flow does not apply. `Status: approved` on the
+spec is the **complete** Trigger 2 gate.
 
 ## Output
 
@@ -322,8 +399,10 @@ On `approve` or `approve_and_continue`:
 
 - `wm_spec_path "$slug"` written with `Status: approved`,
   `Approved by`, `Approved at` headers.
-- Every `wm_list_sprint_paths "$slug"` entry has frontmatter
-  `status: approved`.
+- `find .yoke/sprints -name "${slug}-s*.md" | wc -l` returns `0` —
+  Phase 2 wrote no sprint files.
+- `grep -cE '^### Task ' "$(wm_spec_path "$slug")"` returns `0` —
+  Phase 2 emitted no task anchors.
 - On `approve_and_continue` (after the open-questions warning, when
   applicable, returns `yes`): the skill invokes
   `/yoke:acceptance-criteria` via the `Skill` tool in the same turn.
@@ -337,9 +416,8 @@ On `approve` or `approve_and_continue`:
   "Tech Spec approved. Run `/yoke:acceptance-criteria` to advance to
   Phase 3.", and exits cleanly.
 
-On `reject` (after secondary confirmation): the spec and all task
-files are marked rejected (no `Status: approved` written) and the
-skill exits cleanly.
+On `reject` (after secondary confirmation): the spec is marked
+rejected (no `Status: approved` written) and the skill exits cleanly.
 
 ## Pre-conditions
 
@@ -349,11 +427,12 @@ skill exits cleanly.
 
 ## Output contract
 
-- Exit 0 with `.yoke/specs/<slug>.md` populated and approved AND
-  every `.yoke/sprints/<slug>-s*.md` populated and `status: approved`.
+- Exit 0 with `.yoke/specs/<slug>.md` populated and approved AND zero
+  files under `.yoke/sprints/<slug>-s*.md` (Phase 2 never writes
+  there) AND zero `### Task <ID>` anchors in the spec body.
 - Exit non-zero on missing `.current`, missing/unapproved PRD,
-  scaffold script failure, stage-3 partial failure, partial approval
-  write failure, user abort, or revise-loop exhaustion.
+  post-draft self-check failure, partial approval write failure,
+  user abort, or revise-loop exhaustion.
 
 ## Anti-patterns
 
@@ -362,27 +441,47 @@ skill exits cleanly.
   artifact). Read-only.
 - Do NOT write to any flat path. All paths go through
   `lib/working-memory/paths.sh`.
-- Do NOT skip stage 2 — the deterministic bash scaffolder is what
-  bounds the LLM stages and keeps the artifact pair coherent.
-- Do NOT batch stage 3 (filling all sprints in one LLM call) — that
-  collapses progressive disclosure. One sprint per call.
+- Do NOT invoke the sprint-file scaffolder
+  (`lib/working-memory/scaffold-*.sh`) from this skill — sprint
+  scaffolding belongs to Phase 3 (`/yoke:acceptance-criteria`).
+- Do NOT emit any `### Task <ID>` anchor in the spec body. The
+  post-draft self-check rejects them.
+- Do NOT write any file under `.yoke/sprints/`. The post-draft
+  self-check rejects sprint-file side effects.
 - Do NOT auto-approve.
-- Do NOT let any task have a vague acceptance criterion ("works
-  correctly", "looks good") — every task's *Acceptance criterion*
-  must be binary and observable.
-- Do NOT read canonical memory directly. All queries via `/yoke:search-canonical-memory`.
+- Do NOT let any NFR be adjective-only ("performant", "secure",
+  "reliable" without numbers). Challenge inline; the post-draft
+  self-check rejects them.
+- Do NOT let any `### Alt:` subsection skip a label. The
+  post-draft self-check rejects them.
+- Do NOT silently drop a PRD `US-###`. The post-draft self-check
+  rejects silent drops; explicit `Deferred: <reason>` is the only
+  acceptable path, and the deferral surfaces in `## Open Questions`.
+- Do NOT cite a `Source:` URL that did not appear in this session's
+  WebSearch results. Fabricated URLs fail the self-check.
+- Do NOT load `WebSearch` always-on. Gate on the canonical-pattern
+  threshold (`overrides.tech_spec.canonical_pattern_threshold`,
+  default 3).
+- Do NOT read canonical memory directly. All queries via
+  `/yoke:search-canonical-memory`.
 - Do NOT preserve hand edits across `revise` — delete + rewrite is
   the contract.
 
 ## See also
 
-- `concepts/yoke-pattern-phase-flow` (Phase 2).
-- `concepts/yoke-pattern-roles` (Generator persona).
+- `concepts/yoke-pattern-phase-flow` (Phase 2; the spec is the
+  binding artifact, sprint files are Phase-3 outputs).
+- `concepts/yoke-pattern-roles` (Senior Engineer / Generator
+  persona inline).
 - `concepts/yoke-pattern-human-triggers` (Trigger 2; shared-menu rule).
 - `concepts/yoke-pattern-memory-model` (working-memory archive layout).
+- `concepts/yoke-pattern-plugin-structure` (lib/ placement for
+  `lib/config-overrides.sh`).
 - `concepts/yoke-conventions` ("blueprints wrapping agentic nodes",
   "progressive disclosure").
-- `templates/spec.md`, `templates/sprint.md`.
+- `templates/spec.md` (twelve-section design-doc shape; placeholder
+  body shape for NFR / Alt / US-### sections).
 - `templates/approval-menu.md` (shared menu shape, detection rule,
-  fallback, Tech-Spec-only per-sprint summary block).
-- `lib/working-memory/scaffold-sprints.sh` (stage 2).
+  fallback, Tech-Spec-only twelve-section summary block).
+- `lib/config-overrides.sh` (`yoke_get_override`).
+- `lib/yoke-prelude.sh` (`yoke_require_provider`).

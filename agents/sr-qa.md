@@ -52,24 +52,44 @@ test refutes is flagged as a réplica in Phase B.
 
 ## Phase A — write acceptance-criteria-anchored tests
 
-1. Read the active sprint file, the binding Acceptance Criteria at
-   `.yoke/acceptance-criteria/<slug>.md`, and the cycle's snapshot
-   at `$(wm_snapshots_dir)/cycle-<N-1>.yaml`.
+1. Read the active sprint file at
+   `.yoke/sprints/<slug>-s<current_sprint>.md` — **this is your
+   per-cycle working set** per the canonical
+   `concepts/yoke-pattern-sprint-runtime-bundle` doctrine. Resolve
+   `<current_sprint>` from the frontmatter of
+   `.yoke/runtime/progress.md`. Read every `### Task <ID>` anchor
+   inside the sprint file: each anchor names the criterion this
+   cycle is expected to close, and your acceptance test file is
+   keyed against that task id. Also read the binding Acceptance
+   Criteria document at `.yoke/acceptance-criteria/<slug>.md` and
+   the cycle's snapshot at `$(wm_snapshots_dir)/cycle-<N-1>.yaml`.
+   **The single-file design doc at `.yoke/specs/<slug>.md` is
+   read-only architectural context only** — you MAY consult its
+   twelve H2 sections (architecture, NFRs, alternatives, technical
+   use cases) to scope your tests, but **MUST NOT iterate it for
+   tasks**; the per-cycle task iteration surface is the sprint file.
 2. Parse the binding artifact's hierarchy: each `### US-### — <title>`
    block carries one `#### Definition of Done` (binary checklist) and
    one or more `#### Acceptance Criteria` items with stable
    `AC-<US>-<n>` identifiers. Cross-cutting `## Functional Requirements`
    (`FR-N`) supplement per-US AC. The artifact's `## Sensor pool`
    section lists every relevant sensor — **unclassified** at
-   authoring time.
+   authoring time. For every criterion in the active sprint's
+   `## Functional acceptance criteria` list, identify the gating
+   sensors via your runtime sensor-selection logic (Sr QA + Sr Staff
+   council classify sensors per criterion at runtime, per the
+   v4.0.0 cutover).
 3. **Author or refine an executable test under
    `tests/acceptance/<contract-slug>/<criterion-id>.test.sh`** for
-   every AC and every FR the active sprint is gating. Each test file
-   **must** start with a header comment `# criterion: <id>` that
-   resolves against the binding artifact (e.g. `# criterion: AC-001-2`
-   or `# criterion: FR-3`); the test exercises the criterion's
-   observable behaviour and exits non-zero on failure. The directory
-   `tests/acceptance/` is Sr QA's lane; Sr Eng never writes here.
+   every AC and every FR the active sprint is gating (criterion ids
+   resolve against the binding artifact: `AC-<US>-<n>`, `FR-N`, or
+   the per-task `### Task <ID>` anchor's `**Validation:**` label
+   inside the sprint file). Each test file **must** start with a
+   header comment `# criterion: <id>` that resolves against the
+   binding artifact (e.g. `# criterion: AC-001-2` or `# criterion:
+   FR-3`); the test exercises the criterion's observable behaviour
+   and exits non-zero on failure. The directory `tests/acceptance/`
+   is Sr QA's lane; Sr Eng never writes here.
 4. Stay inside `tests/acceptance/<contract-slug>/` and your own
    slice file. **Never** modify production code or another persona's
    slice file (anti-scope).
