@@ -1,20 +1,19 @@
 ---
 name: canonize
 description: >
-  Provider-agnostic facade for the canonical-memory write hand-off. When
-  /yoke:implement terminates and the working memory under .yoke/
-  carries the freshest signal the framework will ever have, this skill
-  is the single verb that hands the active task's diff to the configured
-  canonical-memory provider. Resolves the provider via
-  lib/canonical-memory/resolve-provider.sh, stages only the active task's
-  archive files into a fresh tmp directory shaped like .yoke/ (historical
-  PRDs / specs / sprints / acceptance documents from prior tasks are NOT
-  re-fed), dispatches to the provider's pinned canonize skill (e.g.
-  /bedrock:teach for the bedrock provider per providers.yaml), removes
-  the stage on exit, and appends a single canonize: line to
-  .yoke/runtime/progress.md. Never bundles, summarizes, or pre-processes
-  inside the staged tree; never classifies maturity (provider judgment);
-  never silently swallows the provider's exit code.
+  Provider-agnostic facade that hands the active task's working memory
+  to the configured canonical-memory provider. Resolves the provider
+  via lib/canonical-memory/resolve-provider.sh, stages the active
+  slug's archive files (prds/, specs/, sprints/, acceptance-criteria/,
+  contracts/, runtime/, plus config.yaml) into a fresh tmp directory
+  shaped like .yoke/, dispatches the provider's pinned canonize skill
+  with --working-memory <stage-path>, removes the stage on exit, and
+  appends a single canonize: line to .yoke/runtime/progress.md. The
+  scope is per-task: only the active slug's files are staged; sensors
+  and other tasks' archives stay outside the hand-off. Pure dispatcher
+  semantics — never bundles, summarizes, classifies, or pre-processes
+  the staged tree (the provider owns those decisions); never swallows
+  the provider's exit code.
   Use when: "canonize", "yoke canonize", "/yoke:canonize", "save working
   memory to canonical memory", or whenever /yoke:implement terminates.
 argument-hint: ""
@@ -31,10 +30,11 @@ code.
 
 This facade is the single write entry point for every Yoke caller —
 the canonize-only Orchestrator subagent at full-run termination, plus
-manual re-canonize invocations. The legacy `/yoke:preserve` skill was
-retired with the v2.0.0 facade extraction; the substrate-specific
-canonize logic now lives inside the active provider plugin (e.g.
-`/bedrock:teach` for the bedrock provider per `providers.yaml`).
+manual re-canonize invocations. Substrate-specific canonize logic
+lives inside the active provider plugin (e.g. `/bedrock:teach` for
+the bedrock provider per `providers.yaml`); this facade owns
+provider resolution, active-task staging, dispatch, and exit-code
+propagation.
 
 ## Plugin paths
 
@@ -82,19 +82,19 @@ wm: /yoke:canonize takes no arguments at v2.0.0
 
 ## Phase 1 — Stage the active task's diff
 
-This facade does NOT hand the provider the full `.yoke/` directory.
-Historical PRDs, specs, sprints, and acceptance documents from prior
-tasks have already been canonized in their own runs; re-feeding them
-every cycle wastes provider tokens, re-runs entity-matching against
-a vault that already has those entries, and risks polluting the
-vault if any historical file's frontmatter has drifted since its
-original canonization.
+The hand-off is **per-task**: only the active slug's archive files
+plus `config.yaml`, `.gitignore`, and the `runtime/` subtree reach
+the provider. Each task's archive is canonized once, in its own
+`/yoke:canonize` run; subsequent runs would otherwise burn tokens
+re-running graphify and entity-matching against vault entries that
+already exist, and could push frontmatter drift into the vault as
+if it were a fresh write.
 
 Invoke the active-task staging helper. It reads
-`.yoke/runtime/.current` for the slug, copies only the slug's
-archive files plus `config.yaml`/`.gitignore`/`runtime/` into a
-fresh tmp directory shaped exactly like `.yoke/`, and echoes the
-absolute path on stdout:
+`.yoke/runtime/.current` for the slug, copies the slug's archive
+files plus `config.yaml`/`.gitignore`/`runtime/` into a fresh tmp
+directory shaped exactly like `.yoke/`, and echoes the absolute
+path on stdout:
 
 ```bash
 stage_dir="$(<plugin_dir>/lib/working-memory/canonize-stage.sh)"
@@ -227,11 +227,11 @@ reads the exit code as authoritative.
   narrows by active-task scope.
 - Pre-bundling the staged tree into a tarball or single document.
   The provider expects a directory tree shaped like `.yoke/`.
-- Staging the full `.yoke/` (every historical PRD/spec/sprint/AC
-  from prior tasks) to "let the provider decide". The provider's
-  judgment is about WHAT to canonize among the active-task slice —
-  not about filtering historical noise the facade should never have
-  fed in the first place.
+- Staging the host's full `.yoke/` (every prior-task PRD/spec/sprint/
+  AC) to "let the provider decide". The provider's judgment is
+  about WHAT to canonize among the active-task slice; archive
+  filtering is the facade's responsibility and is bounded by the
+  active slug.
 - Branching the dispatch logic on `$YOKE_PROVIDER_NAME`. The whole
   point of the facade is that providers are interchangeable.
 - Logging the provider's full stdout to `runtime/progress.md`. Only
