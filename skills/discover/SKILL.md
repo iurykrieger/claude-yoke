@@ -3,11 +3,15 @@ name: discover
 description: >
   Phase 1 — Discovery. Runs an interactive dialogue (1–5 rounds) to turn
   an idea into an approved PRD with introduction/overview, goals, product
-  invariants, user stories (US-###), functional requirements (FR-N),
-  non-goals, technical considerations, risks, success metrics, and open
-  questions. Saves to `.yoke/prds/<YYYY-MM-DD>-<slug>.md` and sets
-  `.yoke/runtime/.current` to the slug. Pauses for explicit human approval
-  (Trigger 1) before completing.
+  invariants, functional requirements (FR-N), non-goals, technical
+  considerations, risks, success metrics, and open questions. User
+  stories (US-###) are authored downstream in `/yoke:acceptance-criteria`
+  (Phase 3) — the PRD captures product intent and cross-cutting FRs;
+  story-level decomposition with DoD and Acceptance Criteria belongs to
+  the Senior-QA grill, not the Product-Manager grill. Saves to
+  `.yoke/prds/<YYYY-MM-DD>-<slug>.md` and sets `.yoke/runtime/.current`
+  to the slug. Pauses for explicit human approval (Trigger 1) before
+  completing.
 argument-hint: "<idea>"
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash
 ---
@@ -20,10 +24,11 @@ dialogue with the user.
 > **Lineage.** Forked structurally from
 > [vibeflow:discover](https://github.com/pe-menezes/vibeflow), one-time
 > at Yoke v0.2.0; refreshed in v1.1.0 to drive dialogue inline (no
-> subagent spawn); refreshed again in v2.1.0 to mirror the widely-used
+> subagent spawn); refreshed in v2.1.0 to mirror the widely-used
 > [snarktank/ralph PRD pattern](https://github.com/snarktank/ralph/blob/main/skills/prd/SKILL.md)
-> (lettered clarifying questions, US-###/FR-N indexing, explicit
-> non-goals, observable success metrics). Adaptations from both
+> (lettered clarifying questions, FR-N indexing, explicit
+> non-goals, observable success metrics; user-story enumeration moved
+> to `/yoke:acceptance-criteria` in Yoke v4.0.0). Adaptations from both
 > upstreams: namespaced under `/yoke:*`, preserves Yoke-specific
 > sections that are load-bearing for downstream phases (Product
 > invariants → Acceptance Contract; Risks → Phase-3 sensor calibration),
@@ -57,12 +62,13 @@ sometimes a junior developer. When you draft the PRD body, hold to:
 
 - **Explicit and unambiguous.** No prose that requires guessing at intent.
 - **Define jargon on first use** or avoid it.
-- **Numbered IDs are load-bearing.** Every story (`US-001`, `US-002`, …)
-  and every requirement (`FR-1`, `FR-2`, …) gets a stable ID so the
-  Tech Spec and Acceptance Contract can cite it.
-- **Verifiable acceptance criteria.** "Works correctly" is bad.
-  "Endpoint returns 200 with a valid JWT" is good. UI stories include
-  "Verified in browser" as an explicit criterion.
+- **Numbered FR IDs are load-bearing.** Every functional requirement
+  (`FR-1`, `FR-2`, …) gets a stable ID so the Tech Spec and the
+  Acceptance Criteria document (Phase 3) can cite it. **User stories
+  (US-###) are NOT authored in the PRD as of Yoke v4.0.0** — they are
+  authored downstream in `/yoke:acceptance-criteria` via the
+  Senior-QA grill, where they pair with per-story Definition of Done
+  and Acceptance Criteria.
 - **Concrete examples** where they shorten understanding.
 
 ## Process
@@ -142,12 +148,12 @@ seems enormous for a first version.
 Challenge if: "everyone" is the audience; the success metric is vague;
 the described flow is too complex for v0.
 
-**Round 3 — Scope, stories, and trade-offs.** Ask:
+**Round 3 — Scope and trade-offs.** Ask:
 - What is the MINIMUM version that solves the problem?
 - What is explicitly **out of scope** (anti-scope)?
-- What are the 3-6 user stories that make up v0? (Each should be one
-  focused implementation session.)
 - Are there technical, regulatory, or organizational constraints?
+
+> User stories will be authored in `/yoke:acceptance-criteria` (Phase 3); do not enumerate them here. The PRD captures product intent, FRs, risks, and success metrics; story-level decomposition happens in the Senior-QA grill.
 
 Use canonical memory (via `/yoke:search-canonical-memory`) when relevant to:
 - Identify if something already solves part of the problem.
@@ -202,15 +208,12 @@ After slug confirmation, in this order:
 - **Introduction / Overview** — the feature, the pain it solves, why now.
 - **Goals** — specific, measurable objectives (bullet list).
 - **Product invariants** — non-negotiable shape constraints; carried
-  verbatim into the Acceptance Contract.
-- **User Stories** — `US-001`, `US-002`, … each with description
-  (`As a <role>, I want <capability> so that <benefit>.`) and a
-  verifiable acceptance-criteria checklist. Each story sized for one
-  focused implementation session. UI stories include "Verified in
-  browser" as an explicit criterion.
+  verbatim into the Acceptance Criteria document at Phase 3.
 - **Functional Requirements** — `FR-1`, `FR-2`, … numbered,
-  unambiguous, sensor-decidable. The Acceptance Contract lifts these as
-  binding criteria.
+  unambiguous, sensor-decidable cross-cutting requirements. Phase 3
+  decomposes these into per-User-Story DoD and Acceptance Criteria
+  via the Senior-QA grill. User-story enumeration belongs to
+  `/yoke:acceptance-criteria`, not the PRD.
 - **Non-Goals (Out of Scope)** — aggressive, explicit anti-scope.
 - **Design Considerations** (optional) — UI/UX, mockups, components to
   reuse.
@@ -323,7 +326,7 @@ cleanly.
 - Do NOT write to any flat working-memory path. All paths go through
   `lib/working-memory/paths.sh`.
 - Do NOT modify any other task's archive files (`specs/<other>.md`,
-  `sprints/<other>-s*.md`, `acceptance-contracts/<other>.md`, etc.).
+  `sprints/<other>-s*.md`, `acceptance-criteria/<other>.md`, etc.).
 - Do NOT propose colliding slugs by appending numeric suffixes
   (`<term>-2`, `<term>-3`). Regenerate semantically.
 

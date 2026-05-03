@@ -14,9 +14,9 @@ This applies without exception to:
 
 - Source code, identifiers, and inline comments
 - Markdown files (CLAUDE.md, READMEs, docs/, templates/, manifesto, plan)
-- PRDs, Tech Specs, Acceptance Contracts, sprint contracts, and any
-  artifact under `.yoke/` (prds, specs, tasks, acceptance-contracts,
-  contracts, sensors, runtime artifacts)
+- PRDs, Tech Specs, Acceptance Criteria documents, sprint contracts,
+  and any artifact under `.yoke/` (prds, specs, sprints,
+  acceptance-criteria, contracts, sensors, runtime artifacts)
 - Skill definitions, agent prompts, hooks, sensor scripts, templates
 - Commit messages, PR titles and descriptions, issue text
 - Test names, test fixtures, log lines, error messages, user-facing strings
@@ -66,11 +66,18 @@ is the lived doctrine.
 - **`.yoke/`** — per-task working memory (versioned archives + gitignored runtime).
   - `.yoke/prds/<slug>.md` — historical and current PRDs (one file per task)
   - `.yoke/specs/<slug>.md` — historical and current Specs
-  - `.yoke/tasks/<slug>-s*-t*.md` — per-task technical implementations
-  - `.yoke/acceptance-contracts/<slug>.md` — binding contracts
-  - `.yoke/contracts/<slug>.md` — sprint contracts (refinements within the binding envelope)
+  - `.yoke/sprints/<slug>-s<NN>.md` — per-sprint runtime bundles (one cycle = one sprint)
+  - `.yoke/acceptance-criteria/<slug>.md` — binding Acceptance Criteria documents (US → DoD → AC → Sensor pool); v4.0.0 cutover from the legacy `.yoke/acceptance-contracts/` directory, which is preserved on disk for historical files only.
+  - `.yoke/contracts/<slug>.md` — sprint contracts (runtime refinements within the binding envelope)
   - `.yoke/sensors/<sensor-id>.md` — per-sensor working artifacts
   - `.yoke/runtime/` — gitignored: progress.md, snapshots, judge verdicts
+
+> **DoD vs Acceptance Criteria — distinct layers.** Inside the
+> Acceptance Criteria document, every User Story carries one
+> Definition of Done (binary completion checklist) and one or more
+> Acceptance Criteria (observable QA conditions). DoD passes are a
+> precondition for AC evaluation. Sensor pool selection per criterion
+> is a runtime council decision, not an authoring-time tag.
 - `.claude-plugin/` — plugin manifest (`plugin.json`, `marketplace.json`).
 - `skills/`, `agents/`, `hooks/`, `templates/`, `lib/`, `docs/`, `tests/`, `examples/` — query `/yoke:search-canonical-memory "describe the yoke plugin-structure pattern"` for the full layout.
 
@@ -86,7 +93,7 @@ is the lived doctrine.
 
 - Sprint specs live at `.yoke/specs/<YYYY-MM-DD>-<slug>.md` (working memory archive). Past sprints retain git history; current sprints append.
 - Use `/yoke:implement <spec>` to drive Phase 4 (the runtime ralph loop).
-- Use `/yoke:tech-spec` for Phase 2 spec generation; `/yoke:acceptance-contract` for Phase 3 ratification.
+- Use `/yoke:tech-spec` for Phase 2 spec generation; `/yoke:acceptance-criteria` for Phase 3 ratification.
 - Each sprint produces an installable plugin version (1.0.0 → 1.x → 2.0.0).
 - The manifesto and the plan are the architect's input; this file is the coding agent's runtime guidance.
 
@@ -143,7 +150,7 @@ A framework for software development with AI agents. It runs an **agent council*
 
 | Tier | Location | Who writes | Lifetime |
 | :---- | :---- | :---- | :---- |
-| Working memory | host project's `.yoke/` (`prds/<slug>.md`, `specs/<slug>.md`, `sprints/<slug>-s*.md`, `acceptance-contracts/<slug>.md`, `runtime/progress.md`, `contracts/<slug>.md`, `runtime/cycles/<N>/<persona>.md`) | council personas write their own slices; coordinator writes `progress.md`; Sr QA + Sr Eng share `contracts/<slug>.md` on consensus | task/sprint |
+| Working memory | host project's `.yoke/` (`prds/<slug>.md`, `specs/<slug>.md`, `sprints/<slug>-s*.md`, `acceptance-criteria/<slug>.md`, `runtime/progress.md`, `contracts/<slug>.md`, `runtime/cycles/<N>/<persona>.md`) | council personas write their own slices; coordinator writes `progress.md`; Sr QA + Sr Eng share `contracts/<slug>.md` on consensus | task/sprint |
 | Canonical memory | external substrate via the active provider behind `providers.yaml` (reference provider: `claude-bedrock`) | only Orchestrator (canonize-only), under Model C | permanent, versioned |
 
 The separation exists because the blast radius is asymmetric: corrupted working memory affects one task; corrupted canonical memory affects the organization.
@@ -154,7 +161,7 @@ Per-task (sequential, with a human gate between each):
 
 1. **Discovery** → approved `prd.md`
 2. **Tech Spec** → approved `tech-spec.md`
-3. **Acceptance Contract** → approved `acceptance-contract.md` (binding)
+3. **Acceptance Criteria** → approved `acceptance-criteria.md` (binding); document is organised as User Stories → Definition of Done → Acceptance Criteria → Sensor pool, authored through the Senior-QA grill in `/yoke:acceptance-criteria`
 4. **Runtime** — agent council (Phase A → Phase B → Phase C) per cycle; sprint-walks to convergence; produces `progress.md` + `contracts.md` + per-cycle persona slices under `.yoke/runtime/cycles/<N>/`
 5. **Canonization** — Orchestrator (canonize-only mode) proposes writes to canonical memory at full-run termination
 
@@ -221,3 +228,4 @@ The manifesto enumerates eight failure modes (Section 16). The most load-bearing
 - **2026-04-27** — First end-to-end self-canonization run of Yoke on Yoke. The legacy `.vi`+`beflow/` directory was retired: 9 patterns migrated to `concepts/yoke-pattern-*`, 30 decisions split into individual `concepts/yoke-decision-*` entities (with bidirectional supersession), 1 conventions doc to `concepts/yoke-conventions`, 52 audit reports to `discussions/yoke-audit-*`, 12 PRDs and 53 specs migrated to `.yoke/prds/` and `.yoke/specs/` with date-prefixed slugs. The dogfood run surfaced 9 framework signals (8 captured during the loop, 1 surfaced during canonize-time cascade); 5 framework bug fixes shipped in the same change. Source PRD: `.yoke/prds/2026-04-27-yoke-doctrine-canonization.md`. Canonical-memory PR: `iurykrieger/brain#1` (merged at `fe0c24f`).
 - **2026-04-30 (v2.0.0)** — **Pluggable canonical-memory providers.** The single-vendor canonical-memory implementation that was forked from Bedrock at Sprint 5 (seven skills + lib + entities + canonical templates) was extracted out of `claude-yoke` into the standalone `claude-bedrock` peer plugin. Yoke v2.0.0 ships a curated provider registry at `providers.yaml` and two provider-agnostic facade verbs: `/yoke:search-canonical-memory` (read) and `/yoke:canonize` (write). Every Yoke skill except `/yoke:bootstrap` sources `lib/yoke-prelude.sh` and runs a hard-break pre-flight that refuses to run on a project whose `.yoke/config.yaml` lacks `canonical_memory.provider`. `/yoke:bootstrap` was rewritten to handle interactive provider selection, the `--provider` flag, and v1.x → v2.0.0 migration (preserves `url`/`name`/`default_branch` as `config_passthrough` keys; removes `<plugin_dir>/memories.json` after final confirmation). Plugin version bumped from `1.1.0` to `2.0.0`; description now mentions "pluggable canonical-memory". See `docs/migration-v1-to-v2.md` for the upgrade runbook and `docs/architecture.md` for the v2.0.0 dispatch-path diagram. Source PRD: `.yoke/prds/2026-04-30-pluggable-canonical-memory.md`. Source Spec: `.yoke/specs/2026-04-30-pluggable-canonical-memory.md`. Acceptance Contract: `.yoke/acceptance-contracts/2026-04-30-pluggable-canonical-memory.md`.
 - **2026-05-01 (v3.0.0)** — **Council cutover.** The binary v2.x runtime loop (Implementation Agent ↔ Validation Agent with the Orchestrator brokering canonical-memory reads in `consult` mode and divergence in `monitor` mode) is replaced by a three-persona **agent council** (`agents/sr-eng.md`, `agents/sr-qa.md`, `agents/sr-staff.md`) spawned in parallel each cycle behind a deterministic file-marker sync barrier. Per-cycle phases are now Phase A (parallel persona spawn + barrier wait + deterministic merge), Phase B (bounded council loop with quiescence detection plus the `agents/council-arbiter.md` contradiction-detection LLM emitting a structured JSON verdict), Phase C (consensus advances; cap-exhausted divergence escalates Trigger 4 with every flagged persona pair named). Trigger 4 is generalized from the binary-pair arbitration to a multi-edge persona-pair arbitration. The Orchestrator subagent survives in **canonize-only** mode for the canonical-memory write handoff at full-run termination; its legacy `consult` and `monitor` modes are retired (per-cycle reads are issued by the personas themselves; divergence is owned by the sync barrier plus the arbiter). New runtime helpers under `lib/runtime/`: `cycle.sh`, `council.sh`, `council-merge.sh`, `sync-barrier.sh`, `persona-loader.sh`, `trigger-4.sh`. Plugin version bumped from `2.0.0` to `3.0.0`; description now mentions "agent council". See `docs/migration-v2-to-v3.md` for the one-line migration note and `docs/architecture.md :: ## Council protocol` for the cycle diagram. Source PRD: `.yoke/prds/2026-05-01-agent-council.md`. Source Spec: `.yoke/specs/2026-05-01-agent-council.md`. Acceptance Contract: `.yoke/acceptance-contracts/2026-05-01-agent-council.md`.
+- **2026-05-03 (v4.0.0)** — **Phase 3 acceptance-criteria cutover.** The legacy "Acceptance Contract" artifact is renamed to "Acceptance Criteria" and reshaped from BDD-scenarios-with-flat-sensor-list to **User Stories → Definition of Done → Acceptance Criteria → Sensor pool**, mirroring standard QA discipline. The directory `.yoke/acceptance-contracts/` is replaced by `.yoke/acceptance-criteria/` (the legacy directory is preserved on disk for the 17 historical files per the no-historical-migration policy). The skill `/yoke:acceptance-contract` becomes `/yoke:acceptance-criteria` and is rewritten as an interactive Senior-QA grill: it resumes the PRD + Tech Spec back to the user (≤ 25 lines), runs a 1–5 round lettered-options dialogue across five quality-gate buckets (US enumeration, DoD per US, AC per US, sensor pool, cross-cutting FRs), challenges at least one vague answer per round, and refuses to render Trigger 3 if any pool sensor fails to resolve. Sensor selection per Acceptance Criterion is a runtime council decision — Sr QA and Sr Staff persona prompts read the new shape and record per-AC sensor selection in their per-cycle slice file. The path helper `wm_acceptance_contract_path` is deleted (no delegation, no shim) and `wm_acceptance_criteria_path` replaces it; all active call sites in `lib/ralph-loop/orchestrate.sh`, `hooks/verify-acceptance.sh`, `hooks/post-iteration.sh`, `skills/implement/SKILL.md`, and the agent persona prompts are migrated. Plugin version bumped from `3.0.0` to `4.0.0`; description names "v4.0 acceptance-criteria QA cutover". User stories no longer live in the PRD — `templates/prd.md`'s `## User Stories` block is removed; `skills/discover/SKILL.md` no longer instructs the dialogue to enumerate `US-###` and instead points users at `/yoke:acceptance-criteria` as the US owner. Two new lib helpers: `lib/sensors/resolve-pool.sh` (sensor-pool fail-closed validation) and `lib/runtime/criteria-parse.sh` (US/AC tuple extractor). See `docs/migration-v3-to-v4.md` for the upgrade runbook. Source PRD: `.yoke/prds/2026-05-03-acceptance-criteria-refactor.md`. Source Spec: `.yoke/specs/2026-05-03-acceptance-criteria-refactor.md`. Acceptance Contract: `.yoke/acceptance-contracts/2026-05-03-acceptance-criteria-refactor.md` (last contract authored under the legacy shape; binding for this very cutover).

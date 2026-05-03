@@ -2,7 +2,7 @@
 
 > Shared menu shape rendered at the end of the three blocking-gate skills:
 > `/yoke:discover` (Trigger 1), `/yoke:tech-spec` (Trigger 2),
-> `/yoke:acceptance-contract` (Trigger 3). Triggers 4 and 5 are explicitly
+> `/yoke:acceptance-criteria` (Trigger 3). Triggers 4 and 5 are explicitly
 > **excluded** from this template — see `concepts/yoke-pattern-human-triggers`
 > ("coalescing triggers is an anti-pattern").
 >

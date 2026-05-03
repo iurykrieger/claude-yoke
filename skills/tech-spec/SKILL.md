@@ -253,7 +253,7 @@ Inputs passed to the menu:
 - `artifact_label`: `Tech Spec`. The menu template renders a
   per-sprint summary block when this label is set (see the
   "Tech-Spec-only block" section in `templates/approval-menu.md`).
-- `next_skill`: `/yoke:acceptance-contract`.
+- `next_skill`: `/yoke:acceptance-criteria`.
 - `language`: the language detected for the dialogue.
 - `binding_statement`: empty (Trigger 2 is not a binding gate;
   Trigger 3 carries the binding statement).
@@ -276,7 +276,7 @@ escape — it prompts for the secondary confirmation; on `yes`, the
 skill aborts and instructs the user to re-run `/yoke:discover`
 (which creates a *new* task with a new slug). `approve` records
 approval and stops. `approve_and_continue`
-records approval and chains into `/yoke:acceptance-contract` via the
+records approval and chains into `/yoke:acceptance-criteria` via the
 `Skill` tool in the same turn — but if the open-questions detection
 returned at least one match, the template requires a `yes` / `no`
 warning confirmation before chaining; on `no`, the skill records
@@ -310,7 +310,7 @@ On `approve` or `approve_and_continue`:
   the `status:` frontmatter field to `approved` (Edit tool). All
   sprint files MUST flip together — partial-write failures
   (filesystem errors, not LLM) abort the skill non-zero before
-  chaining into `/yoke:acceptance-contract`.
+  chaining into `/yoke:acceptance-criteria`.
 
 This atomic-at-bash-level approval is what makes
 `Status: approved` on the spec a **meaningful gate** — it covers the
@@ -326,15 +326,15 @@ On `approve` or `approve_and_continue`:
   `status: approved`.
 - On `approve_and_continue` (after the open-questions warning, when
   applicable, returns `yes`): the skill invokes
-  `/yoke:acceptance-contract` via the `Skill` tool in the same turn.
+  `/yoke:acceptance-criteria` via the `Skill` tool in the same turn.
   No manual paste is required from the user.
 - **Fallback when `Skill` tool is unavailable.** Some runtimes do
   not expose the `Skill` tool to a running skill body. The skill
   MUST detect availability before rendering the menu and, when
   unavailable, render option 1 with the suffix `(manual: run
-  /yoke:acceptance-contract after this step)`. On selection of
+  /yoke:acceptance-criteria after this step)`. On selection of
   option 1 in fallback mode, the skill records approval, prints
-  "Tech Spec approved. Run `/yoke:acceptance-contract` to advance to
+  "Tech Spec approved. Run `/yoke:acceptance-criteria` to advance to
   Phase 3.", and exits cleanly.
 
 On `reject` (after secondary confirmation): the spec and all task

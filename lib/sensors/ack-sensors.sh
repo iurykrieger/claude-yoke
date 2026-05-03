@@ -123,7 +123,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 plugin_root="$(cd "${script_dir}/../.." && pwd)"
 
 # Source the working-memory helpers so wm_active_slug /
-# wm_acceptance_contract_path / etc. are callable from upsert_mode.
+# wm_acceptance_criteria_path / etc. are callable from upsert_mode.
 # shellcheck source=../working-memory/paths.sh
 source "${plugin_root}/lib/working-memory/paths.sh"
 
@@ -213,13 +213,16 @@ catalog_mode() {
 # Shared helpers
 # ---------------------------------------------------------------------------
 
-# Detect whether a path looks like an Acceptance Contract (vs a sensor
-# file). Heuristic: contains either `## Sensors registry` or
-# `### Validation` heading at column 0, OR sits under
-# `.yoke/acceptance-contracts/`.
+# Detect whether a path looks like an Acceptance Contract / Acceptance
+# Criteria document (vs a sensor file). Heuristic: contains either
+# `## Sensors registry` or `### Validation` heading at column 0, OR sits
+# under `.yoke/acceptance-criteria/` (canonical, post-v4.0.0) or
+# `.yoke/acceptance-contracts/` (frozen historical files; the directory
+# is preserved per the v4.0.0 no-historical-migration policy).
 is_acceptance_contract_path() {
   local path="$1"
   case "$path" in
+    *.yoke/acceptance-criteria/*) return 0 ;;
     *.yoke/acceptance-contracts/*) return 0 ;;
   esac
   # Cheap content sniff — first 200 lines is enough.
@@ -902,7 +905,7 @@ upsert_mode() {
   #      fetch-logs, code-review, llm-as-judge) with `command:`
   #      pre-populated from the host project's discover-chain.
   #      Idempotent — existing files preserved.
-  #   2. If `<root>/.yoke/acceptance-contracts/` exists, walk every
+  #   2. If `<root>/.yoke/acceptance-criteria/` exists, walk every
   #      contract and materialize any AC-referenced sensor id whose
   #      file does not yet exist. Project-specific sensors get
   #      command bindings from one of two sources, in order:
@@ -910,12 +913,19 @@ upsert_mode() {
   #          (parse_sensors_registry → command/agent verbatim);
   #      (b) fallback to a `<!-- TODO: fill -->` placeholder, with a
   #          stderr warning naming the unresolved id.
-  local contracts_glob sensors_dir
+  #
+  # Post-v4.0.0 the canonical directory is `.yoke/acceptance-criteria/`;
+  # the legacy `.yoke/acceptance-contracts/` directory may still hold
+  # historical files (frozen per the v4.0.0 no-historical-migration
+  # policy) so we walk both when both exist.
+  local contracts_glob sensors_dir legacy_glob
   if [ -n "$root_dir" ]; then
-    contracts_glob="${root_dir%/}/contracts"
+    contracts_glob="${root_dir%/}/criteria"
+    legacy_glob="${root_dir%/}/contracts"
     sensors_dir="${root_dir%/}/sensors"
   else
-    contracts_glob=".yoke/acceptance-contracts"
+    contracts_glob=".yoke/acceptance-criteria"
+    legacy_glob=".yoke/acceptance-contracts"
     sensors_dir=".yoke/sensors"
   fi
 
@@ -932,26 +942,29 @@ upsert_mode() {
   infer_project_sensors upserted_yaml "$sensors_dir"
 
   # Step 2 — process ONLY the ACTIVE AC (resolved via
-  # `.yoke/runtime/.current` → `wm_acceptance_contract_path`). Historical
-  # ACs in `<contracts_glob>/` remain read-only audit artifacts; their
-  # ad-hoc sensor IDs do not pollute the live project catalog. If
-  # `.yoke/runtime/.current` is absent (e.g. `/yoke:bootstrap` first
-  # invocation, no active task yet), the standards seed is the only
-  # output and historical ACs are skipped silently.
+  # `.yoke/runtime/.current` → `wm_acceptance_criteria_path`). Historical
+  # ACs in `<contracts_glob>/` (or the legacy `<legacy_glob>/` directory
+  # under v4.0.0's no-historical-migration policy) remain read-only
+  # audit artifacts; their ad-hoc sensor IDs do not pollute the live
+  # project catalog. If `.yoke/runtime/.current` is absent (e.g.
+  # `/yoke:bootstrap` first invocation, no active task yet), the
+  # standards seed is the only output and historical ACs are skipped
+  # silently.
   local active_cf=""
-  if [ -d "$contracts_glob" ] && [ -f ".yoke/runtime/.current" ]; then
+  if [ -f ".yoke/runtime/.current" ]; then
     local active_slug
     active_slug="$(wm_active_slug 2>/dev/null || true)"
     if [ -n "$active_slug" ]; then
-      active_cf="${contracts_glob}/${active_slug}.md"
-      if [ ! -f "$active_cf" ]; then
-        active_cf=""
+      if [ -d "$contracts_glob" ] && [ -f "${contracts_glob}/${active_slug}.md" ]; then
+        active_cf="${contracts_glob}/${active_slug}.md"
+      elif [ -d "$legacy_glob" ] && [ -f "${legacy_glob}/${active_slug}.md" ]; then
+        active_cf="${legacy_glob}/${active_slug}.md"
       fi
     fi
   fi
 
   if [ -z "$active_cf" ]; then
-    if [ ! -d "$contracts_glob" ]; then
+    if [ ! -d "$contracts_glob" ] && [ ! -d "$legacy_glob" ]; then
       printf 'wm: contracts directory %s not found — seeded standards only.\n' "$contracts_glob" >&2
     else
       printf 'wm: no active AC resolved (.yoke/runtime/.current empty or missing) — seeded standards only.\n' >&2

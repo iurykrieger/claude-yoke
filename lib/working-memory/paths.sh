@@ -11,8 +11,9 @@
 #   ├── prds/<slug>.md                             # versioned archive
 #   ├── specs/<slug>.md                            # versioned archive  (cross-sprint architecture index)
 #   ├── sprints/<slug>-s<NN>.md                    # versioned archive  (sprint-as-cycle per-sprint runtime bundle)
-#   ├── acceptance-contracts/<slug>.md             # versioned archive
-#   ├── contracts/<slug>.md                        # versioned archive
+#   ├── acceptance-criteria/<slug>.md              # versioned archive  (v4.0.0 cutover from acceptance-contracts/)
+#   ├── acceptance-contracts/<slug>.md             # legacy versioned archive (frozen historical files post v4.0.0; no helper resolves it)
+#   ├── contracts/<slug>.md                        # versioned archive  (sprint contracts, runtime refinements)
 #   ├── sensors/<sensor-id>.md                     # versioned archive  (project-scoped; not slug-keyed)
 #   └── runtime/                                   # gitignored
 #       ├── .current                               # per-worktree active-task pointer
@@ -66,7 +67,7 @@ readonly WM_SPRINT_ID_REGEX='^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9][a-z0-9-]{0,49}
 # is now the runtime-bundle archive category. Per-task files no longer
 # exist on disk — tasks live as `### Task <ID>` anchors inside sprint
 # files.
-readonly WM_ARCHIVE_CATEGORIES=(prds specs sprints acceptance-contracts contracts)
+readonly WM_ARCHIVE_CATEGORIES=(prds specs sprints acceptance-criteria acceptance-contracts contracts)
 
 # --- slug validation --------------------------------------------------------
 
@@ -118,7 +119,7 @@ _wm_archive_path() {
 
 wm_prd_path()                  { _wm_archive_path "prds" "${1:-}"; }
 wm_spec_path()                 { _wm_archive_path "specs" "${1:-}"; }
-wm_acceptance_contract_path()  { _wm_archive_path "acceptance-contracts" "${1:-}"; }
+wm_acceptance_criteria_path()  { _wm_archive_path "acceptance-criteria" "${1:-}"; }
 wm_contracts_path()            { _wm_archive_path "contracts" "${1:-}"; }
 
 # --- sprint paths -----------------------------------------------------------

@@ -97,7 +97,7 @@ termination.
   - `.yoke/config.yaml` exists.
   - `.yoke/runtime/.current` exists and points at a valid slug.
   - `wm_prd_path "$slug"`, `wm_spec_path "$slug"`, and
-    `wm_acceptance_contract_path "$slug"` all exist and carry
+    `wm_acceptance_criteria_path "$slug"` all exist and carry
     `Status: approved` (PRD/Spec) or `Status: ratified` (Contract).
     The Phase-2 approval flow flips `Status: approved` on the spec
     AND every `.yoke/sprints/<slug>-s*.md` together — see
@@ -545,7 +545,7 @@ see `concepts/yoke-pattern-human-triggers`.
 - `.yoke/runtime/.current` exists and points at a valid slug.
 - `.yoke/prds/<slug>.md` (approved), `.yoke/specs/<slug>.md`
   (approved), every `.yoke/sprints/<slug>-s*.md`
-  (`status: approved`), `.yoke/acceptance-contracts/<slug>.md`
+  (`status: approved`), `.yoke/acceptance-criteria/<slug>.md`
   (ratified).
 
 ## Output contract

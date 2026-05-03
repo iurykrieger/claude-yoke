@@ -18,7 +18,7 @@
 
 ## Three pillars
 
-1. **Binding spec.** Three sequential artifacts (PRD, Tech Spec, Acceptance Contract) produced by **skills** with embedded persona prompts. The Acceptance Contract is binding: once ratified at Trigger 3, "done" is operationally "passes every Contract criterion".
+1. **Binding spec.** Three sequential artifacts (PRD, Tech Spec, **Acceptance Criteria**) produced by **skills** with embedded persona prompts. The Acceptance Criteria document is binding: once ratified at Trigger 3, "done" is operationally "passes every criterion below". The artifact is organised as **User Stories → Definition of Done → Acceptance Criteria → Sensor pool**: DoD is a binary completion checklist per User Story; AC entries are observable QA conditions per User Story; the Sensor pool is a flat list of sensor IDs unclassified at authoring time. Sensor selection per Acceptance Criterion is a runtime council decision — Sr QA and Sr Staff each pick which pool members gate which criterion at Phase 4 (renamed from "Acceptance Contract" in v4.0.0; see `docs/migration-v3-to-v4.md`).
 
 2. **Agent council at Phase 4.** Three persona subagents — **Sr Eng**, **Sr QA**, **Sr Staff** — spawned by `/yoke:implement` in a **single concurrent Task batch per cycle**, behind a deterministic sync barrier. Their lenses are independent and partially adversarial (build / verify / govern); a contradiction-detection arbiter mediates Phase B and emits a structured JSON verdict; the Orchestrator subagent survives in canonize-only mode for the canonical-memory write handoff at full-run termination. Hard bounds (≤8 cycles per sprint, council-round cap, timeout, budget) guarantee termination — no infinite loops.
 
@@ -26,8 +26,8 @@
 
 ## Three council personas + canonize-only Orchestrator (v3.0)
 
-- **Sr Eng** (`agents/sr-eng.md`) — runtime persona subagent. Writes production code targeting the next failing Acceptance Contract criterion; ships unit tests; never authors acceptance tests; writes its slice at `.yoke/runtime/cycles/<N>/sr-eng.md` and its sync-barrier marker at `.yoke/runtime/.phase-a-done.sr-eng` before exit.
-- **Sr QA** (`agents/sr-qa.md`) — runtime persona subagent. Authors contract-anchored acceptance tests under `tests/acceptance/<contract-slug>/`, each carrying a `# criterion: <id>` header that resolves against the binding contract; never modifies production code; writes its slice at `.yoke/runtime/cycles/<N>/sr-qa.md`.
+- **Sr Eng** (`agents/sr-eng.md`) — runtime persona subagent. Writes production code targeting the next failing Acceptance Criterion (or DoD checkpoint); ships unit tests; never authors acceptance-criteria-anchored tests; writes its slice at `.yoke/runtime/cycles/<N>/sr-eng.md` and its sync-barrier marker at `.yoke/runtime/.phase-a-done.sr-eng` before exit.
+- **Sr QA** (`agents/sr-qa.md`) — runtime persona subagent. Authors acceptance-criteria-anchored tests under `tests/acceptance/<contract-slug>/`, each carrying a `# criterion: <id>` header that resolves against the binding artifact (AC-<US>-<n> or FR-N); selects which pool sensors gate each criterion at runtime (recorded under `## Sensor selection` in its slice file); never modifies production code; writes its slice at `.yoke/runtime/cycles/<N>/sr-qa.md`.
 - **Sr Staff** (`agents/sr-staff.md`) — runtime persona subagent. Invokes the configured `review-skill` (default `/review`), consults canonical memory via `/yoke:search-canonical-memory`, and emits a `### Review output` subsection in its slice; never invokes `/ultrareview` autonomously.
 - **Council arbiter** (`agents/council-arbiter.md`) — Phase-B contradiction-detection LLM. Spawned by `lib/runtime/council.sh phase-b` only when a réplica round produced ≥1 réplica. Emits a JSON verdict matching `{round, consensus, contradictions[], tone_only_pairs[]}`; classifies each pairwise disagreement as direct contradiction, importance disagreement, or tone-only.
 - **Orchestrator** (`agents/orchestrator.md`) — termination subagent and **sole writer of canonical memory** under Model C. Single surviving mode:
@@ -151,7 +151,7 @@ under `lib/runtime/` or `skills/implement/` trips
 | :--- | :--- | :--- |
 | 1 — Discovery | `/yoke:discover` skill (Discovery persona inline) | idea → `prd.md` |
 | 2 — Tech Spec | `/yoke:tech-spec` skill (Tech-spec persona inline) | PRD → `tech-spec.md` + sprint files |
-| 3 — Acceptance Contract | `/yoke:acceptance-contract` skill (Acceptance persona inline) | PRD + Tech Spec → binding contract |
+| 3 — Acceptance Criteria | `/yoke:acceptance-criteria` skill (Senior-QA persona inline; interactive grill + PRD/Tech-Spec resume) | PRD + Tech Spec → binding Acceptance Criteria document (US → DoD → AC → Sensor pool) |
 | 4 — Runtime | `/yoke:implement` skill (spawns 3 council personas in parallel each cycle behind the sync barrier; arbiter mediates Phase B) | council protocol with hard bounds |
 | 5 — Canonization (auto) | Orchestrator subagent in canonize mode (single Task call from `/yoke:implement` full-run termination) | working memory → canonical-memory PRs |
 | 5 — Canonization (manual escape hatch) | `/yoke:canonize` skill (dispatches to the active provider's canonize verb) | re-runs canonization on existing `.yoke/` |
@@ -166,7 +166,7 @@ provider selection + v1.x → v2.0.0 migration),
 
 1. PRD approval (Phase 1 gate)
 2. Tech Spec approval (Phase 2 gate)
-3. Acceptance Contract ratification (Phase 3 gate, binding)
+3. Acceptance Criteria ratification (Phase 3 gate, binding)
 4. Council divergence arbitration (Phase 4, fired by the round-cap path inside Phase B; the rendered message names every flagged persona pair — generalized from the v2.x binary-loop arbitration)
 5. Canonization ratification (Phase 5, Model C — auto-merge / veto window / sync ratify)
 
@@ -189,7 +189,7 @@ provider selection + v1.x → v2.0.0 migration),
            │            │                │            │
            └────────────┼────────────────┘            │
                         │                             │
-                       prd.md ── tech-spec.md ── acceptance-contract.md
+                       prd.md ── tech-spec.md ── acceptance-criteria.md
                         │                             │
                         ▼                             │ Trigger 4 (council divergence,
               ┌──────────────────────────────────────────────────────┐
@@ -329,7 +329,7 @@ yoke/                              # this plugin repo
 │   ├── bootstrap/                 # provider selection + legacy migration
 │   ├── search-canonical-memory/   # read facade
 │   ├── canonize/                  # write facade
-│   ├── discover/  tech-spec/  acceptance-contract/  implement/
+│   ├── discover/  tech-spec/  acceptance-criteria/  implement/
 │   ├── drift-sense/  status/  ack-sensors/
 ├── agents/                        # council personas (sr-eng, sr-qa, sr-staff),
 │                                  # contradiction-detection arbiter (council-arbiter),
@@ -350,7 +350,7 @@ claude-bedrock/                    # peer plugin (separate marketplace install)
 
 <host project>/.yoke/              # working memory, per project
 └── (config.yaml with canonical_memory.provider, prds/, specs/,
-     sprints/, acceptance-contracts/, contracts/, sensors/, runtime/)
+     sprints/, acceptance-criteria/, contracts/, sensors/, runtime/)
 
 <provider's substrate>/            # provider-owned (e.g. Bedrock vault)
 └── (markdown + frontmatter, queryable via the provider's read skill,

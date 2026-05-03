@@ -5,15 +5,15 @@
     "url": "https://github.com/iurykrieger"
   },
   "metadata": {
-    "description": "Governed adversarial development for AI agents — v3.0 agent council protocol with pluggable canonical-memory providers — Yoke as a Claude Code plugin.",
-    "version": "3.0.0"
+    "description": "Governed adversarial development for AI agents — v4.0 acceptance-criteria QA cutover atop the v3.0 agent council protocol — Yoke as a Claude Code plugin.",
+    "version": "4.0.0"
   },
   "plugins": [
     {
       "name": "yoke",
       "source": "./",
-      "description": "Binding spec + agent council protocol (Sr Eng / Sr QA / Sr Staff) + pluggable canonical-memory providers for Claude Code.",
-      "version": "3.0.0",
+      "description": "Binding Acceptance Criteria (US → DoD → AC → Sensor pool) + agent council protocol (Sr Eng / Sr QA / Sr Staff) + pluggable canonical-memory providers for Claude Code.",
+      "version": "4.0.0",
       "author": {
         "name": "Iury Krieger",
         "url": "https://github.com/iurykrieger"

@@ -8,7 +8,7 @@ description: >
   block (upsert mode). Deterministic node — no agentic spawning. Output
   is structured YAML on stdout; diagnostics go to stderr. Sorted output
   is byte-identical across consecutive invocations on the same project.
-argument-hint: "[--mode catalog | readiness | upsert] [<acceptance-contract-path>]"
+argument-hint: "[--mode catalog | readiness | upsert] [<acceptance-criteria-path>]"
 allowed-tools: Bash, Read
 ---
 

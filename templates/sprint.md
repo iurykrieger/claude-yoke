@@ -83,7 +83,7 @@ pass/fail with no ambiguity>
 ## Functional acceptance criteria
 
 <bullet list of criterion IDs from the binding
-`acceptance-contracts/<slug>.md`. Reference-by-ID only — never inline
+`acceptance-criteria/<slug>.md`. Reference-by-ID only — never inline
 the criterion text. The Validator resolves each ID against the
 binding contract at cycle execution.>
 
