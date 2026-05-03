@@ -76,6 +76,7 @@ jobs:
           - tests/ack-sensors-catalog.test.sh
           - tests/perf-quickwins-part-1.test.sh
           - tests/smoke/sensor-harness-realignment.test.sh
+          - tests/smoke/resolve-provider-set-u-safety.test.sh
     steps:
       - name: Check out
         uses: actions/checkout@v4

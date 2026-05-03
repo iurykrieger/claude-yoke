@@ -26,7 +26,8 @@
 #   3 — config missing  (the host project has no `.yoke/config.yaml`)
 #   4 — `canonical_memory.provider` key missing from `.yoke/config.yaml`
 #       (the unmigrated v1.x case; mirrored by s03-t02's hard-break helper)
-#   5 — provider name not present in `providers.yaml`
+#   5 — provider name not present in `providers.yaml`, OR plugin root
+#       unresolvable (neither `YOKE_PLUGIN_DIR` nor `BASH_SOURCE[0]` set)
 #
 # Exported variables on success:
 #   YOKE_PROVIDER_NAME              — "<provider-name>"
@@ -51,13 +52,20 @@ _yoke_provider_plugin_dir() {
     printf '%s' "$YOKE_PLUGIN_DIR"
     return 0
   fi
+  local source_path="${BASH_SOURCE[0]:-}"
+  if [ -z "$source_path" ]; then
+    echo "wm: cannot resolve plugin root — neither YOKE_PLUGIN_DIR nor BASH_SOURCE[0] is set. Export YOKE_PLUGIN_DIR=<plugin path> before sourcing." >&2
+    return 5
+  fi
   local script_dir
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  script_dir="$(cd "$(dirname "$source_path")" && pwd)"
   (cd "${script_dir}/../.." && pwd)
 }
 
 _yoke_providers_yaml_path() {
-  printf '%s/providers.yaml' "$(_yoke_provider_plugin_dir)"
+  local plugin_dir
+  plugin_dir="$(_yoke_provider_plugin_dir)" || return $?
+  printf '%s/providers.yaml' "$plugin_dir"
 }
 
 _yoke_project_config_path() {
@@ -76,7 +84,7 @@ yoke_resolve_provider() {
   fi
 
   local providers_yaml
-  providers_yaml="$(_yoke_providers_yaml_path)"
+  providers_yaml="$(_yoke_providers_yaml_path)" || return $?
   if [ ! -f "$providers_yaml" ]; then
     echo "wm: providers.yaml missing from plugin root ($providers_yaml)." >&2
     return 5
