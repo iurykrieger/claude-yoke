@@ -15,7 +15,7 @@
 - timestamp: "<iso8601>"
 - agents_involved: [implementation, validation]
 - references:
-    - "acceptance-contract.md#<criterion id>"
+    - "acceptance-criteria.md#<criterion id>"
 - cycle: <N>
 
 <!-- Subsequent contracts append below this line, one `## Contract <id>` block per consensus reached. -->

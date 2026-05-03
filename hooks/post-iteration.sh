@@ -5,8 +5,8 @@
 # Sprint-6's hooks/check-hard-bounds.sh) and persists the cycle's
 # verify-acceptance.sh snapshot to .yoke/runtime/.snapshots/cycle-<N>.yaml.
 #
-# Usage: post-iteration.sh [<acceptance-contract-path>]
-# Default contract: resolved via lib/working-memory/paths.sh::wm_acceptance_contract_path
+# Usage: post-iteration.sh [<acceptance-criteria-path>]
+# Default contract: resolved via lib/working-memory/paths.sh::wm_acceptance_criteria_path
 #
 # Snapshot resolution order (Part-1 perf-quickwins, v0.7.0):
 #   1. If .yoke/runtime/.pending-snapshot.yaml exists (written by
@@ -43,7 +43,7 @@ fi
 if [ -n "${1:-}" ]; then
   contract="$1"
 else
-  contract="$(wm_acceptance_contract_path)" || exit 3
+  contract="$(wm_acceptance_criteria_path)" || exit 3
 fi
 
 snapshot_dir="$(wm_snapshots_dir)"

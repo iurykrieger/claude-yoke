@@ -78,7 +78,7 @@ case "$cmd" in
     slug="$(wm_active_slug)" || exit 3
     prd="$(wm_prd_path "$slug")"
     tech="$(wm_spec_path "$slug")"
-    ac="$(wm_acceptance_contract_path "$slug")"
+    ac="$(wm_acceptance_criteria_path "$slug")"
     for f in "$prd" "$tech" "$ac"; do
       if [ ! -f "$f" ]; then
         echo "Error: $f not found. Run the upstream phase first." >&2
@@ -94,7 +94,7 @@ case "$cmd" in
       exit 4
     fi
     if ! grep -qE "^> Status:[[:space:]]*ratified" "$ac"; then
-      echo "Error: $ac is not ratified. Run /yoke:acceptance-contract and ratify." >&2
+      echo "Error: $ac is not ratified. Run /yoke:acceptance-criteria and ratify." >&2
       exit 4
     fi
     # Sprint-walk pre-check: at least one sprint file MUST exist for the
@@ -177,7 +177,7 @@ case "$cmd" in
     ;;
 
   check-contradiction)
-    contract="$(wm_acceptance_contract_path)" || exit 3
+    contract="$(wm_acceptance_criteria_path)" || exit 3
     sprint_contracts="$(wm_contracts_path)" || exit 3
     if [ ! -f "$contract" ] || [ ! -f "$sprint_contracts" ]; then
       echo "ok"

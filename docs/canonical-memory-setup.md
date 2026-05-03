@@ -122,7 +122,7 @@ Or non-interactively:
    substituting the selected provider into `canonical_memory.provider`
    plus any provider-specified `config_passthrough` keys.
 5. **Creates `.yoke/runtime/` and `.yoke/.gitignore`.** The archive
-   categories (`prds/`, `specs/`, `sprints/`, `acceptance-contracts/`,
+   categories (`prds/`, `specs/`, `sprints/`, `acceptance-criteria/`,
    `contracts/`, `sensors/`) are versioned by the host project; only
    `runtime/` is gitignored.
 
@@ -156,7 +156,7 @@ appends a single `canonize:` line to `.yoke/runtime/progress.md`
 recording the dispatch.
 
 Every other Yoke skill (`/yoke:discover`, `/yoke:tech-spec`,
-`/yoke:acceptance-contract`, `/yoke:implement`, `/yoke:drift-sense`,
+`/yoke:acceptance-criteria`, `/yoke:implement`, `/yoke:drift-sense`,
 `/yoke:status`, `/yoke:ack-sensors`) runs a hard-break pre-flight at
 its top: it sources `lib/yoke-prelude.sh`, calls `yoke_require_provider`,
 and aborts non-zero with the binding stderr literal

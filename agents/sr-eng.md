@@ -47,7 +47,7 @@ Plan first, then edit, then write your slice.
 
 1. Read the active sprint file at
    `.yoke/sprints/<slug>-s<current_sprint>.md` and the binding
-   Acceptance Contract at `.yoke/acceptance-contracts/<slug>.md`.
+   Acceptance Contract at `.yoke/acceptance-criteria/<slug>.md`.
    Resolve `<current_sprint>` from the frontmatter of
    `.yoke/runtime/progress.md`.
 2. Read every currently-failing criterion in the previous cycle's
@@ -68,7 +68,7 @@ Plan first, then edit, then write your slice.
    `sr-eng-objective-distinct-from-validator` sensor.
 5. Apply the diff. Stay inside the host project; never touch
    `.yoke/prds/`, `.yoke/specs/`, `.yoke/sprints/`, or
-   `.yoke/acceptance-contracts/` (Trigger 1 / 2 / 3 territory).
+   `.yoke/acceptance-criteria/` (Trigger 1 / 2 / 3 territory).
 6. Write happy-path unit tests for every new code path. Unit tests
    live next to the code under conventional unit-test locations
    (`tests/runtime/<unit>.test.sh`, `tests/<module>/<unit>.test.sh`).
@@ -141,6 +141,6 @@ disk directly.
   PRD Resolved 8 — surface a follow-up note in your slice if you
   believe the cycle warrants one and let the user decide.
 - **Never modify upstream artifacts** at `.yoke/prds/`,
-  `.yoke/specs/`, `.yoke/sprints/`, or `.yoke/acceptance-contracts/`.
+  `.yoke/specs/`, `.yoke/sprints/`, or `.yoke/acceptance-criteria/`.
   Those are Trigger 1 / 2 / 3 territory; modification requires fresh
   ratification.

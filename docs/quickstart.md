@@ -57,7 +57,7 @@ order:
 
 ```
 /yoke:tech-spec              # Phase 2 — Tech Spec from approved PRD
-/yoke:acceptance-contract    # Phase 3 — binding contract
+/yoke:acceptance-criteria    # Phase 3 — binding contract
 /yoke:implement              # Phase 4 — adversarial ralph loop with hard bounds
 /yoke:canonize               # Phase 5 — propose canonical-memory writes
 /yoke:drift-sense            # Phase 6 — continuous drift sensing

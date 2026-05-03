@@ -79,7 +79,7 @@ run. The set is derived from `lib/working-memory/paths.sh` helpers.
 ├── prds/<slug>.md                             # REQUIRED — one per task
 ├── specs/<slug>.md                            # REQUIRED — one per task
 ├── sprints/<slug>-s<NN>.md                    # REQUIRED — one or more per slug
-├── acceptance-contracts/<slug>.md             # REQUIRED
+├── acceptance-criteria/<slug>.md              # REQUIRED
 ├── contracts/<slug>.md                        # OPTIONAL — present iff sprint
 │                                              #   contracts emerged at runtime
 ├── sensors/<sensor-id>.md                     # OPTIONAL — project-scoped
@@ -119,7 +119,7 @@ the templates in the plugin:
 | `prds/<slug>.md` | `templates/prd.md` |
 | `specs/<slug>.md` | `templates/spec.md` |
 | `sprints/<slug>-s<NN>.md` | `templates/sprint.md` |
-| `acceptance-contracts/<slug>.md` | `templates/acceptance-contract.md` |
+| `acceptance-criteria/<slug>.md` | `templates/acceptance-criteria.md` |
 | `contracts/<slug>.md` | `templates/contracts.md` |
 | `sensors/<sensor-id>.md` | `templates/sensor.md` |
 | `runtime/progress.md` | `templates/progress.md` |

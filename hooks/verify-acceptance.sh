@@ -2,7 +2,7 @@
 # verify-acceptance.sh — runs the sensors declared in the active task's
 # Acceptance Contract and emits structured per-criterion results.
 #
-# Usage: verify-acceptance.sh [<acceptance-contract-path>] [options]
+# Usage: verify-acceptance.sh [<acceptance-criteria-path>] [options]
 #
 # Options:
 #   --criterion <id>          Run only sensors mapped to <id>. <id> matches
@@ -34,8 +34,8 @@
 #                             confidence / supporting_quotes) and exit
 #                             0 on valid, non-zero on invalid.
 #
-# Default contract path: resolved via lib/working-memory/paths.sh::wm_acceptance_contract_path
-#                        (i.e., .yoke/acceptance-contracts/<slug>.md, where <slug>
+# Default contract path: resolved via lib/working-memory/paths.sh::wm_acceptance_criteria_path
+#                        (i.e., .yoke/acceptance-criteria/<slug>.md, where <slug>
 #                        comes from .yoke/runtime/.current).
 #
 # Sensor source-of-truth (sensor-harness-realignment, supersedes
@@ -325,7 +325,7 @@ fi
 # --- contract resolution ---------------------------------------------------
 
 if [ -z "$contract" ]; then
-  contract="$(wm_acceptance_contract_path)" || exit 3
+  contract="$(wm_acceptance_criteria_path)" || exit 3
 fi
 
 if [ ! -f "$contract" ]; then
@@ -409,7 +409,7 @@ fi
 if [ -z "$contract_format" ]; then
   echo "Error: Acceptance Contract has no sensor section." >&2
   echo "  expected: per-criterion '### Validation' blocks (new shape) or legacy '## Sensors registry' or '## Sensors / ### Computational'." >&2
-  echo "  correction: rewrite the contract per templates/acceptance-contract.md, then run \`/yoke:ack-sensors --mode upsert ${contract}\` to materialize per-sensor files." >&2
+  echo "  correction: rewrite the document per templates/acceptance-criteria.md, then run \`/yoke:ack-sensors --mode upsert ${contract}\` to materialize per-sensor files." >&2
   exit 4
 fi
 

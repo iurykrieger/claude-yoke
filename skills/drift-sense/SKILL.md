@@ -24,7 +24,7 @@ turn into deprecation propositions via Model C.
 Detects dead code, drift from canonical memory, and pattern decay in the
 **host project** (not the plugin). Delegates to language-appropriate
 tools discovered from the host's `CLAUDE.md` per the same convention
-`/yoke:acceptance-contract` uses for sensor discovery (see Sprint 3).
+`/yoke:acceptance-criteria` uses for sensor discovery (see Sprint 3).
 
 Process:
 1. Parse the host `CLAUDE.md` for sections like `## Dead code`, `## Linting`, `## Build`.

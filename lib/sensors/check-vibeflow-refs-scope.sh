@@ -4,7 +4,7 @@
 # allowed location per the PRD anti-scope and sprint contract c3.
 #
 # Allowed locations (per c3):
-#   .yoke/{prds,tasks,specs,sensors,acceptance-contracts,contracts,runtime}/
+#   .yoke/{prds,tasks,specs,sprints,sensors,acceptance-criteria,acceptance-contracts,contracts,runtime}/
 #   CLAUDE.md
 #   docs/lineage.md
 #   tests/
@@ -18,7 +18,7 @@ needle=".vi""beflow/"
 
 out_of_scope=$(find . -path ./node_modules -prune -o -name '*.md' -print 2>/dev/null \
   | xargs grep -lF "$needle" 2>/dev/null \
-  | grep -vE '^(\./)?(\.yoke/(prds|tasks|specs|sensors|acceptance-contracts|contracts|runtime)/|CLAUDE\.md|docs/lineage\.md|tests/)' \
+  | grep -vE '^(\./)?(\.yoke/(prds|tasks|specs|sprints|sensors|acceptance-criteria|acceptance-contracts|contracts|runtime)/|CLAUDE\.md|docs/lineage\.md|tests/)' \
   || true)
 
 if [ -n "$out_of_scope" ]; then

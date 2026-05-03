@@ -47,12 +47,29 @@ a tone-only verdict. Both errors are R4-grade defects.
   - "the test passes" vs "the test fails on <fixture>".
   - "the code path handles <input>" vs "the code path crashes on
     <input>".
+  - **Definition-of-Done disagreement** — Sr Eng marks `US-001`'s DoD
+    as complete; Sr QA marks the same DoD's check as failing. DoD is
+    binary; the binding artifact does not allow disagreement on
+    completion.
+  - **Acceptance-Criteria-level disagreement** — Sr QA marks
+    `AC-002-3` as `FAIL`; Sr Staff marks the same AC as passing in
+    its architectural verdict. AC entries are observable QA
+    conditions, not opinions; pass/fail divergence on the same AC is
+    direct.
 - **Importance disagreement** — persona A asserts "good enough",
   persona B asserts "rework needed" on the same artifact, with no
   agreement on the threshold. Counts. Examples:
   - "ship as-is, defer the cleanup" vs "the cleanup blocks merge".
   - "the missing edge-case is acceptable" vs "the missing edge-case
-    is a contract violation".
+    is a binding-criterion violation".
+  - **Sensor-selection disagreement** — Sr QA elects `tests-runtime`
+    for `AC-001-2`; Sr Staff elects `llm-as-judge` for the same AC.
+    Both selections may be valid (different lenses on the same
+    observable condition); the council weighs them as importance,
+    not as direct contradiction. The arbiter only escalates this to
+    direct contradiction if the selections produce divergent verdicts
+    (one PASS, one FAIL) — and that is captured as an AC-level
+    disagreement under the Direct-contradiction bucket above.
 - **Tone-only** — phrasing differs but no semantic gap. Does NOT count.
   Examples:
   - "this is suboptimal" vs "this could be cleaner" applied to the

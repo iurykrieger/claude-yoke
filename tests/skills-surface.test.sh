@@ -5,7 +5,7 @@
 # the spec-phase skills + /yoke:search-canonical-memory:
 #
 #   (1) per-skill frontmatter — delimiters, name, description, allowed-tools
-#   (2) spec-phase skills (discover, tech-spec, acceptance-contract):
+#   (2) spec-phase skills (discover, tech-spec, acceptance-criteria):
 #         - allowed-tools excludes Task
 #         - inline persona section
 #         - binding human-trigger prompt (Trigger 1/2/3 respectively)
@@ -83,7 +83,7 @@ done
 # ---------------------------------------------------------------------
 
 # allowed-tools must exclude Task — skills deliberate, subagents adapt.
-for skill in discover tech-spec acceptance-contract; do
+for skill in discover tech-spec acceptance-criteria; do
   f="skills/${skill}/SKILL.md"
   if [ ! -f "$f" ]; then
     err "$skill: SKILL.md missing"
@@ -108,7 +108,7 @@ done
 declare -A trigger_map=(
   [discover]="Trigger 1"
   [tech-spec]="Trigger 2"
-  [acceptance-contract]="Trigger 3"
+  [acceptance-criteria]="Trigger 3"
 )
 for skill in "${!trigger_map[@]}"; do
   trigger="${trigger_map[$skill]}"

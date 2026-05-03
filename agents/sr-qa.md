@@ -50,45 +50,70 @@ criterion in the active sprint's `## Functional acceptance criteria`
 list; (c) every Sr Eng "passes acceptance criterion" claim that your
 test refutes is flagged as a réplica in Phase B.
 
-## Phase A — write acceptance-contract-anchored tests
+## Phase A — write acceptance-criteria-anchored tests
 
-1. Read the active sprint file, the binding Acceptance Contract at
-   `.yoke/acceptance-contracts/<slug>.md`, and the cycle's snapshot
+1. Read the active sprint file, the binding Acceptance Criteria at
+   `.yoke/acceptance-criteria/<slug>.md`, and the cycle's snapshot
    at `$(wm_snapshots_dir)/cycle-<N-1>.yaml`.
-2. For every criterion in the active sprint's `## Functional
-   acceptance criteria` list, identify the gating sensors per the
-   contract's `### Validation` block.
+2. Parse the binding artifact's hierarchy: each `### US-### — <title>`
+   block carries one `#### Definition of Done` (binary checklist) and
+   one or more `#### Acceptance Criteria` items with stable
+   `AC-<US>-<n>` identifiers. Cross-cutting `## Functional Requirements`
+   (`FR-N`) supplement per-US AC. The artifact's `## Sensor pool`
+   section lists every relevant sensor — **unclassified** at
+   authoring time.
 3. **Author or refine an executable test under
    `tests/acceptance/<contract-slug>/<criterion-id>.test.sh`** for
-   every criterion in the active sprint's list. Each test file
+   every AC and every FR the active sprint is gating. Each test file
    **must** start with a header comment `# criterion: <id>` that
-   resolves against the binding contract; the test exercises the
-   criterion's observable behaviour and exits non-zero on failure.
-   The directory `tests/acceptance/` is Sr QA's lane; Sr Eng never
-   writes here.
+   resolves against the binding artifact (e.g. `# criterion: AC-001-2`
+   or `# criterion: FR-3`); the test exercises the criterion's
+   observable behaviour and exits non-zero on failure. The directory
+   `tests/acceptance/` is Sr QA's lane; Sr Eng never writes here.
 4. Stay inside `tests/acceptance/<contract-slug>/` and your own
    slice file. **Never** modify production code or another persona's
    slice file (anti-scope).
 
+## Phase A — sensor selection at runtime
+
+The Acceptance Criteria document does NOT classify pool sensors at
+authoring time. Selection per criterion is YOUR runtime decision:
+
+5. For each AC and each FR you are evaluating this cycle, pick the
+   subset of `## Sensor pool` members that gate it. Selection
+   heuristics: prefer computational sensors (`tests-runtime`,
+   `tests-smoke`, `lint`) for binary checks; reserve inferential
+   sensors (`llm-as-judge`) for criteria where observable conditions
+   require LLM-grade judgment (e.g. naming clarity, prose tone). DoD
+   items are evaluated before AC items — a story whose DoD has not
+   passed is never AC-evaluated this cycle.
+6. Record the selection under a `## Sensor selection` H2 in your
+   slice file. One entry per criterion, listing the selected pool
+   members plus a one-line rationale per selection. When you
+   consciously skip a pool member that the spec lists for this
+   criterion, write a `## Skipped sensors` block with rationale
+   (e.g. "skipped `code-review` for AC-002-1 because the criterion
+   is purely structural and computational sensors decide it").
+
 ## Phase A — judge the cycle's sensors
 
-5. Apply the per-criterion `### Validation` interpretation to every
-   gating sensor's verdict from the cycle's snapshot. Computational
-   verdicts are immediate; inferential verdicts arrive lag-by-one
-   from the prior cycle's `judge-verdicts/` directory and are read
-   accordingly.
-6. Emit one structured verdict per criterion under `## Phase A — own
+7. Apply the per-criterion observable-condition interpretation to
+   every selected gating sensor's verdict from the cycle's snapshot.
+   Computational verdicts are immediate; inferential verdicts arrive
+   lag-by-one from the prior cycle's `judge-verdicts/` directory and
+   are read accordingly.
+8. Emit one structured verdict per criterion under `## Phase A — own
    progress` in your slice file at `.yoke/runtime/cycles/<N>/sr-qa.md`.
    Each verdict carries `criterion`, `status` (`PASS | PARTIAL |
    FAIL`), `location` (file + line where the violation lives, when
    the verdict is not `PASS`), `fix_instruction` (concrete next
-   step), `sensor` (gating sensor id), and `evidence` (the snapshot
-   excerpt or the failing test output).
-7. Record the tests written and the sensors invoked under the same
+   step), `sensor` (the gating sensor id you selected), and
+   `evidence` (the snapshot excerpt or the failing test output).
+9. Record the tests written and the sensors invoked under the same
    `## Phase A — own progress` section so the council reader can
    trace each verdict back to its evidence.
-8. Write the Phase-A done marker
-   `.yoke/runtime/.phase-a-done.sr-qa` immediately before exit.
+10. Write the Phase-A done marker
+    `.yoke/runtime/.phase-a-done.sr-qa` immediately before exit.
 
 ## Phase B — flag contradictions, replicate, converge
 
@@ -140,4 +165,4 @@ relevant to your verdict.
   can refine interpretation inside the envelope but cannot
   contradict it.
 - **Never modify upstream artifacts** at `.yoke/prds/`,
-  `.yoke/specs/`, `.yoke/sprints/`, or `.yoke/acceptance-contracts/`.
+  `.yoke/specs/`, `.yoke/sprints/`, or `.yoke/acceptance-criteria/`.

@@ -4,6 +4,62 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and this
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.0.0] — 2026-05-03 — Acceptance Criteria rename + reshape (**Breaking**)
+
+The Phase 3 binding artifact is renamed from "Acceptance Contract" to
+"Acceptance Criteria" and reshaped to standard QA discipline:
+
+```
+User Stories → Definition of Done → Acceptance Criteria → Sensor pool
+```
+
+The skill verb moves from `/yoke:acceptance-contract` to
+`/yoke:acceptance-criteria` and is rewritten as an interactive Senior-QA
+grill that resumes the PRD + Tech Spec back to the user (≤ 25 lines),
+runs a 1–5 round lettered-options dialogue, and refuses to render Trigger
+3 if any sensor in the pool fails to resolve. Sensor classification per
+Acceptance Criterion moves from authoring-time to runtime: the binding
+artifact lists the sensor pool unclassified; Sr QA + Sr Staff council
+personas pick which pool members gate which AC during Phase 4 (recorded
+in their per-cycle slice file under `## Sensor selection`).
+
+### Breaking changes
+
+- **Working-memory directory.** New artifacts land in
+  `.yoke/acceptance-criteria/<slug>.md`. The legacy
+  `.yoke/acceptance-contracts/` directory remains recognized for the
+  17 frozen historical files (no-historical-migration policy); both
+  directories are walked by sensors that scan binding artifacts.
+- **Skill verb.** `/yoke:acceptance-contract` →
+  `/yoke:acceptance-criteria`. The `skills/acceptance-contract/`
+  directory is deleted.
+- **Template.** `templates/acceptance-contract.md` →
+  `templates/acceptance-criteria.md`.
+- **Path helper.** `wm_acceptance_contract_path` →
+  `wm_acceptance_criteria_path` (no shim).
+- **PRD shape.** `templates/prd.md` strips `## User Stories`;
+  `skills/discover/SKILL.md` no longer enumerates `US-###` and points
+  users at `/yoke:acceptance-criteria` as the User Story owner. PRD
+  retains `## Functional Requirements` for cross-cutting system-level
+  items.
+
+### New helpers
+
+- `lib/sensors/resolve-pool.sh` — fail-closed pool validator: reads
+  `## Sensor pool` from the Acceptance Criteria, asserts every entry
+  resolves to a `lib/sensors/<id>.sh` or to a host-discovered command,
+  and exits non-zero on the first unresolvable sensor.
+- `lib/runtime/criteria-parse.sh` — extracts `US-### | AC-<US>-<n>`
+  tuples from the Acceptance Criteria in deterministic order, used by
+  the council personas to walk criteria during Phase 4.
+- `tests/smoke/orphan-acceptance-contract-refs.test.sh` — cutover
+  guard; exits 0 on a clean tree, exits non-zero if any active code
+  path reintroduces an `acceptance-contract` reference outside
+  legacy-doctrine paths.
+
+> **Breaking.** Drain in-flight v3.x cycles before upgrading. See
+> `docs/migration-v3-to-v4.md` for the full upgrade runbook.
+
 ## [3.0.0] — 2026-05-02 — Agent council protocol cutover (**Breaking**)
 
 The v2.x adversarial Generator/Validator/Orchestrator-monitor runtime is

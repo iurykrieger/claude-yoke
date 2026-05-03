@@ -75,7 +75,7 @@ For the active slug, check which archive categories contain
 
 - `prds/<slug>.md` exists → at least Phase 1 reached.
 - `specs/<slug>.md` plus at least one `sprints/<slug>-s*.md` → Phase 2.
-- `acceptance-contracts/<slug>.md` → Phase 3.
+- `acceptance-criteria/<slug>.md` → Phase 3.
 - `contracts/<slug>.md` → Phase 4 has run.
 - a canonization marker (Sprint 8 wiring) → complete.
 
@@ -182,7 +182,7 @@ should run the provider's healthcheck skill directly.
 
 ### Working memory
 - active task: <slug-or-none>
-- phase: <prd-only | tech-spec | acceptance-contract | contracts | complete>
+- phase: <prd-only | tech-spec | acceptance-criteria | contracts | complete>
 - current_sprint: <NN> (active sprint id; cycle <C> / 8)
 - completed_sprints: [<NN>, ...]
 - runtime: <latest snapshot path>

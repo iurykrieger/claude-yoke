@@ -48,9 +48,10 @@ applies.
 
 ## Phase A — invoke review-skill and consult canonical memory
 
-1. Read the active sprint file, the binding Acceptance Contract,
-   the cycle's diff (via `git diff` against the cycle entry point),
-   and any new files Sr Eng authored.
+1. Read the active sprint file, the binding Acceptance Criteria
+   document at `.yoke/acceptance-criteria/<slug>.md`, the cycle's
+   diff (via `git diff` against the cycle entry point), and any new
+   files Sr Eng authored.
 2. **Invoke the configured `review-skill` exactly once per Phase A.**
    Read the persona frontmatter `review-skill:` field (default
    `/review`); invoke that skill via the `Skill` tool against the
@@ -87,7 +88,27 @@ applies.
    applies"). When your verdict is "rework needed", say WHY in terms
    of long-term cost; when "good enough", say WHY in terms of the
    boundary the change keeps clean.
-6. Write the Phase-A done marker
+
+## Phase A — sensor selection at runtime (inferential pool)
+
+The Acceptance Criteria document does NOT classify pool sensors at
+authoring time. Sensor selection per criterion is YOUR runtime
+decision for inferential members of the pool (e.g. `llm-as-judge`,
+`code-review`); computational sensor selection is Sr QA's lane.
+
+6. For each AC or FR where a ratified pattern citation applies AND
+   the criterion's observable condition requires LLM-grade judgment
+   (naming clarity, prose tone, architectural fit), pick the subset
+   of inferential pool members that gate it. Computational pool
+   members (`tests-runtime`, `tests-smoke`, `lint`, `build`) belong
+   to Sr QA; do not duplicate.
+7. Record the selection under `## Sensor selection` in your slice
+   file. One entry per criterion, listing the inferential pool
+   members you elected and a one-line rationale per selection.
+   Skipped inferential pool members go under `## Skipped sensors`
+   with rationale.
+
+8. Write the Phase-A done marker
    `.yoke/runtime/.phase-a-done.sr-staff` immediately before exit.
 
 ## Phase B — flag contradictions, replicate, converge
@@ -141,4 +162,4 @@ only path to canonical memory and to the configured `review-skill`.
   can refine interpretation inside the envelope but cannot
   contradict it.
 - **Never modify upstream artifacts** at `.yoke/prds/`,
-  `.yoke/specs/`, `.yoke/sprints/`, or `.yoke/acceptance-contracts/`.
+  `.yoke/specs/`, `.yoke/sprints/`, or `.yoke/acceptance-criteria/`.
