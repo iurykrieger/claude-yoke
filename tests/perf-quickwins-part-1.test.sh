@@ -41,7 +41,7 @@ trap 'pkill -P "$watchdog_pid" 2>/dev/null || true; kill "$watchdog_pid" 2>/dev/
 # ------------------------------------------------------------------
 contract="$tmpdir/contract.md"
 cat > "$contract" <<'EOF'
-# Acceptance Contract — fixture
+# Acceptance Criteria — fixture
 
 > Status: ratified
 
@@ -140,7 +140,7 @@ yoke_root="$tmpdir/host"
 mkdir -p "$yoke_root"
 cd "$yoke_root"
 
-mkdir -p .yoke/runtime .yoke/acceptance-contracts
+mkdir -p .yoke/runtime .yoke/acceptance-criteria
 echo "config_version: 1" > .yoke/config.yaml
 slug="2026-04-25-counter-fixture"
 echo -n "$slug" > .yoke/runtime/.current
@@ -148,8 +148,8 @@ echo -n "$slug" > .yoke/runtime/.current
 counter_file="$tmpdir/exec-counter"
 echo 0 > "$counter_file"
 
-cat > ".yoke/acceptance-contracts/${slug}.md" <<EOF
-# Acceptance Contract — counter
+cat > ".yoke/acceptance-criteria/${slug}.md" <<EOF
+# Acceptance Criteria — counter
 
 > Status: ratified
 

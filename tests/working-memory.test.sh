@@ -4,10 +4,11 @@
 # Working-memory layout invariants:
 #   (a) every file written under .yoke/ lands in an allowed location
 #       (config.yaml, .gitignore, prds/<slug>.md,
-#        tech-specs/<slug>.md, acceptance-contracts/<slug>.md,
+#        tech-specs/<slug>.md, acceptance-criteria/<slug>.md,
+#        acceptance-contracts/<slug>.md (legacy, frozen),
 #        contracts/<slug>.md, runtime/* — including runtime/.current)
 #   (b) no flat .yoke/<file>.md exists for
-#       prd|tech-spec|acceptance-contract|contracts|progress
+#       prd|tech-spec|acceptance-contract|acceptance-criteria|contracts|progress
 #   (c) static grep over skills/, lib/, hooks/ finds no flat-path strings
 #       outside paths.sh
 #   (d) .gitignore content is exactly runtime/
@@ -24,7 +25,7 @@ cd "$PLUGIN_ROOT"
 # ---------------------------------------------------------------------
 # (c) Static check — no hardcoded flat-path strings outside paths.sh
 # ---------------------------------------------------------------------
-flat_hits=$(grep -RIn -E '\.yoke/(prd|tech-spec|acceptance-contract|contracts|progress)\.md' \
+flat_hits=$(grep -RIn -E '\.yoke/(prd|tech-spec|acceptance-contract|acceptance-criteria|contracts|progress)\.md' \
               skills/ lib/ hooks/ \
               2>/dev/null \
               | grep -v 'paths\.sh' \
@@ -66,8 +67,8 @@ YAML
   mkdir -p "$(dirname "$(wm_spec_path)")"
   printf '# Tech Spec\n> Status: approved\n' > "$(wm_spec_path)"
 
-  mkdir -p "$(dirname "$(wm_acceptance_contract_path)")"
-  printf '# Acceptance Contract\n> Status: ratified\n' > "$(wm_acceptance_contract_path)"
+  mkdir -p "$(dirname "$(wm_acceptance_criteria_path)")"
+  printf '# Acceptance Contract\n> Status: ratified\n' > "$(wm_acceptance_criteria_path)"
 
   mkdir -p "$(dirname "$(wm_contracts_path)")"
   printf '# Sprint contracts\n' > "$(wm_contracts_path)"
@@ -88,6 +89,7 @@ while IFS= read -r f; do
     .yoke/prds/"$SLUG".md) ;;
     .yoke/specs/"$SLUG".md) ;;
     .yoke/tasks/*) ;;
+    .yoke/acceptance-criteria/"$SLUG".md) ;;
     .yoke/acceptance-contracts/"$SLUG".md) ;;
     .yoke/contracts/"$SLUG".md) ;;
     .yoke/runtime/*) ;;
@@ -107,6 +109,7 @@ forbidden=(
   "$TMP/.yoke/prd.md"
   "$TMP/.yoke/tech-spec.md"
   "$TMP/.yoke/acceptance-contract.md"
+  "$TMP/.yoke/acceptance-criteria.md"
   "$TMP/.yoke/contracts.md"
   "$TMP/.yoke/progress.md"
 )

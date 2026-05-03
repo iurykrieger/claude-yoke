@@ -2,7 +2,7 @@
 # verify-acceptance.sh — runs the sensors declared in the active task's
 # Acceptance Contract and emits structured per-criterion results.
 #
-# Usage: verify-acceptance.sh [<acceptance-contract-path>] [options]
+# Usage: verify-acceptance.sh [<acceptance-criteria-path>] [options]
 #
 # Options:
 #   --criterion <id>          Run only sensors mapped to <id>. <id> matches
@@ -34,8 +34,8 @@
 #                             confidence / supporting_quotes) and exit
 #                             0 on valid, non-zero on invalid.
 #
-# Default contract path: resolved via lib/working-memory/paths.sh::wm_acceptance_contract_path
-#                        (i.e., .yoke/acceptance-contracts/<slug>.md, where <slug>
+# Default contract path: resolved via lib/working-memory/paths.sh::wm_acceptance_criteria_path
+#                        (i.e., .yoke/acceptance-criteria/<slug>.md, where <slug>
 #                        comes from .yoke/runtime/.current).
 #
 # Sensor source-of-truth (sensor-harness-realignment, supersedes
@@ -325,7 +325,7 @@ fi
 # --- contract resolution ---------------------------------------------------
 
 if [ -z "$contract" ]; then
-  contract="$(wm_acceptance_contract_path)" || exit 3
+  contract="$(wm_acceptance_criteria_path)" || exit 3
 fi
 
 if [ ! -f "$contract" ]; then
@@ -409,7 +409,7 @@ fi
 if [ -z "$contract_format" ]; then
   echo "Error: Acceptance Contract has no sensor section." >&2
   echo "  expected: per-criterion '### Validation' blocks (new shape) or legacy '## Sensors registry' or '## Sensors / ### Computational'." >&2
-  echo "  correction: rewrite the contract per templates/acceptance-contract.md, then run \`/yoke:ack-sensors --mode upsert ${contract}\` to materialize per-sensor files." >&2
+  echo "  correction: rewrite the document per templates/acceptance-criteria.md, then run \`/yoke:ack-sensors --mode upsert ${contract}\` to materialize per-sensor files." >&2
   exit 4
 fi
 
@@ -423,6 +423,33 @@ declare -A sensor_meta_token_cost=()
 declare -A sensor_meta_time_cost=()
 declare -A sensor_meta_command=()
 declare -A sensor_meta_agent=()
+
+# Detect doctrinal-placeholder values that would otherwise execute as
+# garbage commands at dispatch time and resolve to status: skip — never
+# pass — exhausting the per-sprint hard bound with no organic path to
+# convergence (issue #29). Recognized shapes:
+#   - HTML-comment placeholder: `<!-- TODO: fill -->`
+#   - Angle-bracketed slot markers: `<TODO>`, `<FIXME>`, `<TBD>`,
+#     `<placeholder>`, `<fill in>`, `<your-...>`, `<insert-...>`,
+#     `<edit-...>`
+#   - Bare-token markers as the first word: `TODO`, `FIXME`, `TBD`
+# Pre-flight rejection is the actionable failure mode the convergence
+# rule requires — `skip != pass`, so a placeholder must never reach
+# `run_one_sensor`.
+sensor_value_is_placeholder() {
+  local v="$1"
+  v="${v#"${v%%[![:space:]]*}"}"
+  case "$v" in
+    '<!--'*) return 0 ;;
+  esac
+  if printf '%s' "$v" | grep -qiE '^<(todo|fixme|tbd|placeholder|fill|your|insert|edit)\b'; then
+    return 0
+  fi
+  if printf '%s' "$v" | grep -qE '^(TODO|FIXME|TBD)([[:space:]:]|$)'; then
+    return 0
+  fi
+  return 1
+}
 
 load_sensor_metadata() {
   local id="$1"
@@ -464,10 +491,20 @@ load_sensor_metadata() {
         echo "Error: sensor file '${sensor_file}' is type 'computational' but missing 'command:' (criterion '${criterion_for_error}')." >&2
         return 4
       fi
+      if sensor_value_is_placeholder "$v_command"; then
+        echo "Error: sensor file '${sensor_file}' is type 'computational' but 'command:' is a placeholder ('${v_command}') (criterion '${criterion_for_error}')." >&2
+        echo "  Resolve the placeholder before invoking /yoke:implement; the convergence rule treats placeholders as 'skip', not 'pass' (issue #29)." >&2
+        return 4
+      fi
       ;;
     inferential)
       if [ -z "$v_agent" ]; then
         echo "Error: sensor file '${sensor_file}' is type 'inferential' but missing 'agent:' (criterion '${criterion_for_error}')." >&2
+        return 4
+      fi
+      if sensor_value_is_placeholder "$v_agent"; then
+        echo "Error: sensor file '${sensor_file}' is type 'inferential' but 'agent:' is a placeholder ('${v_agent}') (criterion '${criterion_for_error}')." >&2
+        echo "  Resolve the placeholder before invoking /yoke:implement; the convergence rule treats placeholders as 'skip', not 'pass' (issue #29)." >&2
         return 4
       fi
       ;;

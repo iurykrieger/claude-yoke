@@ -228,7 +228,7 @@ The whole script (and the read skill that wrapped it) moved to
   canonical memory. Spec-phase Generator/Validator subagent
   instances (which the v1.0 layout had as separate files) are
   eliminated in v1.1 — their personas live inline in
-  `/yoke:discover`, `/yoke:tech-spec`, `/yoke:acceptance-contract`.
+  `/yoke:discover`, `/yoke:tech-spec`, `/yoke:acceptance-criteria`.
   See `concepts/yoke-decision-*` (canonical memory) "Three runtime
   subagents only" (2026-04-25, supersedes 2026-04-24 "Five
   subagents").

@@ -70,4 +70,4 @@ What this Spec does NOT cover. Prevents scope creep during runtime.
 
 ---
 
-> When ready, run `/yoke:acceptance-contract` to advance to Phase 3.
+> When ready, run `/yoke:acceptance-criteria` to advance to Phase 3.

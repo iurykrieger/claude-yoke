@@ -31,37 +31,13 @@ Acceptance Contract verbatim and bind every sprint.
 - <invariant 1>
 - <invariant 2>
 
-## User Stories
-
-Each story is small enough to implement in one focused session and
-carries a verifiable acceptance checklist. The Tech Spec phase will
-decompose stories into sprint tasks; vague stories produce vague tasks.
-
-### US-001: <short descriptive title>
-
-**Description.** As a <user role>, I want <capability> so that <benefit>.
-
-**Acceptance criteria:**
-- [ ] <specific, observable criterion>
-- [ ] <another criterion>
-- [ ] Typecheck / lint passes
-- [ ] **[UI stories only]** Verified in browser
-
-### US-002: <short descriptive title>
-
-**Description.** As a <user role>, I want <capability> so that <benefit>.
-
-**Acceptance criteria:**
-- [ ] <criterion>
-- [ ] <criterion>
-
-> Acceptance criteria must be verifiable, not vague. "Works correctly"
-> is bad. "Endpoint returns 200 with a valid JWT" is good.
-
 ## Functional Requirements
 
-Numbered, unambiguous requirements. The Acceptance Contract (Phase 3)
-lifts these as `FR-N` criteria and binds sensors to them — keep them
+Numbered, unambiguous cross-cutting requirements. The Acceptance
+Criteria document (Phase 3) decomposes these into per-User-Story DoD
+and AC entries via an interactive Senior-QA grill — the PRD captures
+*what* the system must do at the system level; user stories and
+quality gates are authored in `/yoke:acceptance-criteria`. Keep FRs
 specific enough that a sensor can decide pass/fail.
 
 - **FR-1:** The system must <do something specific>.

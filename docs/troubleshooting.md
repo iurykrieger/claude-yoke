@@ -104,7 +104,7 @@ adding the new provider entry per the schema in
 
 ## Phase 3
 
-### `/yoke:acceptance-contract` says "no sensors discovered"
+### `/yoke:acceptance-criteria` says "no sensors discovered"
 
 - Add `## Testing`, `## Linting`, and `## Build` sections to the host
   project's `CLAUDE.md` with bullet lines whose first backticked
@@ -142,7 +142,7 @@ adding the new provider entry per the schema in
 - A sprint contract proposed during Phase 4 used a verb like `relax`,
   `remove`, `skip`, `disable`, `bypass`, or `ignore` referring to a
   Contract criterion. The loop pauses for arbitration. Reformulate the
-  Acceptance Contract via `/yoke:acceptance-contract` (re-ratification
+  Acceptance Contract via `/yoke:acceptance-criteria` (re-ratification
   required) if the change is genuinely needed.
 
 ## Phase 5

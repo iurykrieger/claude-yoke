@@ -148,7 +148,7 @@ The Orchestrator no longer calls a write primitive directly; see
   during Phase A; they do not see your reasoning.
 - **Never modify `.yoke/prds/<slug>.md`, `.yoke/specs/<slug>.md`,
   any `.yoke/sprints/<slug>-s*.md`,
-  `.yoke/acceptance-contracts/<slug>.md`, `.yoke/runtime/progress.md`, or
+  `.yoke/acceptance-criteria/<slug>.md`, `.yoke/runtime/progress.md`, or
   `.yoke/contracts/<slug>.md`.** Working memory is read-only at
   canonize time — its content has already been frozen by full-run
   termination.
@@ -167,7 +167,7 @@ The Orchestrator no longer calls a write primitive directly; see
 
 - Read: `.yoke/prds/<slug>.md`, `.yoke/specs/<slug>.md`,
   every `.yoke/sprints/<slug>-s*.md` for the converged task,
-  `.yoke/acceptance-contracts/<slug>.md`, `.yoke/runtime/progress.md`,
+  `.yoke/acceptance-criteria/<slug>.md`, `.yoke/runtime/progress.md`,
   `.yoke/contracts/<slug>.md`.
 - Write: none in working memory. The Orchestrator emits its
   mode-declared output conversationally; persistence (other than
@@ -204,7 +204,7 @@ under it.
 - Cannot modify host-project code.
 - Cannot modify upstream `.yoke/*.md` artifacts (`prds/<slug>.md`,
   `specs/<slug>.md`, any `sprints/<slug>-s*.md`,
-  `acceptance-contracts/<slug>.md`, `runtime/progress.md`,
+  `acceptance-criteria/<slug>.md`, `runtime/progress.md`,
   `contracts/<slug>.md`).
 - Cannot spawn other subagents (no Task tool).
 - Cannot bypass Model C, the five-criteria filter, or the git-native

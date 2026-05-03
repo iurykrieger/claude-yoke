@@ -31,10 +31,10 @@ The skill takes one optional scope flag. Default is `--all`.
 | `--canonical` | Active memory's health (the 5 healthcheck checks below) |
 | `--all` *(default)* | Both sections, separated by a horizontal rule |
 
-`--memory <name>` selects which canonical memory to report on (passed
-through to Part 1's `resolve-memory.sh`). Without `--memory`, the
-default-marked memory is used (or CWD detection if invoked from
-inside a registered memory).
+`--memory <name>` is forwarded opaquely to the active provider's
+healthcheck skill (when applicable). Resolution of which canonical
+memory to report on is the provider's responsibility — the v2.0.0
+facade only resolves the provider, not the memory itself.
 
 ## Read-only contract
 
@@ -75,7 +75,7 @@ For the active slug, check which archive categories contain
 
 - `prds/<slug>.md` exists → at least Phase 1 reached.
 - `specs/<slug>.md` plus at least one `sprints/<slug>-s*.md` → Phase 2.
-- `acceptance-contracts/<slug>.md` → Phase 3.
+- `acceptance-criteria/<slug>.md` → Phase 3.
 - `contracts/<slug>.md` → Phase 4 has run.
 - a canonization marker (Sprint 8 wiring) → complete.
 
@@ -140,75 +140,40 @@ The phase label is the most-advanced category present for that slug.
 
 ## Section 2 — Canonical memory health (`--canonical` / `--all`)
 
-Resolve the active memory:
+Health introspection is the provider's responsibility under the
+v2.0.0 facade. The status skill resolves the configured provider and
+delegates the diagnostic surface to the provider's pinned healthcheck
+skill (e.g. `/bedrock:healthcheck` for the bedrock provider).
+
+Resolve the provider:
 
 ```bash
-source <plugin_dir>/lib/canonical-memory/resolve-memory.sh
-yoke_resolve_memory --memory "$EXPLICIT_NAME"
+source <plugin_dir>/lib/canonical-memory/resolve-provider.sh
+yoke_resolve_provider
 ```
 
-If no memory is registered, print
-`> [!info] No canonical memory registered.` and skip to the next
-section. This is not an error.
+`yoke_resolve_provider` exit codes — surface verbatim, do **not** retry:
 
-When a memory resolves, run the 5 read-only checks below against
-`$YOKE_MEMORY_PATH`.
+| Exit | Meaning | Behavior |
+|---|---|---|
+| 0 | Resolved | Continue |
+| 3 | `.yoke/config.yaml` missing | Print `> [!info] No canonical memory configured. Run /yoke:bootstrap.` and skip to the next section |
+| 4 | `canonical_memory.provider` key missing | Same as exit 3 |
+| 5 | Provider name unknown to `providers.yaml` | Surface the resolver's stderr; skip the section |
 
-### 2.1 Setup verification
+After exit 0, `$YOKE_PROVIDER_NAME` carries the active provider name.
+Print a one-line confirmation:
 
-Verify the memory is structurally complete:
+```
+canonical-memory provider: <name> — for the full diagnostic, run /<name>:healthcheck
+```
 
-- `.yoke-memory/config.json` exists and parses as JSON.
-- All 8 entity directories exist
-  (`actors/ people/ teams/ concepts/ topics/ discussions/ projects/ fleeting/`).
-- Each entity directory contains `_template.md`.
-
-Report `OK` per item or list the missing pieces.
-
-### 2.2 Graphify-out integrity
-
-Check `<memory>/graphify-out/`:
-
-- If absent, report `n/a — graphify not configured for this memory`.
-- If present, report `graph.json` size + node/edge count and
-  `obsidian/*.md` count.
-- Flag `stale: true` in `.graphify_analysis.json` if present.
-
-### 2.3 Orphan entities
-
-For each entity file in `<memory>/{actors,people,...}/<file>.md`:
-
-- Parse wikilinks from frontmatter and body.
-- Cross-check that every wikilink resolves to an existing file in the
-  same memory.
-
-Report orphans (wikilinks that don't resolve) — typically caused by
-typos, deletions, or yet-unprocessed `/teach` runs.
-
-### 2.4 Dangling content
-
-For each entity file:
-
-- Verify mandatory frontmatter (`type`, `name`/`title`, `updated_at`,
-  `updated_by`, plus the 5 Yoke rippability fields:
-  `ratified_at`, `model_calibrated_against`, `last_validated`,
-  `traceability`, `impact_level`).
-- Flag entries missing any of the 5 rippability fields — these are
-  pruning candidates per `concepts/yoke-conventions` "Minimalist
-  canonical memory with mandatory traceability".
-
-### 2.5 Stale content (rippability)
-
-- For each entity, compute `today − last_validated`.
-- Flag entities older than 15 days.
-- Compare `model_calibrated_against` to the current model
-  (`claude-opus-4-7` in 2026-04). Flag entries calibrated against
-  retired models — they are candidates for `/bedrock:compress` or a
-  rippability re-run.
-
-This subsection replaces the standalone
-`lib/canonical-memory/staleness-check.sh` library. Part 6 retired
-that file; its rippability re-validation logic now lives here.
+The detailed entity-level checks (setup verification, graphify-out
+integrity, orphan entities, dangling content, stale content) are
+owned by the provider plugin and intentionally NOT duplicated here —
+duplicating them would re-introduce the v1.x coupling the v2.0.0
+facade refactor explicitly retired. Users who want the full report
+should run the provider's healthcheck skill directly.
 
 ## Output shape
 
@@ -217,7 +182,7 @@ that file; its rippability re-validation logic now lives here.
 
 ### Working memory
 - active task: <slug-or-none>
-- phase: <prd-only | tech-spec | acceptance-contract | contracts | complete>
+- phase: <prd-only | tech-spec | acceptance-criteria | contracts | complete>
 - current_sprint: <NN> (active sprint id; cycle <C> / 8)
 - completed_sprints: [<NN>, ...]
 - runtime: <latest snapshot path>
@@ -230,12 +195,8 @@ that file; its rippability re-validation logic now lives here.
 
 ---
 
-### Canonical memory: <name> @ <path>
-- setup: <OK | missing X, Y>
-- graphify: <n/a | <stats>>
-- orphans: <none | N entities — list>
-- dangling: <none | N entities missing rippability — list>
-- stale: <none | N entities older than 15 days — list>
+### Canonical memory
+canonical-memory provider: <name> — for the full diagnostic, run /<name>:healthcheck
 ```
 
 Sections that pass with no findings collapse to a single `OK` line
@@ -248,7 +209,7 @@ to keep `--all` output readable.
 | 1 | NEVER modify any file under `.yoke/` or under any registered canonical memory |
 | 2 | NEVER invoke another skill (e.g., never call `/yoke:canonize`, `/bedrock:teach`, or `/bedrock:compress` from here) |
 | 3 | NEVER spawn subagents — read-only diagnostic |
-| 4 | ALWAYS resolve the active memory through Part 1's `resolve-memory.sh` |
+| 4 | ALWAYS resolve the active provider through `lib/canonical-memory/resolve-provider.sh` and delegate detailed health checks to that provider's healthcheck skill — never duplicate provider-owned introspection logic |
 | 5 | Cap entity reads at 1k entities per memory — beyond that, sample uniformly and report sampling rate |
 | 6 | Safe to run at any frequency — no rate-limiting needed |
 
@@ -266,6 +227,7 @@ to keep `--all` output readable.
 - `concepts/yoke-pattern-memory-model` — read-only role.
 - `concepts/yoke-pattern-phase-flow` — phase labels.
 - `lib/working-memory/paths.sh` — working-memory paths.
-- `lib/canonical-memory/resolve-memory.sh` — memory resolution.
+- `lib/canonical-memory/resolve-provider.sh` — provider resolution.
+- `providers.yaml` — provider registry; the active provider's healthcheck skill owns the canonical-memory diagnostic surface.
 - `skills/compress/SKILL.md` — alignment maintenance (the skill that
   *fixes* the issues `/yoke:status` reports).
