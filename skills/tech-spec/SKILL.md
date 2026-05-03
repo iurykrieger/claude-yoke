@@ -66,7 +66,7 @@ This skill is a **blueprint wrapping agentic nodes** per
    single `Write` call.
 2. **Stage 2 — bash (deterministic post-draft self-check).** A
    sequence of `grep`s validates the twelve H2 sections in order, the
-   quantitative-NFR regex, the `### Alt:` triple-shape, the US-###
+   quantitative-NFR regex, the `### Alt:` triple-shape, the FR-N
    lift, the absence of `### Task` anchors, and the absence of
    sprint files. Any failure aborts the skill non-zero with a
    `wm:`-prefixed message naming the offending location.
@@ -136,8 +136,8 @@ list every detected stack as a candidate and force the user to reply.
 
 Render a curated stack menu **by feature category** with 3-5 lettered
 options + an `Other:` escape. The category itself is inferred from
-the PRD's Goals / User Stories (web-api / web-ui / cli / library /
-data-pipeline). The menu shape is:
+the PRD's Goals / Functional Requirements (web-api / web-ui / cli /
+library / data-pipeline). The menu shape is:
 
 ```
 Stack — pick the family that matches this work (auto-detected default
@@ -199,15 +199,20 @@ ask the user to convert the adjective into a measurable target. Do
 not proceed until every captured NFR matches the post-draft regex
 `\d+(\.\d+)?\s*(ms|s|%|rps|qps|req/s|MB|GB|TB|users)` (case-insensitive).
 
-### 7. Round 4 — Technical Use Cases (PRD US-### lift)
+### 7. Round 4 — Technical Use Cases (PRD FR-N lift)
 
-Walk **every** PRD `US-###` in PRD order. For each, prompt the user
-for: components involved, contracts used, NFRs applied, edge cases.
-Allow the user to defer a US-### only with an explicit `Deferred:
-<reason>` answer; record the deferral so step 8's draft surfaces it
-in `## Open Questions`. Silently skipping a US-ID is a hard error
-(the post-draft self-check catches it; do not let the dialogue allow
-silent drops).
+Walk **every** PRD `FR-N` from `## Functional Requirements` in PRD
+order. For each, prompt the user for: components involved, contracts
+used, NFRs applied, edge cases. Allow the user to defer an `FR-N`
+only with an explicit `Deferred: <reason>` answer; record the deferral
+so step 8's draft surfaces it in `## Open Questions`. Silently
+skipping an `FR-N` is a hard error (the post-draft self-check catches
+it; do not let the dialogue allow silent drops).
+
+> **Why FR-N, not US-###.** Post-v4.0.0, User Stories live in the
+> Acceptance Criteria document (`/yoke:acceptance-criteria`), not in
+> the PRD. The PRD enumerates `FR-N` Functional Requirements; the
+> spec's Technical Use Cases section anchors on those FR IDs.
 
 ### 8. Stage 1 — Draft the design doc
 
@@ -255,13 +260,13 @@ Section-by-section discipline:
 - **Trade-offs** — what the chosen approach itself gives up.
 - **Cross-cutting Concerns** — observability, security, error
   handling, i18n / a11y when applicable.
-- **Technical Use Cases** — one `### US-### — <title>` subsection
-  per PRD US-ID, in PRD order, with the four labels (`**Components
+- **Technical Use Cases** — one `### FR-N — <title>` subsection
+  per PRD `FR-N`, in PRD order, with the four labels (`**Components
   involved:**`, `**Contracts used:**`, `**NFRs applied:**`, `**Edge
   cases:**`). Deferred entries: `Deferred: <reason>` with the
   deferral surfaced in `## Open Questions`.
 - **Open Questions** — anything the spec does not yet resolve;
-  deferred US-### entries surface here verbatim.
+  deferred `FR-N` entries surface here verbatim.
 
 The spec carries **no `## Sprints` section** and **no `### Task <ID>`
 anchors**. Sprint partition + task breakdown are Phase 3's
@@ -290,13 +295,16 @@ After the `Write` call, run the following bash checks against
    the next `### `, `## `, or end-of-file. Failure: abort with `wm:
    tech-spec self-check: Alternative '<name>' missing label
    '<label>'`.
-4. **US-### lift.** For each `US-###` ID present in the approved
-   PRD's body, the spec MUST contain either a heading
-   `### US-### — <title>` under `## Technical Use Cases` or a line
-   `Deferred: <reason>` referencing the US-### plus a matching entry
-   under `## Open Questions`. Failure: abort with `wm: tech-spec
-   self-check: PRD US-### '<id>' silently dropped (no subsection,
-   no deferral)`.
+4. **FR-N lift.** For each `FR-N` ID present in the approved PRD's
+   `## Functional Requirements` section, the spec MUST contain either
+   a heading `### FR-N — <title>` under `## Technical Use Cases` or
+   a line `Deferred: <reason>` referencing the `FR-N` plus a matching
+   entry under `## Open Questions`. Extraction: scope `grep -nE` to
+   the body region between `^## Functional Requirements$` and the
+   next `^## ` heading; capture every `FR-[0-9]+` token from that
+   region as the authoritative ID list. Failure: abort with `wm:
+   tech-spec self-check: PRD FR-N '<id>' silently dropped (no
+   subsection, no deferral)`.
 5. **No task anchors.** `grep -cE '^### Task ' "$spec"` returns `0`.
    Failure: abort with `wm: tech-spec self-check: spec body contains
    '### Task ' anchor at line <N> — sprint partition and task
@@ -454,9 +462,12 @@ rejected (no `Status: approved` written) and the skill exits cleanly.
   self-check rejects them.
 - Do NOT let any `### Alt:` subsection skip a label. The
   post-draft self-check rejects them.
-- Do NOT silently drop a PRD `US-###`. The post-draft self-check
+- Do NOT silently drop a PRD `FR-N`. The post-draft self-check
   rejects silent drops; explicit `Deferred: <reason>` is the only
   acceptable path, and the deferral surfaces in `## Open Questions`.
+- Do NOT walk `US-###` from the PRD — User Stories live in
+  `.yoke/acceptance-criteria/<slug>.md` (Phase 3), not in the PRD.
+  Round 4 anchors on `FR-N` Functional Requirements only.
 - Do NOT cite a `Source:` URL that did not appear in this session's
   WebSearch results. Fabricated URLs fail the self-check.
 - Do NOT load `WebSearch` always-on. Gate on the canonical-pattern
@@ -480,7 +491,7 @@ rejected (no `Status: approved` written) and the skill exits cleanly.
 - `concepts/yoke-conventions` ("blueprints wrapping agentic nodes",
   "progressive disclosure").
 - `templates/spec.md` (twelve-section design-doc shape; placeholder
-  body shape for NFR / Alt / US-### sections).
+  body shape for NFR / Alt / FR-N sections).
 - `templates/approval-menu.md` (shared menu shape, detection rule,
   fallback, Tech-Spec-only twelve-section summary block).
 - `lib/config-overrides.sh` (`yoke_get_override`).
