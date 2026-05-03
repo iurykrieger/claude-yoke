@@ -81,6 +81,8 @@ jobs:
           - tests/smoke/placeholder-sensor-preflight.test.sh
           - tests/smoke/scaffold-sprints-bash4.test.sh
           - tests/smoke/skill-prompt-helper-references.test.sh
+          - tests/smoke/tech-spec-design-doc-shape.test.sh
+          - tests/smoke/scaffold-sprints-callable-from-phase-3.test.sh
     steps:
       - name: Check out
         uses: actions/checkout@v4

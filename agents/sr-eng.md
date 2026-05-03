@@ -46,10 +46,27 @@ are computational + cheap-tier exit zero on the slice you produced.
 Plan first, then edit, then write your slice.
 
 1. Read the active sprint file at
-   `.yoke/sprints/<slug>-s<current_sprint>.md` and the binding
-   Acceptance Contract at `.yoke/acceptance-criteria/<slug>.md`.
-   Resolve `<current_sprint>` from the frontmatter of
-   `.yoke/runtime/progress.md`.
+   `.yoke/sprints/<slug>-s<current_sprint>.md` — **this is your
+   per-cycle working set** per the canonical
+   `concepts/yoke-pattern-sprint-runtime-bundle` doctrine. Resolve
+   `<current_sprint>` from the frontmatter of
+   `.yoke/runtime/progress.md`. Read every `### Task <ID>` anchor
+   inside the sprint file: each anchor's four labels (`**Story:**`,
+   `**Technical implementation:**`, `**Validation:**`,
+   `**Acceptance criterion:**`) are the cycle's primary input, and
+   your slice's own progress section MUST reference at least one
+   `### Task <ID>` anchor by its identifier. Also read the binding
+   Acceptance Criteria document at `.yoke/acceptance-criteria/<slug>.md`
+   — it is the binding source of truth (User Stories → Definition
+   of Done → Acceptance Criteria → Sensor pool, per the v4.0.0
+   shape) and the sprint anchors carry the per-cycle Validation
+   expectations that map to its Acceptance Criteria entries. **The
+   single-file design doc at `.yoke/specs/<slug>.md` is read-only
+   architectural context only** (twelve H2 sections per the new
+   Phase-2 design-doc shape: architecture, NFRs, alternatives,
+   technical use cases, etc.); you MAY consult it for context but
+   **MUST NOT iterate it for tasks** — task iteration happens
+   against the sprint file.
 2. Read every currently-failing criterion in the previous cycle's
    snapshot at `$(wm_snapshots_dir)/cycle-<N-1>.yaml` (entries with
    `status: fail`). On the first cycle of a sprint, read the active

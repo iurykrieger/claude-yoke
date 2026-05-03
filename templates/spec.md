@@ -6,67 +6,173 @@
 > Approved by: <user>
 > Approved at: <iso8601>
 
-## Overall objective
+## Context and Scope
 
-One paragraph capturing what this Spec delivers, in technical terms.
+One paragraph stating the technical context (where this work sits in
+the system, the upstream / downstream boundaries, the in-flight
+constraints) and a tight scope statement: what this spec changes and
+what it does not. Keep it concrete — name the files and modules.
 
-## Sprints
+## Goals and Non-Goals
 
-Each sprint has a delivery objective (what is shippable at the end)
-and is rendered as a self-contained **sprint runtime bundle** at
-`.yoke/sprints/<slug>-s<NN>.md`. The sprint file is the cycle's
-working set during `/yoke:implement` (one ralph cycle = one sprint
-file as the working set, per the 2026-04-27 sprint-as-cycle PRD); it
-carries the per-task `### Task <ID>` subsections inline (with the
-four labels `**Story:**`, `**Technical implementation:**`,
-`**Validation:**`, `**Acceptance criterion:**`), the sprint
-acceptance-criterion ID list, and the sprint sensor ID list. **This
-file carries no inline task entries** — it lists the sprint headers
-and points at the per-sprint runtime bundle for the body.
+**Goals**
 
-Sprint ID shape: `<slug>-s<NN>`, where `<slug>` matches the
-existing working-memory slug regex (`<YYYY-MM-DD>-<kebab-slug>`) and
-`<NN>` is the sprint number zero-padded to 2 digits. Padding is what
-makes lexical sort = positional order in `wm_list_sprint_paths`.
-Per the canonized supersession of the per-task-file zero-pad rule,
-the zero-pad invariant now applies to sprint IDs only; task IDs (now
-anchors inside sprint files) keep `t<MM>` zero-padding by convention
-but are not a filename concern.
+- <one-line goal — measurable and testable>
+- <one-line goal — measurable and testable>
 
-### Sprint 1 — <name>
-**Delivery objective:** <what ships at the end of this sprint>
+**Non-Goals**
 
-**Tasks:** see `.yoke/sprints/<slug>-s01.md` `## Tasks` section.
+- <out-of-scope item — what an over-eager reader might assume but the
+  spec deliberately defers>
+- <out-of-scope item>
 
-### Sprint 2 — <name>
-**Delivery objective:** <…>
+## System Context
 
-**Tasks:** see `.yoke/sprints/<slug>-s02.md` `## Tasks` section.
+A short architectural sketch — actors, components, and data flows the
+work touches. Use a fenced code block for an ASCII or
+mermaid-flavoured diagram if helpful. Cite
+`concepts/yoke-pattern-*` entities by name when an existing pattern
+shapes the boundary you are drawing.
 
-## Contracts and interfaces
+```
+<actor> ──> <component-A> ──> <component-B> ──> <data-store>
+```
 
-API shapes, data models, integration contracts. Include schemas,
-endpoints, message formats, and any contract tests that should be
-generated for the Acceptance Contract (Phase 3).
+## Architecture
 
-- **<contract name>** — <description>. Schema: <path>. Tests: <approach>.
+The chosen architecture, named explicitly (e.g. "stateless adapter
+behind the existing skill registry", "deterministic bash blueprint
+wrapping a single LLM stage"). Cite the canonical-memory pattern
+that the architecture inherits from when one applies. Spell out the
+key invariants the architecture guarantees and the failure modes it
+explicitly does not handle.
 
-## Dependencies
+## Stack and Dependencies
 
-### External services and libraries
-- <name> — <why needed; version constraint if any>
+The stack the implementation targets — language, framework, tooling.
+This is the output of the stack-negotiation round of the dialogue,
+not a free-text guess.
+
+- **Language / runtime:** <e.g. bash 4+, Python 3.11+>
+- **Framework:** <e.g. Click for CLI, FastAPI for HTTP service>
+- **Build / packaging:** <e.g. plugin manifest, npm pack>
+- **Testing:** <e.g. bash test harness at `tests/lib/harness.sh`>
+
+### External libraries
+
+- <library name + version constraint + reason>
 
 ### Internal prior work
-- <repo / module / spec> — <relationship>
 
-### Cross-team coordination
-- <team / contact> — <coordination needed>
+- <repo / module / spec> — <relationship — e.g. consumes, extends,
+  supersedes>
+- `concepts/yoke-pattern-<name>` — <how this work inherits the
+  pattern>
 
-## Out of scope
+## APIs and Data Model
 
-What this Spec does NOT cover. Prevents scope creep during runtime.
+API shapes, data models, integration contracts. Name the schemas, the
+endpoints, the message formats. Include any contract tests that
+should be generated for the Acceptance Contract (Phase 3).
 
-- <item>
+- **<contract name>** — <description>. Schema: <path or shape>.
+  Tests: <approach>.
+
+## Non-Functional Requirements
+
+Quantitative targets only. Adjective-only entries ("performant",
+"secure", "reliable" without numbers) are rejected by the post-draft
+self-check. Each bullet matches the regex
+`\d+(\.\d+)?\s*(ms|s|%|rps|qps|req/s|MB|GB|TB|users)` (case-insensitive).
+
+- **Latency:** p95 < 200ms on the hot path.
+- **Availability:** ≥ 99.9% over a 30-day rolling window.
+- **Throughput:** ≥ 50 rps sustained at p95 latency.
+- **Token cost:** ≤ 2000 tokens per cycle on the implementation
+  prompt.
+- **Disk footprint:** ≤ 10MB per slug under `.yoke/`.
+
+## Alternatives Considered
+
+Each alternative is a `### Alt: <name>` subsection carrying the three
+labelled lines below. The post-draft self-check rejects entries that
+omit any label. WebSearch sources MUST be URLs returned by an actual
+`WebSearch` invocation in the same skill session — fabricated URLs
+fail review.
+
+### Alt: <alternative name 1>
+
+**Trade-off vs. chosen:** <one-line trade-off — what we lose by
+picking the chosen approach instead of this one>
+**Reason for rejection:** <one-line reason — why the trade-off lost>
+**Source:** <`concepts/yoke-pattern-<name>` wikilink OR
+`https://<webSearch-url>` OR `internal experience`>
+
+### Alt: <alternative name 2>
+
+**Trade-off vs. chosen:** <one-line trade-off>
+**Reason for rejection:** <one-line reason>
+**Source:** <wikilink | URL | "internal experience">
+
+## Trade-offs
+
+The trade-offs the **chosen** approach itself accepts. This is the
+Nygard "consequences" section — the costs of the decision the spec is
+ratifying, surfaced honestly. Distinct from "Alternatives Considered"
+(which records why other approaches lost).
+
+- **<trade-off name>:** <one-line description of what the chosen
+  approach gives up to gain something else>
+
+## Cross-cutting Concerns
+
+Concerns that span multiple components: observability, security,
+authentication, error handling, internationalization, accessibility.
+Each item names the cross-cut and the chosen handling.
+
+- **Observability:** <how runs are traced / logged>
+- **Security:** <auth boundaries, secret handling, threat assumptions>
+- **Error handling:** <where errors are recovered vs. surfaced>
+- **i18n / a11y:** <if applicable, otherwise "n/a — internal tooling">
+
+## Technical Use Cases
+
+One subsection per PRD `US-###`, in PRD order. Each subsection lifts
+the user story into technical context: components touched, contracts
+used, NFRs applied, edge cases. The post-draft self-check asserts
+every PRD `US-###` appears here (or is marked `Deferred:` with the
+deferral surfaced in `## Open Questions`). Silently dropping a
+US-ID aborts the skill.
+
+### US-001 — <story title>
+
+**Components involved:** <comma-separated component names — name the
+files / modules touched, e.g. `skills/tech-spec/SKILL.md`,
+`lib/config-overrides.sh`>
+**Contracts used:** <comma-separated contract names from the APIs
+and Data Model section — e.g. `wm_spec_path`, `yoke_get_override`>
+**NFRs applied:** <comma-separated NFR names from the Non-Functional
+Requirements section — e.g. `Latency`, `Token cost`>
+**Edge cases:** <bullet list, inline-comma'd or short — what unusual
+inputs / states the implementation must handle>
+
+### US-002 — <story title>
+
+**Components involved:** <…>
+**Contracts used:** <…>
+**NFRs applied:** <…>
+**Edge cases:** <…>
+
+## Open Questions
+
+Anything the spec does not yet resolve. Each entry names the question
+and (when applicable) the deferral target. Deferred PRD `US-###`
+entries from "Technical Use Cases" surface here verbatim.
+
+- <open question — e.g. "Should the canonical-pattern threshold be
+  per-skill or global? Deferred: track during dogfood; revisit after
+  10 specs.">
+- <open question>
 
 ---
 
