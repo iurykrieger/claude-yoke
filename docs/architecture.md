@@ -145,12 +145,88 @@ The legacy v2.x agent files (`agents/generator.md`,
 under `lib/runtime/` or `skills/implement/` trips
 `tests/sensors/legacy-agents-removed.test.sh`.
 
+## Phase 2.5 — Sprint synthesis
+
+Phase 2.5 is the post-rename producer split introduced by PRD
+`.yoke/prds/2026-05-03-generate-sprints-skill.md` (cut-over date
+**2026-05-03**). Sprint files (`.yoke/sprints/<slug>-s<NN>.md`) are
+no longer emitted by `/yoke:tech-spec` — that skill now produces
+only the architecture spec at `.yoke/specs/<slug>.md`. Sprint
+partitioning moved into a dedicated skill,
+**`/yoke:generate-sprints`**, that consumes the approved Tech Spec
+plus the ratified Acceptance Criteria as inputs and produces the
+sprint runtime bundles consumed by `/yoke:implement`.
+
+The new flow chain is:
+
+```
+/yoke:discover               (Phase 1   — product discovery)
+    → /yoke:tech-spec        (Phase 2   — architecture spec)
+    → /yoke:acceptance-criteria  (Phase 3   — binding criteria)
+    → /yoke:generate-sprints (Phase 3.5 — sprint synthesis)
+    → /yoke:implement        (Phase 4   — council protocol)
+```
+
+Sprint synthesis sits at **Phase 3.5** — between binding criteria
+and runtime — because the synthesis consumes both the Spec
+(architecture) and the ratified Acceptance Criteria (user stories +
+DoD + AC). The earlier "Phase 2.5" label predates the flow
+ordering decision and is retired in favor of "Phase 3.5".
+
+`/yoke:generate-sprints` is a **blueprint wrapping a single LLM-
+driven synthesis stage** bracketed by deterministic Bash:
+deterministic pre-flight (provider hard break + active-slug check +
+Spec / AC approval grammar checks + legacy-task rejection), LLM
+synthesis (turns the parsed AC user-stories array plus the parsed
+Spec architecture into a JSON task list), deterministic partition
+(connected-component grouping by overlapping `applies_decisions`
+plus an 8-task per-sprint cap, ordered by lexical clustering with
+placeholder-ordinal tie-break), deterministic render (one
+`.yoke/sprints/<slug>-s<NN>.md` per partition entry via
+`templates/sprint.md`, with the `(Realizes: US-NNN[, US-MMM])`
+clause adjacent to each Story line), and the **Trigger 2.5** gate.
+
+**Trigger 2.5 — Sprint plan ratification (non-binding for criteria).**
+After bundle materialization the skill renders the shared approval
+menu (`templates/approval-menu.md`) with `artifact_label: "Sprint
+plan"` and `next_skill: /yoke:implement`. The gate ratifies the
+*partition*, not the *criteria* — Trigger 3 already ratified the AC
+envelope and that envelope is preserved verbatim across Trigger 2.5.
+On `approve` / `approve_and_continue`, every produced sprint file's
+frontmatter flips `status: draft` → `status: approved` atomically.
+
+**Legacy coexistence.** The presence of
+`.yoke/acceptance-criteria/<slug>.md` selects the new flow; absence
+selects the legacy flow (the legacy ratified envelope under
+`.yoke/acceptance-contracts/<slug>.md`, the legacy
+`/yoke:tech-spec` stage 3 producing sprint files alongside the
+spec). Per Decision 6A of the parent PRD, **no automatic
+migration** is performed — re-running `/yoke:generate-sprints`
+against a legacy task (detected via either the
+`acceptance-contracts/<slug>.md` archive entry or pre-existing
+sprint files lacking the new-flow `acceptance-criteria/<slug>.md`
+marker in their `traceability:` frontmatter) aborts non-zero with
+the literal stderr `wm: legacy task — generate-sprints does not
+migrate` and never touches any file under `.yoke/sprints/`. Tasks
+created on/after the **2026-05-03 cut-over** date use the new
+flow; older tasks finish under the legacy flow.
+
+The new gate state `awaiting:generate-sprints` is surfaced by
+`/yoke:status` and refused by `/yoke:implement`'s pre-cycle check
+when the active task sits in that state — both consumers source
+`lib/working-memory/gate-state.sh :: detect_gate_state` for a
+single source of truth on the ladder. The doctrine entry
+`concepts/yoke-pattern-sprint-synthesis` is staged for canonical-
+memory ratification at full-run termination via
+`.yoke/runtime/.preserve-packet.md`.
+
 ## Six phases
 
 | Phase | Driver | What it does |
 | :--- | :--- | :--- |
 | 1 — Discovery | `/yoke:discover` skill (Discovery persona inline) | idea → `prd.md` |
-| 2 — Tech Spec | `/yoke:tech-spec` skill (Tech-spec persona inline) | PRD → `tech-spec.md` + sprint files |
+| 2 — Tech Spec | `/yoke:tech-spec` skill (Tech-spec persona inline) | PRD → `tech-spec.md` (architecture only) |
+| 2.5 — Sprint synthesis | `/yoke:generate-sprints` skill (Senior Engineer persona inline; LLM synthesis bracketed by deterministic partition + render) | Spec + Acceptance Criteria → sprint runtime bundles |
 | 3 — Acceptance Criteria | `/yoke:acceptance-criteria` skill (Senior-QA persona inline; interactive grill + PRD/Tech-Spec resume) | PRD + Tech Spec → binding Acceptance Criteria document (US → DoD → AC → Sensor pool) |
 | 4 — Runtime | `/yoke:implement` skill (spawns 3 council personas in parallel each cycle behind the sync barrier; arbiter mediates Phase B) | council protocol with hard bounds |
 | 5 — Canonization (auto) | Orchestrator subagent in canonize mode (single Task call from `/yoke:implement` full-run termination) | working memory → canonical-memory PRs |
@@ -162,13 +238,26 @@ provider selection + v1.x → v2.0.0 migration),
 `/yoke:search-canonical-memory` (provider-agnostic read facade), and
 `/yoke:status`.
 
-## Five human triggers
+## Six human triggers
 
 1. PRD approval (Phase 1 gate)
 2. Tech Spec approval (Phase 2 gate)
 3. Acceptance Criteria ratification (Phase 3 gate, binding)
 4. Council divergence arbitration (Phase 4, fired by the round-cap path inside Phase B; the rendered message names every flagged persona pair — generalized from the v2.x binary-loop arbitration)
 5. Canonization ratification (Phase 5, Model C — auto-merge / veto window / sync ratify)
+
+Plus the **non-binding** post-rename gate introduced by PRD
+`.yoke/prds/2026-05-03-generate-sprints-skill.md`:
+
+- **Trigger 2.5 — Sprint plan ratification.** Phase 2.5 gate; fires
+  at the end of `/yoke:generate-sprints` after bundle materialization;
+  ratifies the *partition* (delivery objectives + DoD + task list
+  shape), not the *criteria* (Trigger 3 already bound those). This
+  trigger is **non-binding** for the AC envelope — approving the
+  sprint plan does not re-open the Acceptance Criteria document. The
+  shared approval menu (`templates/approval-menu.md`) is rendered
+  with `artifact_label: "Sprint plan"` and the four-verb prompt
+  (`approve_and_continue` / `approve` / `reject` / `revise`).
 
 ## Topology diagram
 

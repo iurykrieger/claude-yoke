@@ -81,6 +81,49 @@ For the active slug, check which archive categories contain
 
 Report the most-advanced phase as a single label.
 
+### 1.2b Gate state (new-flow / legacy-flow ladder)
+
+Source `lib/working-memory/gate-state.sh` and call
+`detect_gate_state` to resolve the active task's gate. The helper
+returns one of seven canonical labels:
+
+- **New flow** (presence of `acceptance-criteria/<slug>.md` selects this
+  ladder, per the post-rename convention; see the parent PRD
+  `.yoke/prds/2026-05-03-generate-sprints-skill.md` :: FR-17 + FR-14):
+  - `awaiting:tech-spec` — no spec or unapproved spec.
+  - `awaiting:acceptance-criteria` — spec approved, AC missing or
+    unratified.
+  - `awaiting:generate-sprints` — spec approved AND AC ratified, but
+    zero sprint files exist for the slug. This is the **new** state
+    introduced by the parent PRD.
+  - `running:implement` — sprint files exist; the council loop is
+    eligible to walk.
+  - `done` — every sprint has converged
+    (`completed_sprints:` length equals `total_sprints:`).
+- **Legacy flow** (absence of `acceptance-criteria/<slug>.md` selects
+  this ladder; the legacy `acceptance-contracts/<slug>.md` archive is
+  consulted instead):
+  - `awaiting:tech-spec`
+  - `awaiting:acceptance-contract`
+  - `running:implement`
+  - `done`
+
+Render the resolved state alongside its action hint via
+`detect_gate_action_hint`. Example for the new state:
+
+```
+gate: awaiting:generate-sprints — run /yoke:generate-sprints to advance
+```
+
+The detection rule is a single `test -f` check on
+`.yoke/acceptance-criteria/<slug>.md`; it never parses file contents
+beyond the canonical `> Status:` line of each artifact. The same
+helper is consumed by `/yoke:implement`'s pre-cycle check (see
+`skills/implement/SKILL.md` "Pre-flight :: gate-state refusal"), so a
+new-flow task in `awaiting:generate-sprints` reported here is
+guaranteed to be refused there with the literal stderr `wm: run
+/yoke:generate-sprints to advance to Phase 4`.
+
 ### 1.3 Runtime state — sprint walk + cycle progress
 
 If `.yoke/runtime/progress.md` exists, parse the frontmatter and
@@ -183,6 +226,7 @@ should run the provider's healthcheck skill directly.
 ### Working memory
 - active task: <slug-or-none>
 - phase: <prd-only | tech-spec | acceptance-criteria | contracts | complete>
+- gate: <state-label> — <action-hint>
 - current_sprint: <NN> (active sprint id; cycle <C> / 8)
 - completed_sprints: [<NN>, ...]
 - runtime: <latest snapshot path>
@@ -198,6 +242,15 @@ should run the provider's healthcheck skill directly.
 ### Canonical memory
 canonical-memory provider: <name> — for the full diagnostic, run /<name>:healthcheck
 ```
+
+The `gate:` line is the new-flow / legacy-flow ladder output produced
+by `lib/working-memory/gate-state.sh :: detect_gate_state`. It is
+load-bearing for the post-rename Phase 2.5 chain — when the active
+task sits at `awaiting:generate-sprints`, the user must run
+`/yoke:generate-sprints` before `/yoke:implement` can advance, and
+`/yoke:implement`'s pre-cycle check refuses with the literal stderr
+`wm: run /yoke:generate-sprints to advance to Phase 4` when this
+state is detected.
 
 Sections that pass with no findings collapse to a single `OK` line
 to keep `--all` output readable.
