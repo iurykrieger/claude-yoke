@@ -122,6 +122,17 @@ wm_spec_path()                 { _wm_archive_path "specs" "${1:-}"; }
 wm_acceptance_criteria_path()  { _wm_archive_path "acceptance-criteria" "${1:-}"; }
 wm_contracts_path()            { _wm_archive_path "contracts" "${1:-}"; }
 
+# wm_acceptance_criteria_in_use "<slug>"
+#   Returns 0 when .yoke/acceptance-criteria/<slug>.md exists, 1 otherwise.
+#   Mirrors wm_slug_in_use's predicate shape, scoped to the AC archive.
+wm_acceptance_criteria_in_use() {
+    local slug="${1:-}"
+    [[ -n "$slug" ]] || { wm_violation "wm_acceptance_criteria_in_use requires <slug>"; return 2; }
+    local path
+    path="$(wm_acceptance_criteria_path "$slug")" || return 1
+    [[ -f "$path" ]]
+}
+
 # --- sprint paths -----------------------------------------------------------
 #
 # Per the sprint-as-cycle PRD (.yoke/prds/2026-04-27-sprint-as-cycle.md), the

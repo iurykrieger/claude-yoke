@@ -26,6 +26,21 @@
 # (see hooks/check-hard-bounds.sh) and the formal Trigger-4 escalation
 # packet (lib/ralph-loop/escalate.sh).
 #
+# Environment variables (production code paths — NOT test-only branches):
+#   YOKE_IMPLEMENT_DRY_RUN   When set to '1', the `preflight` subcommand
+#                             still runs every gate check (config
+#                             presence, upstream-artifact approval,
+#                             AC ratification, gate-state ladder,
+#                             sprint-file presence) but emits the
+#                             extra stdout marker `dry-run: ok` and
+#                             exits 0 BEFORE Phase A council spawn.
+#                             The downstream cycle loop (sourcing
+#                             this preflight from /yoke:implement)
+#                             reads `dry-run: ok` and short-circuits.
+#                             Useful for inspecting gate state on
+#                             a real working tree without paying
+#                             the council-spawn cost.
+#
 # Exit codes:
 #   0   success / clean
 #   2   usage error
@@ -39,6 +54,8 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../working-memory/paths.sh
 source "${script_dir}/../working-memory/paths.sh"
+# shellcheck source=../working-memory/gate-state.sh
+source "${script_dir}/../working-memory/gate-state.sh"
 
 usage() {
   cat <<'EOF'
@@ -79,7 +96,23 @@ case "$cmd" in
     prd="$(wm_prd_path "$slug")"
     tech="$(wm_spec_path "$slug")"
     ac="$(wm_acceptance_criteria_path "$slug")"
-    for f in "$prd" "$tech" "$ac"; do
+    legacy_ac=".yoke/acceptance-contracts/${slug}.md"
+
+    # Legacy-flow detection — the new-flow `acceptance-criteria/<slug>.md`
+    # archive is the canonical input for the post-rename ratified gate.
+    # Tasks emitted by the legacy `/yoke:tech-spec` stage 3 carry their
+    # ratified envelope at `acceptance-contracts/<slug>.md` instead.
+    # Per the parent PRD `.yoke/prds/2026-05-03-generate-sprints-skill.md`
+    # FR-15 / Decision 6A, the legacy envelope keeps walking under
+    # `/yoke:implement` unmodified. The gate-state refusal added below
+    # only fires on the new-flow path.
+    is_legacy=0
+    if [ ! -f "$ac" ] && [ -f "$legacy_ac" ]; then
+      is_legacy=1
+    fi
+
+    # Always-required upstream artifacts: PRD + Spec.
+    for f in "$prd" "$tech"; do
       if [ ! -f "$f" ]; then
         echo "Error: $f not found. Run the upstream phase first." >&2
         exit 4
@@ -93,15 +126,47 @@ case "$cmd" in
       echo "Error: $tech is not approved. Run /yoke:tech-spec and approve." >&2
       exit 4
     fi
-    if ! grep -qE "^> Status:[[:space:]]*ratified" "$ac"; then
-      echo "Error: $ac is not ratified. Run /yoke:acceptance-criteria and ratify." >&2
-      exit 4
+
+    # Ratified AC envelope — new flow checks `acceptance-criteria/`,
+    # legacy flow checks `acceptance-contracts/`. Both grammars accept
+    # `> Status: ratified`.
+    if [ "$is_legacy" -eq 0 ]; then
+      if [ ! -f "$ac" ]; then
+        echo "Error: $ac not found. Run /yoke:acceptance-criteria first." >&2
+        exit 4
+      fi
+      if ! grep -qE "^> Status:[[:space:]]*ratified" "$ac"; then
+        echo "Error: $ac is not ratified. Run /yoke:acceptance-criteria and ratify." >&2
+        exit 4
+      fi
+    else
+      if ! grep -qE "^> Status:[[:space:]]*ratified" "$legacy_ac"; then
+        echo "Error: $legacy_ac is not ratified. Run /yoke:acceptance-contract and ratify." >&2
+        exit 4
+      fi
     fi
+
+    # Gate-state refusal — fires only on the new-flow path. Per the
+    # parent PRD FR-14 (and Spec :: Flow-detection contract) the
+    # post-rename ladder includes `awaiting:generate-sprints` between
+    # `awaiting:acceptance-criteria` and `running:implement`. When the
+    # active task sits at that state (spec + AC ratified, zero sprint
+    # files), `/yoke:implement` MUST refuse with the literal stderr
+    # below. Legacy tasks (no AC under `acceptance-criteria/`) never
+    # cross this branch — `is_legacy` short-circuits ahead.
+    if [ "$is_legacy" -eq 0 ]; then
+      gate="$(detect_gate_state 2>/dev/null || true)"
+      if [ "$gate" = "awaiting:generate-sprints" ]; then
+        echo "wm: run /yoke:generate-sprints to advance to Phase 4" >&2
+        exit 4
+      fi
+    fi
+
     # Sprint-walk pre-check: at least one sprint file MUST exist for the
     # cycle loop to have a working set to load. The /yoke:implement
-    # cycle reads `current_sprint:` from progress.md and loads
-    # `.yoke/sprints/<slug>-s<current_sprint>.md` — without sprint
-    # files there is nothing to converge.
+    # cycle reads `current_sprint:` from progress.md and loads the
+    # active sprint's runtime bundle — without sprint files there is
+    # nothing to converge.
     sprint_count=0
     while IFS= read -r _; do
       sprint_count=$((sprint_count + 1))
@@ -109,6 +174,19 @@ case "$cmd" in
     if [ "$sprint_count" -eq 0 ]; then
       echo "Error: no sprint files for slug '$slug'. Run /yoke:tech-spec and approve." >&2
       exit 4
+    fi
+
+    # Dry-run short-circuit — production code path (not a test-only
+    # branch). When YOKE_IMPLEMENT_DRY_RUN=1 every preflight gate has
+    # already passed at this point; emit the dedicated stdout marker
+    # `dry-run: ok` and exit 0. The /yoke:implement cycle loop reads
+    # the marker and short-circuits BEFORE Phase A council spawn,
+    # letting a user verify gate state without paying council cost.
+    # This is documented in skills/implement/SKILL.md (§1 Pre-flight)
+    # and exercised by tests/runtime/full-flow.test.sh.
+    if [ "${YOKE_IMPLEMENT_DRY_RUN:-}" = "1" ]; then
+      echo "dry-run: ok"
+      exit 0
     fi
     echo "ok"
     exit 0

@@ -1,0 +1,45 @@
+# partition/small/plan-input.yaml
+#
+# Pre-synthesized task list (5 tasks) for the partition stage.
+# All tasks share at least two `applies_decisions` anchors so they
+# group into a single sprint per the partition algorithm
+# (sprint-task-3-t02 :: "Group tasks by applies_decisions overlap;
+# tasks sharing two or more spec anchors land in the same sprint").
+#
+# Used by `us-005-partition-determinism.test.sh` and
+# `us-005-task-count-bounds.test.sh`.
+
+slug: partition-small-fixture
+generated_at: 2026-05-03T00:00:00Z
+tasks:
+  - task_id: T-1
+    realizes_user_stories: ["US-001"]
+    applies_decisions: ["spec.md#decision-A", "spec.md#decision-B"]
+    instructions: "Implement the alpha behavior."
+    sensors: ["tests-smoke"]
+    acceptance_criterion: "tests/smoke/alpha.test.sh exits 0"
+  - task_id: T-2
+    realizes_user_stories: ["US-001", "US-002"]
+    applies_decisions: ["spec.md#decision-A", "spec.md#decision-B"]
+    instructions: "Implement the beta behavior."
+    sensors: ["tests-smoke"]
+    acceptance_criterion: "tests/smoke/beta.test.sh exits 0"
+  - task_id: T-3
+    realizes_user_stories: ["US-002"]
+    applies_decisions: ["spec.md#decision-A", "spec.md#decision-B"]
+    instructions: "Implement the gamma behavior."
+    sensors: ["tests-smoke"]
+    acceptance_criterion: "tests/smoke/gamma.test.sh exits 0"
+  - task_id: T-4
+    realizes_user_stories: ["US-003"]
+    applies_decisions: ["spec.md#decision-A", "spec.md#decision-B"]
+    instructions: "Implement the delta behavior."
+    sensors: ["tests-runtime"]
+    acceptance_criterion: "tests/runtime/delta.test.sh exits 0"
+  - task_id: T-5
+    realizes_user_stories: ["US-004"]
+    applies_decisions: ["spec.md#decision-A", "spec.md#decision-B"]
+    instructions: "Implement the epsilon behavior."
+    sensors: ["tests-runtime"]
+    acceptance_criterion: "tests/runtime/epsilon.test.sh exits 0"
+sprint_partition: []

@@ -93,15 +93,44 @@ termination.
   pointing at `git rm -r --cached .yoke/runtime/` and never modifies
   git state. Both are read-only against the loop's working memory and
   must run *before* the orchestrate.sh preflight call below.
+- **Dry-run inspection mode (production feature, not a test-only branch).**
+  Setting the environment variable `YOKE_IMPLEMENT_DRY_RUN=1` runs
+  every preflight gate check (config presence, upstream-artifact
+  approval, AC ratification, gate-state ladder, sprint-file
+  presence) and exits 0 with stdout `dry-run: ok` BEFORE Phase A
+  council spawn. The cycle loop reads the marker and short-circuits
+  — useful for verifying gate state on a real working tree without
+  paying the council-spawn cost (e.g., a user checking that
+  `/yoke:generate-sprints` is the correct next step before
+  committing to a full implement run). The dry-run path honors the
+  same gate semantics as the regular path; it differs only in
+  exiting after the deterministic node finishes and before the
+  agentic node begins.
 - Run `lib/ralph-loop/orchestrate.sh preflight`. The script verifies:
   - `.yoke/config.yaml` exists.
   - `.yoke/runtime/.current` exists and points at a valid slug.
-  - `wm_prd_path "$slug"`, `wm_spec_path "$slug"`, and
-    `wm_acceptance_criteria_path "$slug"` all exist and carry
-    `Status: approved` (PRD/Spec) or `Status: ratified` (Contract).
-    The Phase-2 approval flow flips `Status: approved` on the spec
-    AND every `.yoke/sprints/<slug>-s*.md` together — see
-    `skills/tech-spec/SKILL.md` "Recording approval".
+  - `wm_prd_path "$slug"` and `wm_spec_path "$slug"` exist and carry
+    `Status: approved`.
+  - **Flow detection (legacy / new).** The presence of
+    `.yoke/acceptance-criteria/<slug>.md` selects the new-flow
+    ladder; absence selects the legacy ladder
+    (`.yoke/acceptance-contracts/<slug>.md`). Both archives must
+    carry `Status: ratified` to advance.
+  - **Gate-state refusal (new flow only).** After the upstream
+    artifacts are validated, the preflight calls
+    `lib/working-memory/gate-state.sh :: detect_gate_state`. When
+    the active task sits at `awaiting:generate-sprints` (spec +
+    AC ratified, zero sprint files), the preflight aborts non-zero
+    with the literal stderr `wm: run /yoke:generate-sprints to
+    advance to Phase 4` and exit code 4. Legacy tasks (no AC under
+    `acceptance-criteria/`) never reach this branch — the
+    `is_legacy` short-circuit keeps them walking unaffected, per
+    FR-15 / Decision 6A of
+    `.yoke/prds/2026-05-03-generate-sprints-skill.md`.
+  - At least one sprint file MUST exist for the cycle loop to have
+    a working set to load. (For new-flow tasks the gate-state
+    refusal above already surfaces the actionable next step; this
+    final check is the safety net for both flows.)
   - On any missing pre-condition, the script aborts with a clear
     message (exit codes 3 or 4).
 - **Initialize the sprint walk (deterministic).** Read

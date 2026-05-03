@@ -1,0 +1,5 @@
+# Fixture config for preflight/no-slug mode.
+# Provider is set; the failure cascade reaches wm_active_slug, which
+# aborts because .yoke/runtime/.current does not exist.
+canonical_memory:
+  provider: claude-bedrock
