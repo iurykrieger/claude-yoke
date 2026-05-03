@@ -6,15 +6,15 @@ description: >
   carries the freshest signal the framework will ever have, this skill
   is the single verb that hands the active task's diff to the configured
   canonical-memory provider. Resolves the provider via
-  lib/canonical-memory/resolve-provider.sh, stages the active task's
-  archive files into a fresh tmp directory (per issue #40 — historical
-  PRDs / specs / sprints / acceptance documents are NOT re-fed),
-  dispatches to the provider's pinned canonize skill (e.g. /bedrock:teach
-  for the bedrock provider per providers.yaml), removes the stage on
-  exit, and appends a single canonize: line to .yoke/runtime/progress.md.
-  Never bundles, summarizes, or pre-processes inside the staged tree;
-  never classifies maturity (provider judgment); never silently swallows
-  the provider's exit code.
+  lib/canonical-memory/resolve-provider.sh, stages only the active task's
+  archive files into a fresh tmp directory shaped like .yoke/ (historical
+  PRDs / specs / sprints / acceptance documents from prior tasks are NOT
+  re-fed), dispatches to the provider's pinned canonize skill (e.g.
+  /bedrock:teach for the bedrock provider per providers.yaml), removes
+  the stage on exit, and appends a single canonize: line to
+  .yoke/runtime/progress.md. Never bundles, summarizes, or pre-processes
+  inside the staged tree; never classifies maturity (provider judgment);
+  never silently swallows the provider's exit code.
   Use when: "canonize", "yoke canonize", "/yoke:canonize", "save working
   memory to canonical memory", or whenever /yoke:implement terminates.
 argument-hint: ""
@@ -82,14 +82,13 @@ wm: /yoke:canonize takes no arguments at v2.0.0
 
 ## Phase 1 — Stage the active task's diff
 
-Per issue #40, this facade does NOT hand the provider the full
-`.yoke/` directory anymore. Historical PRDs, specs, sprints, and
-acceptance documents from prior tasks have already been canonized in
-their own runs; re-feeding them every cycle wastes provider tokens
-and re-runs entity-matching against a vault that already has those
-entries (concrete impact during the v4.0.0 cutover: 138 files in
-`.yoke/`, only 8 fresh — re-canonization risked vault pollution and
-turned a 5-minute hand-off into a 30+-minute one).
+This facade does NOT hand the provider the full `.yoke/` directory.
+Historical PRDs, specs, sprints, and acceptance documents from prior
+tasks have already been canonized in their own runs; re-feeding them
+every cycle wastes provider tokens, re-runs entity-matching against
+a vault that already has those entries, and risks polluting the
+vault if any historical file's frontmatter has drifted since its
+original canonization.
 
 Invoke the active-task staging helper. It reads
 `.yoke/runtime/.current` for the slug, copies only the slug's
@@ -111,8 +110,9 @@ Helper exit codes — surface verbatim, do NOT retry:
 
 `$stage_dir` is the only path passed to the provider. Sensors live
 in `.yoke/sensors/<id>.md` (project-scoped, not per-task) and are
-explicitly NOT staged — re-feeding them on every canonize is
-exactly what the issue rejected.
+explicitly NOT staged — re-feeding them on every canonize re-runs
+the provider's entity-matching against artifacts that already
+canonized.
 
 Per the working-memory provider contract, the directory is read-only
 from the provider's perspective; the facade still owns the cleanup.
@@ -210,12 +210,12 @@ reads the exit code as authoritative.
 
 | # | Rule |
 |---|---|
-| 1 | NEVER classify maturity, summarize, or otherwise pre-process inside the staged tree. The provider owns canonization decisions; the facade only narrows the input set to the active task (issue #40). |
+| 1 | NEVER classify maturity, summarize, or otherwise pre-process inside the staged tree. The provider owns canonization decisions; the facade only narrows the input set to the active task. |
 | 2 | NEVER pass a relative path. The staging helper outputs an absolute path via `mktemp -d`. |
 | 3 | NEVER pass the host's `.yoke/` directly. Always pass the staged copy from Phase 1. |
 | 4 | NEVER swallow the provider's exit code. Propagate it verbatim. |
 | 5 | NEVER write inside the host's `.yoke/` except for the single `canonize:` line appended to `runtime/progress.md` in Phase 4. |
-| 6 | NEVER stage `.yoke/sensors/<id>.md` files. They are project-scoped, not per-task; re-feeding them is exactly the bloat issue #40 rejected. |
+| 6 | NEVER stage `.yoke/sensors/<id>.md` files. They are project-scoped, not per-task; re-feeding them on every canonize re-runs the provider's entity-matching against artifacts that already canonized. |
 | 7 | NEVER invoke the provider's canonize skill (e.g. `/bedrock:teach`) directly. Always dispatch through `$YOKE_PROVIDER_CANONIZE_SKILL`. |
 | 8 | NEVER skip the Phase 5 stage cleanup. Even on non-zero `$provider_rc`, `rm -rf "$stage_dir"` runs unconditionally. |
 
@@ -228,8 +228,10 @@ reads the exit code as authoritative.
 - Pre-bundling the staged tree into a tarball or single document.
   The provider expects a directory tree shaped like `.yoke/`.
 - Staging the full `.yoke/` (every historical PRD/spec/sprint/AC
-  from prior tasks) to "let the provider decide". That is the bug
-  issue #40 documented; the active-task scope is the v4.1 fix.
+  from prior tasks) to "let the provider decide". The provider's
+  judgment is about WHAT to canonize among the active-task slice —
+  not about filtering historical noise the facade should never have
+  fed in the first place.
 - Branching the dispatch logic on `$YOKE_PROVIDER_NAME`. The whole
   point of the facade is that providers are interchangeable.
 - Logging the provider's full stdout to `runtime/progress.md`. Only
@@ -241,8 +243,7 @@ reads the exit code as authoritative.
 
 - `docs/canonical-memory-provider-contract.md` — the working-memory
   contract every provider implements (`contract_version: 1`); the
-  "Active-task staging" section documents the diff contract added
-  for issue #40.
+  "Active-task staging" section documents the diff contract.
 - `concepts/yoke-pattern-memory-model` — the write-mediator role.
 - `lib/canonical-memory/resolve-provider.sh` — provider resolution.
 - `lib/working-memory/canonize-stage.sh` — active-task staging
