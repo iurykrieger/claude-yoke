@@ -36,9 +36,18 @@ recommendation: "no dead-code detector configured in CLAUDE.md".
 
 ### `--target canonical-memory`
 
+> **v2.0.0 status:** the canonical-memory introspection helper —
+> retired path `lib/canonical-memory/staleness-check.sh` — that
+> backed this mode was removed in the v2.0.0 facade extraction. Until the active provider
+> exposes an equivalent verb (e.g. via a new `drift_sense:` slot in
+> `providers.yaml`), invocations with `--target canonical-memory`
+> fall through to a structured `notes:` entry pointing the operator
+> at `/<provider>:healthcheck` for the corresponding signals.
+
 Reads the canonical-memory repo via the cached path
-(`~/.cache/yoke/canonical/<slug>/`) and applies pure-metadata heuristics
-(no LLM judgment) via `lib/canonical-memory/staleness-check.sh`:
+(`~/.cache/yoke/canonical/<slug>/`) and applies pure-metadata
+heuristics (no LLM judgment); the v2.0.0-retired helper was
+`lib/canonical-memory/staleness-check.sh` (legacy reference only):
 
 - **Staleness:** items not consulted for > N days (default 30; configurable
   via `.yoke/config.yaml` `overrides.drift_sense.staleness_max_days`).
@@ -52,13 +61,20 @@ Reads the canonical-memory repo via the cached path
 
 ### `--target traces`
 
-Globs `.yoke/contracts/*.md` from completed tasks (those merged to main
-of the host project — every task with files in this versioned archive
-folder) and detects recurring patterns that never reached canonization.
-Invokes `lib/canonical-memory/trace-analyzer.sh`. (The
-`.yoke/query-traces/*.md` source was retired in
+> **v2.0.0 status:** the trace-analyzer helper that backed this mode
+> (`lib/canonical-memory/trace-analyzer.sh`) was retired in the
+> v2.0.0 facade extraction. The mode is currently a structured
+> `notes:` no-op pending an equivalent verb on the active provider
+> (e.g. via a future `providers.yaml` slot).
+
+Globs `.yoke/contracts/*.md` from completed tasks (those merged to
+main of the host project — every task with files in this versioned
+archive folder) and detects recurring patterns that never reached
+canonization. The v2.0.0-retired helper was
+`lib/canonical-memory/trace-analyzer.sh` (legacy reference only).
+The `.yoke/query-traces/*.md` source was retired in
 ask-source-agnostic-read Part 1; the mode now relies on contracts
-alone.)
+alone.
 
 - Counts occurrences of each contract `topic:` across tasks.
 - Flags topics that recur ≥ N times (default 3) but have no
@@ -87,8 +103,13 @@ workflow uses this.
 ### 2. Run the appropriate detector
 
 - **codebase** → invoke each detector command discovered from host `CLAUDE.md`; capture structured output.
-- **canonical-memory** → invoke `lib/canonical-memory/staleness-check.sh`.
-- **traces** → invoke `lib/canonical-memory/trace-analyzer.sh`.
+- **canonical-memory** → emit a `notes:` entry pointing at the
+  active provider's healthcheck skill until the provider exposes a
+  drift-sense verb (the historical `staleness-check.sh` helper was
+  retired in v2.0.0).
+- **traces** → emit a `notes:` entry naming the contracts that
+  would be analyzed (the historical `trace-analyzer.sh` helper was
+  retired in v2.0.0).
 - **all** → run all three above in order.
 
 ### 3. Emit findings
@@ -154,7 +175,10 @@ sensing should be a high-signal channel, not a noisy one.
 - `concepts/yoke-pattern-model-c-governance` — deprecation propositions.
 - `concepts/yoke-pattern-sensors` — structured findings.
 - `concepts/yoke-pattern-memory-model` — frontmatter metadata.
-- `lib/canonical-memory/staleness-check.sh`.
-- `lib/canonical-memory/trace-analyzer.sh`.
+- `lib/canonical-memory/resolve-provider.sh` — provider resolution
+  for the canonical-memory and traces modes (which delegate to the
+  provider once a drift-sense verb is exposed).
+- `providers.yaml` — provider registry; canonical-memory drift
+  introspection is provider-owned in v2.0.0.
 - `.github/workflows/yoke-drift-sense.yml`.
 - `docs/scheduling-strategy.md`.

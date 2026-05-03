@@ -208,10 +208,13 @@ emitted before the summary line.
 
 ## See also
 
-- `agents/generator.md` — produces the `progress.md` durations the
-  skill consumes.
-- `agents/validator.md` — emits the verdicts in
-  `.yoke/runtime/.judge-verdicts/` the skill consumes.
+- `agents/sr-eng.md` — council persona that emits the cycle-level
+  durations into `progress.md` the skill consumes; this replaced the
+  retired v2.x `agents/generator.md` writer.
+- `agents/sr-qa.md` — council persona whose acceptance-test verdicts,
+  together with `hooks/verify-acceptance.sh` output, populate
+  `.yoke/runtime/.judge-verdicts/` the skill consumes; this replaced
+  the retired v2.x `agents/validator.md` emitter.
 - `templates/sensor.md` — defines the body section shape this
   skill appends to.
 - `skills/implement/SKILL.md` — teardown integration point
