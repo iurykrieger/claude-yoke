@@ -1,18 +1,19 @@
 ---
 name: canonize
 description: >
-  Provider-agnostic facade for the canonical-memory write hand-off. When
-  /yoke:implement terminates and the working memory under .yoke/
-  carries the freshest signal the framework will ever have, this skill
-  is the single verb that hands the directory to the configured
-  canonical-memory provider. Resolves the provider via
-  lib/canonical-memory/resolve-provider.sh, dispatches to the provider's
-  pinned canonize skill (currently /yoke:teach while Bedrock is the
-  in-Yoke seed; rewires to /bedrock:canonize in Sprint 2), and appends
-  a single canonize: line to .yoke/runtime/progress.md. Never bundles,
-  summarizes, or pre-processes the working memory; never classifies
-  maturity (provider judgment); never silently swallows the provider's
-  exit code.
+  Provider-agnostic facade that hands the active task's working memory
+  to the configured canonical-memory provider. Resolves the provider
+  via lib/canonical-memory/resolve-provider.sh, stages the active
+  slug's archive files (prds/, specs/, sprints/, acceptance-criteria/,
+  contracts/, runtime/, plus config.yaml) into a fresh tmp directory
+  shaped like .yoke/, dispatches the provider's pinned canonize skill
+  with --working-memory <stage-path>, removes the stage on exit, and
+  appends a single canonize: line to .yoke/runtime/progress.md. The
+  scope is per-task: only the active slug's files are staged; sensors
+  and other tasks' archives stay outside the hand-off. Pure dispatcher
+  semantics — never bundles, summarizes, classifies, or pre-processes
+  the staged tree (the provider owns those decisions); never swallows
+  the provider's exit code.
   Use when: "canonize", "yoke canonize", "/yoke:canonize", "save working
   memory to canonical memory", or whenever /yoke:implement terminates.
 argument-hint: ""
@@ -27,10 +28,13 @@ configured provider an absolute path and a single argument verb, then
 log a one-line `canonize:` entry and propagate the provider's exit
 code.
 
-This facade is the single write entry point that every Yoke caller
-will be rewritten toward (Sprint 2 task s02-t05). In Sprint 1 the
-legacy `/yoke:preserve` continues to work and this facade is purely
-additive.
+This facade is the single write entry point for every Yoke caller —
+the canonize-only Orchestrator subagent at full-run termination, plus
+manual re-canonize invocations. Substrate-specific canonize logic
+lives inside the active provider plugin (e.g. `/bedrock:teach` for
+the bedrock provider per `providers.yaml`); this facade owns
+provider resolution, active-task staging, dispatch, and exit-code
+propagation.
 
 ## Plugin paths
 
@@ -76,17 +80,42 @@ abort with:
 wm: /yoke:canonize takes no arguments at v2.0.0
 ```
 
-## Phase 1 — Resolve absolute path of `.yoke/`
+## Phase 1 — Stage the active task's diff
 
-The provider expects an **absolute** path. Resolve via `cd && pwd`:
+The hand-off is **per-task**: only the active slug's archive files
+plus `config.yaml`, `.gitignore`, and the `runtime/` subtree reach
+the provider. Each task's archive is canonized once, in its own
+`/yoke:canonize` run; subsequent runs would otherwise burn tokens
+re-running graphify and entity-matching against vault entries that
+already exist, and could push frontmatter drift into the vault as
+if it were a fresh write.
+
+Invoke the active-task staging helper. It reads
+`.yoke/runtime/.current` for the slug, copies the slug's archive
+files plus `config.yaml`/`.gitignore`/`runtime/` into a fresh tmp
+directory shaped exactly like `.yoke/`, and echoes the absolute
+path on stdout:
 
 ```bash
-wm_path="$(cd "$PWD/.yoke" && pwd)"
+stage_dir="$(<plugin_dir>/lib/working-memory/canonize-stage.sh)"
 ```
 
-`$wm_path` is the only path passed to the provider. Never pass a
-relative path; never pass any path other than the resolved
-`.yoke/` directory.
+Helper exit codes — surface verbatim, do NOT retry:
+
+| Exit | Meaning |
+|---|---|
+| 0 | Staged; absolute path on stdout |
+| 2 | Invalid args, missing `.yoke/`, or unsupported bash |
+| 3 | No active slug (`.yoke/runtime/.current` missing) |
+
+`$stage_dir` is the only path passed to the provider. Sensors live
+in `.yoke/sensors/<id>.md` (project-scoped, not per-task) and are
+explicitly NOT staged — re-feeding them on every canonize re-runs
+the provider's entity-matching against artifacts that already
+canonized.
+
+Per the working-memory provider contract, the directory is read-only
+from the provider's perspective; the facade still owns the cleanup.
 
 ## Phase 2 — Resolve the provider
 
@@ -116,18 +145,19 @@ After exit 0:
 
 ## Phase 3 — Dispatch to the provider's canonize skill
 
-Invoke the provider's pinned canonize skill with the resolved
-absolute working-memory path:
+Invoke the provider's pinned canonize skill with the staged absolute
+working-memory path produced in Phase 1:
 
 ```text
-Skill(skill: "${YOKE_PROVIDER_CANONIZE_SKILL}", args: "--working-memory ${wm_path}")
+Skill(skill: "${YOKE_PROVIDER_CANONIZE_SKILL}", args: "--working-memory ${stage_dir}")
 ```
 
 In the seed configuration (`provider: bedrock`),
-`$YOKE_PROVIDER_CANONIZE_SKILL == "yoke:teach"`, so this resolves to:
+`$YOKE_PROVIDER_CANONIZE_SKILL == "bedrock:teach"` per
+`providers.yaml`, so this resolves to:
 
 ```text
-Skill(skill: "yoke:teach", args: "--working-memory <abs-path-to-.yoke>")
+Skill(skill: "bedrock:teach", args: "--working-memory <abs-path-to-stage>")
 ```
 
 Capture the provider's stdout. Capture the provider's exit code in
@@ -135,71 +165,87 @@ Capture the provider's stdout. Capture the provider's exit code in
 
 ## Phase 4 — Append a canonize: line to runtime/progress.md
 
-Append a single line beginning `canonize:` to
-`.yoke/runtime/progress.md` summarizing the dispatch. The line is a
-soft convention (per `docs/canonical-memory-provider-contract.md`'s
-"Soft exit-summary convention" section); the provider's stdout MAY
-include a structured summary line which the facade forwards verbatim.
+Append a single line beginning `canonize:` to the host's
+`.yoke/runtime/progress.md` (NOT the staged copy — the stage is
+ephemeral and is removed in Phase 5) summarizing the dispatch. The
+line is a soft convention (per
+`docs/canonical-memory-provider-contract.md`'s "Soft exit-summary
+convention" section); the provider's stdout MAY include a structured
+summary line which the facade forwards verbatim.
 
 ```bash
-progress="$wm_path/runtime/progress.md"
-mkdir -p "$wm_path/runtime"
+progress="$PWD/.yoke/runtime/progress.md"
+mkdir -p "$PWD/.yoke/runtime"
 [ -f "$progress" ] || printf '# Progress\n\n' > "$progress"
 
 # If the provider emitted an exit-summary line on stdout, prefer that
 # (it's the authoritative count). Otherwise emit a minimal record.
 summary_line="$(printf '%s\n' "${provider_stdout:-}" | grep -E '^canonize:' | tail -n 1 || true)"
 if [ -z "$summary_line" ]; then
-  summary_line="canonize: provider=${YOKE_PROVIDER_NAME} working_memory=${wm_path} exit=${provider_rc}"
+  summary_line="canonize: provider=${YOKE_PROVIDER_NAME} working_memory=${stage_dir} exit=${provider_rc}"
 fi
 printf '%s\n' "$summary_line" >> "$progress"
 ```
 
-The line is the **only** write this facade performs. The contents of
-`.yoke/` are otherwise read-only from the facade's perspective.
+The line is the **only** write this facade performs against the host
+project. The staged tree is read-only from the facade's perspective
+(per the provider contract).
 
-## Phase 5 — Propagate the provider's exit code
+## Phase 5 — Cleanup the staged directory + propagate exit
 
 ```bash
+# Stage was a fresh mktemp -d; remove it unconditionally.
+[ -n "${stage_dir:-}" ] && rm -rf "$stage_dir"
+
 exit "$provider_rc"
 ```
 
-Never zero out a non-zero provider exit. Never translate provider
-exit codes into a normalized scheme. The caller (the runtime
-Orchestrator subagent in canonize mode) reads the exit code as
-authoritative.
+Cleanup runs even on non-zero `$provider_rc` so failed canonize runs
+do not leave tmp dirs behind. Never zero out a non-zero provider
+exit. Never translate provider exit codes into a normalized scheme.
+The caller (the runtime Orchestrator subagent in canonize mode)
+reads the exit code as authoritative.
 
 ## Critical rules
 
 | # | Rule |
 |---|---|
-| 1 | NEVER bundle, summarize, classify, or pre-process the working memory. The provider owns those decisions. |
-| 2 | NEVER pass a relative path. Always resolve to absolute via `cd && pwd`. |
-| 3 | NEVER pass any path other than the resolved `.yoke/` directory. |
+| 1 | NEVER classify maturity, summarize, or otherwise pre-process inside the staged tree. The provider owns canonization decisions; the facade only narrows the input set to the active task. |
+| 2 | NEVER pass a relative path. The staging helper outputs an absolute path via `mktemp -d`. |
+| 3 | NEVER pass the host's `.yoke/` directly. Always pass the staged copy from Phase 1. |
 | 4 | NEVER swallow the provider's exit code. Propagate it verbatim. |
-| 5 | NEVER write inside `.yoke/` except for the single `canonize:` line appended to `runtime/progress.md`. |
-| 6 | NEVER fall back to the legacy `/yoke:preserve` when the resolver fails. Surface exit codes 3/4/5 verbatim. |
-| 7 | NEVER invoke the legacy `/yoke:teach` directly. Always dispatch through `$YOKE_PROVIDER_CANONIZE_SKILL`. |
-| 8 | NEVER read or write outside the working memory: provider's responsibility. |
+| 5 | NEVER write inside the host's `.yoke/` except for the single `canonize:` line appended to `runtime/progress.md` in Phase 4. |
+| 6 | NEVER stage `.yoke/sensors/<id>.md` files. They are project-scoped, not per-task; re-feeding them on every canonize re-runs the provider's entity-matching against artifacts that already canonized. |
+| 7 | NEVER invoke the provider's canonize skill (e.g. `/bedrock:teach`) directly. Always dispatch through `$YOKE_PROVIDER_CANONIZE_SKILL`. |
+| 8 | NEVER skip the Phase 5 stage cleanup. Even on non-zero `$provider_rc`, `rm -rf "$stage_dir"` runs unconditionally. |
 
 ## Anti-patterns
 
 - Reading `.yoke/specs/`, `.yoke/sprints/`, `.yoke/contracts/`,
   `.yoke/runtime/` to "decide what's canonization-worthy" before
-  invoking the provider. The provider judges; the facade dispatches.
-- Pre-bundling `.yoke/` into a tarball or single document. The
-  provider expects a directory tree.
+  invoking the provider. The provider judges; the facade only
+  narrows by active-task scope.
+- Pre-bundling the staged tree into a tarball or single document.
+  The provider expects a directory tree shaped like `.yoke/`.
+- Staging the host's full `.yoke/` (every prior-task PRD/spec/sprint/
+  AC) to "let the provider decide". The provider's judgment is
+  about WHAT to canonize among the active-task slice; archive
+  filtering is the facade's responsibility and is bounded by the
+  active slug.
 - Branching the dispatch logic on `$YOKE_PROVIDER_NAME`. The whole
   point of the facade is that providers are interchangeable.
 - Logging the provider's full stdout to `runtime/progress.md`. Only
   the soft `canonize:` summary line is recorded.
+- Leaving `$stage_dir` on disk after the dispatch returns. The
+  facade is the only owner of the stage; cleanup is unconditional.
 
 ## See also
 
 - `docs/canonical-memory-provider-contract.md` — the working-memory
-  contract every provider implements (`contract_version: 1`).
+  contract every provider implements (`contract_version: 1`); the
+  "Active-task staging" section documents the diff contract.
 - `concepts/yoke-pattern-memory-model` — the write-mediator role.
 - `lib/canonical-memory/resolve-provider.sh` — provider resolution.
+- `lib/working-memory/canonize-stage.sh` — active-task staging
+  helper invoked in Phase 1.
 - `providers.yaml` — curated provider registry.
-- Acceptance Contract Scenario 4 / FR-1 / FR-4.
-- Sprint 1 task `2026-04-30-pluggable-canonical-memory-s01-t04`.
