@@ -4,11 +4,10 @@ description: >
   Provider-agnostic facade for reading the active canonical memory.
   Resolves the configured provider via
   lib/canonical-memory/resolve-provider.sh, then dispatches the user's
-  query to the provider's pinned search skill (currently
-  /yoke:ask while Bedrock is the in-Yoke seed; rewires to /bedrock:ask
-  in Sprint 2 when claude-bedrock is extracted as a peer plugin).
-  Pure read — never writes, never caches, never reformats. Source-agnostic:
-  callable from any host project regardless of active-task state.
+  query to the provider's pinned search skill (e.g. /bedrock:ask for
+  the bedrock provider) per providers.yaml. Pure read — never writes,
+  never caches, never reformats. Source-agnostic: callable from any
+  host project regardless of active-task state.
   Use when: "search canonical memory", "ask the vault",
   "/yoke:search-canonical-memory", or whenever a Yoke caller needs a
   read against the configured canonical-memory provider.
@@ -23,11 +22,13 @@ the response, do not cache, and do not write any file anywhere. The
 skill resolves the configured provider, hands the query off, and
 returns the provider's response verbatim.
 
-This facade is the read entry point that every Yoke caller (agent
-prompts, spec-phase skills, runtime Orchestrator subagent in consult
-mode) eventually rewrites toward (Sprint 2 task s02-t05). In Sprint 1
-the legacy `/yoke:ask` continues to work and this facade is purely
-additive.
+This facade is the read entry point for every Yoke caller — council
+persona subagents (`agents/sr-eng.md`, `agents/sr-qa.md`,
+`agents/sr-staff.md`), spec-phase skills, the canonize-only
+Orchestrator. There is no legacy direct-read path: the v1.x
+`/yoke:ask` skill was retired with the v2.0.0 facade extraction and
+the substrate-specific reader now lives inside the active provider
+plugin (e.g. `/bedrock:ask` for the bedrock provider).
 
 ## Plugin paths
 
@@ -111,10 +112,11 @@ Skill(skill: "${YOKE_PROVIDER_SEARCH_SKILL}", args: "<query>")
 ```
 
 In the seed configuration (`provider: bedrock`),
-`$YOKE_PROVIDER_SEARCH_SKILL == "yoke:ask"`, so this resolves to:
+`$YOKE_PROVIDER_SEARCH_SKILL == "bedrock:ask"` per `providers.yaml`,
+so this resolves to:
 
 ```text
-Skill(skill: "yoke:ask", args: "<query>")
+Skill(skill: "bedrock:ask", args: "<query>")
 ```
 
 Return the provider's response **byte-for-byte** to the caller. Do not
@@ -132,7 +134,7 @@ provider's stderr unchanged.
 | 3 | NEVER cache the response. Each invocation re-dispatches. |
 | 4 | NEVER fall back to a hard-coded provider when the resolver fails. Surface exit codes 3/4/5 verbatim. |
 | 5 | NEVER require an active task — the skill is source-agnostic. |
-| 6 | NEVER invoke the legacy `/yoke:ask` directly. Always dispatch through `$YOKE_PROVIDER_SEARCH_SKILL`. |
+| 6 | NEVER invoke the provider's read skill (e.g. `/bedrock:ask`) directly. Always dispatch through `$YOKE_PROVIDER_SEARCH_SKILL` so providers stay swappable via `providers.yaml`. |
 | 7 | NEVER `git clone`, `git pull`, or `git fetch` against the canonical memory; that's the provider's responsibility (and the provider's skill enforces it). |
 
 ## Anti-patterns
@@ -142,9 +144,10 @@ provider's stderr unchanged.
 - Detecting the provider name and branching the dispatch logic by
   hand. The whole point of the facade is that providers are
   interchangeable — branching defeats the abstraction.
-- Falling through to `/yoke:ask` when `yoke_resolve_provider` exits 4
-  or 5. The resolver's exit code is the user's signal to run
-  `/yoke:bootstrap`; silently falling through hides the misconfiguration.
+- Falling through to a hard-coded provider read skill when
+  `yoke_resolve_provider` exits 4 or 5. The resolver's exit code is
+  the user's signal to run `/yoke:bootstrap`; silently falling
+  through hides the misconfiguration.
 - Writing a `search:` log line to `.yoke/runtime/progress.md`. Reads
   are not loggable working-memory events.
 

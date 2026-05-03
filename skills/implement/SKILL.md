@@ -456,10 +456,12 @@ defect that the Part-3 smoke gates against.
   `hard-bound` | `infeasibility`).
 - Orchestrator (in canonize mode) invokes `/yoke:canonize` via the
   Skill tool, passing the active task's `.yoke/<task-slug>/` path
-  and `--from-orchestrator`. `/yoke:canonize` invokes
-  `lib/canonical-memory/canonization-criteria.sh` to apply the
-  five-criterion cascade, reads each candidate's `impact_level`,
-  and opens PRs per Model C.
+  and `--from-orchestrator`. `/yoke:canonize` resolves the active
+  provider via `lib/canonical-memory/resolve-provider.sh` and
+  dispatches to the provider's pinned canonize skill (e.g.
+  `/bedrock:teach` for the bedrock provider per `providers.yaml`),
+  which applies the five-criterion cascade, reads each candidate's
+  `impact_level`, and opens PRs per Model C.
 - Per Model C: low-impact PRs auto-merge after CI; medium PRs open
   with veto window; high-impact and regulatory PRs surface for
   synchronous human review without blocking the skill's exit.
@@ -632,13 +634,12 @@ see `concepts/yoke-pattern-human-triggers`.
   (council personas).
 - `agents/council-arbiter.md` (contradiction-detection JSON verdict).
 - `agents/orchestrator.md` (canonize-only termination handoff).
-- `lib/ralph-loop/orchestrate.sh`,
-  `lib/ralph-loop/escalate.sh`,
-  `lib/canonical-memory/canonization-criteria.sh` (invoked from
-  inside `/yoke:canonize`).
-- `skills/ask/SKILL.md` (canonical-memory reads — Part 3 of the
-  bedrock canonical-memory port retired `query.sh`).
-- `skills/preserve/SKILL.md` (canonical-memory writes — Part 4
-  retired `propose-write.sh`).
+- `lib/ralph-loop/orchestrate.sh`, `lib/ralph-loop/escalate.sh`.
+- `lib/canonical-memory/resolve-provider.sh` (provider resolution
+  for the canonize handoff).
+- `skills/search-canonical-memory/SKILL.md` (canonical-memory reads;
+  v2.0.0 facade — every council persona read goes through this).
+- `skills/canonize/SKILL.md` (canonical-memory writes; v2.0.0
+  facade — only the canonize-mode Orchestrator invokes it).
 - `hooks/pre-implementation.sh`, `hooks/post-iteration.sh`,
   `hooks/verify-acceptance.sh`, `hooks/check-hard-bounds.sh`.
