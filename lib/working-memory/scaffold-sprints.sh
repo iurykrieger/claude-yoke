@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # scaffold-sprints.sh
 #
 # Deterministic sprint-file scaffolder for the sprint-as-cycle flow.
@@ -30,6 +30,22 @@
 #       sprint number is outside the 1..99 range
 
 set -euo pipefail
+
+# Bash-4+ guard. The script uses `mapfile` (line 87) which Apple's
+# stock /bin/bash 3.2 does not implement; without `#!/usr/bin/env bash`
+# (above) plus this guard, macOS hosts trip `mapfile: command not
+# found` (exit 127) the first time `/yoke:tech-spec` reaches stage 2.
+# CLAUDE.md :: ## Linting already states "Bash scripts target bash 4+";
+# this surfaces the mismatch with an actionable diagnostic instead of
+# the cryptic mapfile error. Source: issue #33.
+if (( BASH_VERSINFO[0] < 4 )); then
+    echo "wm: scaffold-sprints.sh requires bash 4+ (running $BASH_VERSION from ${BASH:-unknown})." >&2
+    echo "wm: on macOS, install Homebrew bash and ensure it precedes /bin/bash on PATH:" >&2
+    echo "wm:   brew install bash" >&2
+    echo "wm:   export PATH=\"/opt/homebrew/bin:\$PATH\"   # Apple Silicon" >&2
+    echo "wm:   export PATH=\"/usr/local/bin:\$PATH\"      # Intel Macs" >&2
+    exit 2
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"

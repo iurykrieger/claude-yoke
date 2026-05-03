@@ -79,6 +79,7 @@ jobs:
           - tests/smoke/resolve-provider-set-u-safety.test.sh
           - tests/smoke/append-runs-retired.test.sh
           - tests/smoke/placeholder-sensor-preflight.test.sh
+          - tests/smoke/scaffold-sprints-bash4.test.sh
     steps:
       - name: Check out
         uses: actions/checkout@v4
