@@ -93,7 +93,16 @@ case "$cmd" in
       exit 3
     fi
     slug="$(wm_active_slug)" || exit 3
-    prd="$(wm_prd_path "$slug")"
+    # Phase-1 artifact is read via the existence-aware resolver
+    # (FR-9). The resolver returns whichever of `.yoke/prds/<slug>.md`
+    # or `.yoke/fixes/<slug>.md` exists; it hard-aborts non-zero with
+    # the structured FR-9 recovery diagnostic when both archives exist
+    # or when neither does. We surface its stderr verbatim and exit on
+    # the abort path so the Phase-1 corruption diagnostic reaches the
+    # user unmodified.
+    if ! prd="$(wm_phase1_artifact_path "$slug")"; then
+      exit 4
+    fi
     tech="$(wm_spec_path "$slug")"
     ac="$(wm_acceptance_criteria_path "$slug")"
     legacy_ac=".yoke/acceptance-contracts/${slug}.md"
@@ -119,7 +128,7 @@ case "$cmd" in
       fi
     done
     if ! grep -qE "^> Status:[[:space:]]*(approved|ratified)" "$prd"; then
-      echo "Error: $prd is not approved. Run /yoke:discover and approve." >&2
+      echo "Error: $prd is not approved. Run /yoke:discover or /yoke:fix and approve." >&2
       exit 4
     fi
     if ! grep -qE "^> Status:[[:space:]]*(approved|ratified)" "$tech"; then

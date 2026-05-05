@@ -109,8 +109,11 @@ termination.
 - Run `lib/ralph-loop/orchestrate.sh preflight`. The script verifies:
   - `.yoke/config.yaml` exists.
   - `.yoke/runtime/.current` exists and points at a valid slug.
-  - `wm_prd_path "$slug"` and `wm_spec_path "$slug"` exist and carry
-    `Status: approved`.
+  - `wm_phase1_artifact_path "$slug"` (the Phase-1 artifact resolver
+    returning either `.yoke/prds/<slug>.md` or `.yoke/fixes/<slug>.md`,
+    aborting with a structured FR-9 recovery diagnostic when both
+    archives exist or when neither does) and `wm_spec_path "$slug"`
+    exist and carry `Status: approved`.
   - **Flow detection (legacy / new).** The presence of
     `.yoke/acceptance-criteria/<slug>.md` selects the new-flow
     ladder; absence selects the legacy ladder
