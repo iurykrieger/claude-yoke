@@ -86,6 +86,7 @@ jobs:
           - tests/smoke/canonize-active-task-scope.test.sh
           - tests/sensors/persona-mode-tag.test.sh
           - tests/sensors/fix-spec-frontmatter-shape.test.sh
+          - tests/sensors/no-canonical-memory-direct-refs.test.sh
           - tests/regression/phase1-backward-compat/run.test.sh
           - tests/smoke/fix-skill-happy-path.test.sh
     steps:
