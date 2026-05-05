@@ -116,5 +116,7 @@ suppresses the approval-menu warning.
 
 ---
 
-> When ready, run `/yoke:implement` to advance to Phase 4 (the agent
-> council ralph loop on the binding Acceptance Criteria).
+> When ready, run `/yoke:generate-sprints` to advance to Phase 2.5
+> (sprint synthesis from the ratified Acceptance Criteria + Tech Spec);
+> Phase 2.5 then chains into `/yoke:implement` (the agent council
+> ralph loop) on the produced sprint files.

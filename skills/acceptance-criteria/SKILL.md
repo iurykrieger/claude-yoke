@@ -257,7 +257,7 @@ Inputs passed to the menu:
 
 - `artifact_path`: `wm_acceptance_criteria_path "$slug"` (resolves to `.yoke/acceptance-criteria/<slug>.md`)
 - `artifact_label`: `Acceptance Criteria`
-- `next_skill`: `/yoke:implement`
+- `next_skill`: `/yoke:generate-sprints`
 - `language`: the language detected for the dialogue
 - `binding_statement`: the verbatim binding-statement block that the skill just printed (passed so the template's rendering order can place it at position 1, ahead of the open-questions block).
 
@@ -274,7 +274,7 @@ draft on disk is overwritten in place; the slug stays). `reject`
 prompts for the secondary confirmation; on `yes`, the skill aborts
 and instructs the user to re-run `/yoke:tech-spec`. `approve`
 records ratification and stops. `approve_and_continue` records
-ratification and chains into `/yoke:implement` via the `Skill`
+ratification and chains into `/yoke:generate-sprints` via the `Skill`
 tool in the same turn — but if the open-questions detection
 returned at least one match, the template requires a `yes` / `no`
 warning confirmation before chaining; on `no`, the skill records
@@ -288,8 +288,8 @@ below". Changes during runtime require a fresh ratification round.
 
 On `approve` or `approve_and_continue`:
 - `wm_acceptance_criteria_path "$slug"` written with `Status: ratified`, `Ratified by`, `Ratified at` (ISO-8601 UTC) headers.
-- On `approve_and_continue` (after the open-questions warning, when applicable, returns `yes`): the skill invokes `/yoke:implement` via the `Skill` tool in the same turn. No manual paste is required from the user.
-- **Fallback when `Skill` tool is unavailable.** Some runtimes do not expose the `Skill` tool to a running skill body. The skill MUST detect availability before rendering the menu and, when unavailable, render option 1 with the suffix `(manual: run /yoke:implement after this step)`. On selection of option 1 in fallback mode, the skill records ratification, prints "Acceptance Criteria ratified. Run `/yoke:implement` to advance to Phase 4.", and exits cleanly.
+- On `approve_and_continue` (after the open-questions warning, when applicable, returns `yes`): the skill invokes `/yoke:generate-sprints` via the `Skill` tool in the same turn. No manual paste is required from the user.
+- **Fallback when `Skill` tool is unavailable.** Some runtimes do not expose the `Skill` tool to a running skill body. The skill MUST detect availability before rendering the menu and, when unavailable, render option 1 with the suffix `(manual: run /yoke:generate-sprints after this step)`. On selection of option 1 in fallback mode, the skill records ratification, prints "Acceptance Criteria ratified. Run `/yoke:generate-sprints` to advance to Phase 2.5.", and exits cleanly.
 
 On `reject` (after secondary confirmation): the artifact is marked rejected (no `Status: ratified` is written) and the skill exits cleanly.
 
