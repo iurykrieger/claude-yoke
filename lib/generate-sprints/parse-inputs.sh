@@ -282,9 +282,32 @@ except Exception as exc:  # pragma: no cover
     print(f"wm: failed to read {path}: {exc}", file=sys.stderr)
     sys.exit(1)
 
+# Pre-v4 cutover headings (legacy spec shape).
 objective_re = re.compile(r"^##\s+Overall objective\s*$")
 contracts_re = re.compile(r"^##\s+Contracts and interfaces\s*$")
 dependencies_re = re.compile(r"^##\s+Dependencies\s*$")
+# Post-v4 design-doc headings (`/yoke:tech-spec` 12-section shape).
+# `## Architecture` carries the chosen-architecture statement that is
+# the structural equivalent of the legacy `## Overall objective`.
+# `## APIs and Data Model` carries the contracts surface. `## Stack
+# and Dependencies` carries the dependency subsections (`### External
+# libraries`, `### Internal prior work`). All three legacy and v4
+# headings are accepted; the parser is shape-tolerant.
+objective_v4_re = re.compile(r"^##\s+Architecture\s*$")
+contracts_v4_re = re.compile(r"^##\s+APIs and Data Model\s*$")
+dependencies_v4_re = re.compile(r"^##\s+Stack and Dependencies\s*$")
+
+def is_objective_heading(line):
+    return bool(objective_re.match(line) or objective_v4_re.match(line))
+
+def is_contracts_heading(line):
+    return bool(contracts_re.match(line) or contracts_v4_re.match(line))
+
+def is_dependencies_heading(line):
+    return bool(
+        dependencies_re.match(line) or dependencies_v4_re.match(line)
+    )
+
 section_break_re = re.compile(r"^##\s+\S")
 sub_section_re = re.compile(r"^###\s+(.+?)\s*$")
 bullet_re = re.compile(r"^-\s+(.+?)\s*$")
@@ -300,30 +323,33 @@ dependencies = {
 }
 
 dep_section_map = {
+    # Legacy spec shape.
     "External services and libraries": "external_services",
     "Internal prior work": "internal_prior_work",
     "Cross-team coordination": "cross_team_coordination",
+    # v4 design-doc shape (subsections under `## Stack and Dependencies`).
+    "External libraries": "external_services",
 }
 
 for raw in lines:
     line = raw.rstrip("\n")
 
-    if objective_re.match(line):
+    if is_objective_heading(line):
         state = "objective"
         sub_state = None
         continue
-    if contracts_re.match(line):
+    if is_contracts_heading(line):
         state = "contracts"
         sub_state = None
         continue
-    if dependencies_re.match(line):
+    if is_dependencies_heading(line):
         state = "dependencies"
         sub_state = None
         continue
     if section_break_re.match(line) and not (
-        objective_re.match(line)
-        or contracts_re.match(line)
-        or dependencies_re.match(line)
+        is_objective_heading(line)
+        or is_contracts_heading(line)
+        or is_dependencies_heading(line)
     ):
         state = None
         sub_state = None
@@ -358,7 +384,7 @@ for raw in lines:
 
 if not objective_lines:
     print(
-        "wm: spec missing '## Overall objective' section or its body",
+        "wm: spec missing '## Overall objective' or '## Architecture' section or its body",
         file=sys.stderr,
     )
     sys.exit(1)
