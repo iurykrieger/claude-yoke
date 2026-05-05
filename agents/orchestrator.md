@@ -69,10 +69,17 @@ Activated once by `/yoke:implement` when every sprint has converged
 - Read working-memory files: `.yoke/runtime/progress.md`,
   `.yoke/contracts/<slug>.md`. Optionally read every
   `.yoke/sprints/<slug>-s*.md` for completion-attribution context.
-- Invoke `/yoke:canonize` via the Skill tool, passing the active
-  task's `.yoke/<task-slug>/` directory path along with
-  `--from-orchestrator` so the skill knows it is running under the
-  Model C auto-apply path for `low` writes.
+- Invoke `/yoke:canonize` via the Skill tool **with no arguments**.
+  Per the v2.0.0 zero-argument facade contract documented at
+  `skills/canonize/SKILL.md` Phase 0, the canonize verb is
+  caller-agnostic: it resolves the active slug from
+  `.yoke/runtime/.current` and the active provider from
+  `.yoke/config.yaml :: canonical_memory.provider` on its own.
+  Caller identity is not part of the contract; Model C lane
+  selection is derived from the staged diff via the
+  five-criterion cascade in
+  `lib/canonical-memory/canonization-criteria.sh`, not from a
+  positional argument, opt-in flag, or environment variable.
 - `/yoke:canonize` performs the work that v1.1 split across this
   agent: it applies the five-criterion cascade, classifies impact
   under Model C, opens the PRs, and reports back. The Orchestrator
@@ -239,3 +246,4 @@ Bedrock).
   (council protocol from v3.0.0 onward).
 - `concepts/yoke-pattern-human-triggers` — Trigger-5 ratification;
   Trigger-4 lives in `lib/runtime/trigger-4.sh`.
+
