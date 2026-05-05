@@ -137,14 +137,17 @@ Each item names the cross-cut and the chosen handling.
 
 ## Technical Use Cases
 
-One subsection per PRD `US-###`, in PRD order. Each subsection lifts
-the user story into technical context: components touched, contracts
-used, NFRs applied, edge cases. The post-draft self-check asserts
-every PRD `US-###` appears here (or is marked `Deferred:` with the
-deferral surfaced in `## Open Questions`). Silently dropping a
-US-ID aborts the skill.
+One subsection per PRD `FR-N` from `## Functional Requirements`, in
+PRD order. Each subsection lifts the Functional Requirement into a
+technical walkthrough: components touched, contracts used, NFRs
+applied, edge cases. The post-draft self-check asserts every PRD
+`FR-N` appears here (or is marked `Deferred:` with the deferral
+surfaced in `## Open Questions`). Silently dropping an `FR-N` aborts
+the skill. User Stories are NOT lifted here — those live in
+`.yoke/acceptance-criteria/<slug>.md` (Phase 3) and are walked by
+`/yoke:acceptance-criteria`.
 
-### US-001 — <story title>
+### FR-1 — <FR title>
 
 **Components involved:** <comma-separated component names — name the
 files / modules touched, e.g. `skills/tech-spec/SKILL.md`,
@@ -156,7 +159,7 @@ Requirements section — e.g. `Latency`, `Token cost`>
 **Edge cases:** <bullet list, inline-comma'd or short — what unusual
 inputs / states the implementation must handle>
 
-### US-002 — <story title>
+### FR-2 — <FR title>
 
 **Components involved:** <…>
 **Contracts used:** <…>
@@ -188,7 +191,7 @@ filename concern.
 ## Open Questions
 
 Anything the spec does not yet resolve. Each entry names the question
-and (when applicable) the deferral target. Deferred PRD `US-###`
+and (when applicable) the deferral target. Deferred PRD `FR-N`
 entries from "Technical Use Cases" surface here verbatim.
 
 - <open question — e.g. "Should the canonical-pattern threshold be
