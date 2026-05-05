@@ -405,6 +405,48 @@ wm_slug_in_use() {
 wm_runtime_dir()           { printf '%s' "$WM_RUNTIME_DIR"; }
 wm_progress_path()         { printf '%s/progress.md' "$WM_RUNTIME_DIR"; }
 wm_cycle_counter_path()    { printf '%s/.cycle-counter' "$WM_RUNTIME_DIR"; }
+
+# wm_reset_cycle_counter
+#   Deterministic primitive that zeros the per-sprint cycle counter file at
+#   wm_cycle_counter_path() — i.e. ".yoke/runtime/.cycle-counter". Invoked by
+#   the council coordinator on per-sprint convergence, AFTER appending the
+#   just-converged sprint id to `completed_sprints:` and incrementing
+#   `current_sprint:` in `progress.md` frontmatter (placing it earlier would
+#   zero the counter mid-sprint and let `hooks/check-hard-bounds.sh` accept
+#   additional cycles in the just-completed sprint). Idempotent: writes the
+#   single byte `0` (no trailing newline, mirroring `wm_set_active`'s
+#   convention) regardless of the file's prior state, creating it (and the
+#   parent runtime directory, post-`wm_wipe_runtime`) when absent. Surfaces
+#   filesystem errors via `wm:`-prefixed stderr and exits non-zero. Does not
+#   write to `progress.md`, does not invoke any canonical-memory verb, and
+#   does not modify any file outside `wm_cycle_counter_path()`.
+#
+#   Anchors:
+#   - Fix-spec: .yoke/fixes/2026-05-05-cycle-counter-reset-on-sprint-advance.md
+#     (FR-1)
+#   - Tech Spec: .yoke/specs/2026-05-05-cycle-counter-reset-on-sprint-advance.md
+#     (Architecture :: deterministic working-memory primitive)
+#   - Acceptance Criteria:
+#     .yoke/acceptance-criteria/2026-05-05-cycle-counter-reset-on-sprint-advance.md
+#     (US-001 DoD + AC-001-1..AC-001-4)
+#   - concepts/yoke-pattern-sprint-runtime-bundle (canonical memory) — sprint
+#     advance resets the counter; hard-bound exhaustion fires Trigger 4 keyed
+#     on the active sprint.
+wm_reset_cycle_counter() {
+    local target
+    target="$(wm_cycle_counter_path)"
+    local parent
+    parent="$(dirname "$target")"
+    if ! mkdir -p "$parent" 2>/dev/null; then
+        echo "wm: wm_reset_cycle_counter: failed to create runtime dir '$parent'" >&2
+        return 1
+    fi
+    if ! printf '0' > "$target" 2>/dev/null; then
+        echo "wm: wm_reset_cycle_counter: failed to write '$target'" >&2
+        return 1
+    fi
+}
+
 wm_snapshots_dir()         { printf '%s/.snapshots' "$WM_RUNTIME_DIR"; }
 wm_trigger4_packet_path()  { printf '%s/.trigger4-packet.yaml' "$WM_RUNTIME_DIR"; }
 

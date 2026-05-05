@@ -71,9 +71,13 @@ termination.
 > `.yoke/runtime/progress.md`, loads
 > `.yoke/sprints/<slug>-s<current_sprint>.md` as the cycle's working
 > set, runs ≤8 cycles per sprint to convergence, then advances
-> `current_sprint:` and resets `cycle_count:` to 0. The full-run
-> termination handoff (canonize) fires only when every sprint has
-> converged (i.e. `completed_sprints:` length equals `total_sprints:`).
+> `current_sprint:` and resets `cycle_count:` to 0 (frontmatter scalar
+> in `progress.md`) and invokes `wm_reset_cycle_counter` to zero the
+> persisted per-sprint counter file at `.yoke/runtime/.cycle-counter`
+> (the file `hooks/check-hard-bounds.sh` consumes for the per-sprint
+> ≤ 8-cycles bound). The full-run termination handoff (canonize) fires
+> only when every sprint has converged (i.e. `completed_sprints:`
+> length equals `total_sprints:`).
 
 ## Process
 
@@ -190,7 +194,8 @@ while [ $(jq_count_array completed_sprints) -lt $total_sprints ]; do
         if convergence_for_sprint; then
             append_to completed_sprints "$current_sprint"
             advance current_sprint
-            reset cycle_count to 0
+            reset cycle_count to 0          # progress.md frontmatter scalar
+            wm_reset_cycle_counter          # zero .yoke/runtime/.cycle-counter
             break  # outer while re-evaluates
         fi
         cycle_count=$((cycle_count + 1))
@@ -425,10 +430,20 @@ per-cycle entry.
    - On per-sprint convergence: append `<current_sprint>` to
      `completed_sprints:` in `wm_progress_path`, increment
      `current_sprint:` to the next zero-padded sprint id (with
-     bounds), reset `cycle_count:` to 0, append the sprint-scoped
-     contract section to `.yoke/contracts/<slug>.md`, and **write
-     a sprint-boundary entry** to `wm_progress_path` summarizing
-     the sprint outcome before resuming the outer walk.
+     bounds), reset `cycle_count:` to 0 in `wm_progress_path`
+     frontmatter, then invoke `wm_reset_cycle_counter` (from
+     `lib/working-memory/paths.sh`) to zero the persisted counter
+     file at `wm_cycle_counter_path` (`.yoke/runtime/.cycle-counter`)
+     — the file `hooks/check-hard-bounds.sh` reads to enforce the
+     per-sprint ≤ 8-cycles bound. The helper invocation MUST run
+     **after** the `completed_sprints:` append and the
+     `current_sprint:` increment (placing it earlier would zero the
+     counter mid-sprint and let the hard-bound check accept
+     additional cycles in the just-completed sprint). Then append
+     the sprint-scoped contract section to
+     `.yoke/contracts/<slug>.md`, and **write a sprint-boundary
+     entry** to `wm_progress_path` summarizing the sprint outcome
+     before resuming the outer walk.
    - When `current_sprint` would exceed the last sprint id (i.e.
      every sprint has been completed), promote to the **full-run
      merge-ready sweep**: run `hooks/verify-acceptance.sh
