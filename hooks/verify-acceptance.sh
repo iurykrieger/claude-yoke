@@ -390,7 +390,16 @@ trap cleanup EXIT
 # Computational` block is no longer supported (sensor-cost-tiering Part
 # 1 already eliminated it; harness-realignment formalizes its removal).
 contract_format=""
-if grep -qE '^### Validation[[:space:]]*$' "$contract"; then
+if grep -qE '^## Sensor pool[[:space:]]*$' "$contract"; then
+  # v4.0.0 shape — flat `## Sensor pool` bullet list; classification at
+  # authoring time is forbidden per the acceptance-criteria refactor.
+  # Per-criterion sensor selection is a runtime council decision; the
+  # hook treats every pool member as registry semantics (run
+  # unconditionally) and lets the per-cycle `--criterion <id>` filter
+  # narrow when applicable. Slice-file-driven selection is a follow-up
+  # to the harness-realignment work.
+  contract_format="v4-pool"
+elif grep -qE '^### Validation[[:space:]]*$' "$contract"; then
   contract_format="new"
 elif grep -qE '^## Sensors registry[[:space:]]*$' "$contract"; then
   contract_format="legacy-registry"
@@ -408,7 +417,7 @@ fi
 
 if [ -z "$contract_format" ]; then
   echo "Error: Acceptance Contract has no sensor section." >&2
-  echo "  expected: per-criterion '### Validation' blocks (new shape) or legacy '## Sensors registry' or '## Sensors / ### Computational'." >&2
+  echo "  expected: v4.0.0 '## Sensor pool' flat list, per-criterion '### Validation' blocks, legacy '## Sensors registry', or '## Sensors / ### Computational'." >&2
   echo "  correction: rewrite the document per templates/acceptance-criteria.md, then run \`/yoke:ack-sensors --mode upsert ${contract}\` to materialize per-sensor files." >&2
   exit 4
 fi
@@ -585,6 +594,25 @@ parse_new_shape_pairs() {
   ' "$contract"
 }
 
+parse_v4_pool_pairs() {
+  # v4.0.0 shape: flat `## Sensor pool` bullet list. Each `- <sensor-id>`
+  # bullet emits a registry-semantics pair `__registry__|<sensor-id>`.
+  # Per-criterion sensor selection is a runtime council decision (Sr QA /
+  # Sr Staff slice files), not an authoring-time tag — the hook runs
+  # every pool member unconditionally; `--criterion <id>` filters at
+  # the dispatch layer when applicable.
+  awk '
+    /^## Sensor pool[[:space:]]*$/ { in_pool = 1; next }
+    in_pool && /^## / && !/^## Sensor pool[[:space:]]*$/ { in_pool = 0 }
+    in_pool && /^-[[:space:]]+[a-z0-9][a-z0-9._-]*[[:space:]]*$/ {
+      sid = $0
+      sub(/^-[[:space:]]+/, "", sid)
+      gsub(/[[:space:]]+$/, "", sid)
+      if (sid != "") print "__registry__|" sid
+    }
+  ' "$contract"
+}
+
 parse_legacy_registry_pairs() {
   # Build (criterion, sensor) pairs from `Sensors: [a, b]` lines under
   # `### Scenario <N>` headings. Sensor ids without a scenario fall
@@ -681,7 +709,9 @@ parse_legacy_inline_pairs() {
   ' "$contract"
 }
 
-if [ "$contract_format" = "new" ]; then
+if [ "$contract_format" = "v4-pool" ]; then
+  pairs_raw="$(parse_v4_pool_pairs | sort -u)"
+elif [ "$contract_format" = "new" ]; then
   pairs_raw="$(parse_new_shape_pairs | sort -u)"
 elif [ "$contract_format" = "legacy-inline" ]; then
   # Format C: seed sensor_meta_command from inline `- name: `cmd`` bullets,
@@ -706,8 +736,17 @@ else
 fi
 
 # Apply --criterion filter.
+# For v4-pool format, every sensor lives under `__registry__` because the
+# sensor pool is unclassified at authoring time (per-criterion selection
+# is a runtime council decision, not parsable from the AC document).
+# Allow `__registry__` rows to pass through the filter so the cycle's
+# `--criterion <id>` invocation still runs the registry/pool sensors.
 if [ -n "$filter_criterion" ]; then
-  pairs_filtered=$(printf '%s\n' "$pairs_raw" | awk -F'|' -v c="$filter_criterion" '$1 == c { print }')
+  if [ "$contract_format" = "v4-pool" ]; then
+    pairs_filtered=$(printf '%s\n' "$pairs_raw" | awk -F'|' -v c="$filter_criterion" '$1 == c || $1 == "__registry__" { print }')
+  else
+    pairs_filtered=$(printf '%s\n' "$pairs_raw" | awk -F'|' -v c="$filter_criterion" '$1 == c { print }')
+  fi
   pairs_raw="$pairs_filtered"
 fi
 

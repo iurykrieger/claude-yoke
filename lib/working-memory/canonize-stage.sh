@@ -110,6 +110,7 @@ stage="$(mktemp -d "${TMPDIR:-/tmp}/yoke-canonize-stage.XXXXXX")"
 
 mkdir -p \
     "$stage/prds" \
+    "$stage/fixes" \
     "$stage/specs" \
     "$stage/sprints" \
     "$stage/acceptance-criteria" \
@@ -125,6 +126,13 @@ mkdir -p \
 # valid; e.g. spec-phase only has prds/specs/sprints, no contracts).
 [[ -f ".yoke/prds/${slug}.md" ]] \
     && cp -p ".yoke/prds/${slug}.md" "$stage/prds/${slug}.md"
+# fixes/<slug>.md — Phase-1 fix-spec archive, sibling of prds/. The
+# FR-9a write-time invariant in wm_set_active makes PRD+fix-spec
+# coexistence unreachable, so at most one of prds/<slug>.md and
+# fixes/<slug>.md is staged for any given slug. Anchor: PRD
+# `.yoke/prds/2026-05-05-phase-1-fix-entrypoint.md`.
+[[ -f ".yoke/fixes/${slug}.md" ]] \
+    && cp -p ".yoke/fixes/${slug}.md" "$stage/fixes/${slug}.md"
 [[ -f ".yoke/specs/${slug}.md" ]] \
     && cp -p ".yoke/specs/${slug}.md" "$stage/specs/${slug}.md"
 [[ -f ".yoke/acceptance-criteria/${slug}.md" ]] \
@@ -152,7 +160,7 @@ fi
 # Drop empty archive directories so the staged tree mirrors what the
 # provider would see in a fresh `.yoke/`. Empty `acceptance-contracts/`
 # (post v4.0.0) and empty `contracts/` (pre-runtime) are common.
-for d in "$stage/prds" "$stage/specs" "$stage/sprints" \
+for d in "$stage/prds" "$stage/fixes" "$stage/specs" "$stage/sprints" \
          "$stage/acceptance-criteria" "$stage/acceptance-contracts" \
          "$stage/contracts"; do
     if [[ -d "$d" ]] && [[ -z "$(ls -A "$d" 2>/dev/null)" ]]; then

@@ -4,6 +4,90 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and this
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [5.0.0] — 2026-05-05 — Phase-1 fix-entrypoint (**Breaking**)
+
+Phase 1 of the Yoke lifecycle gains a second authoring path. The PM-grill
+`/yoke:discover` (which produces `.yoke/prds/<slug>.md`) is no longer the
+sole entrypoint: the new engineering-grill `/yoke:fix` produces
+`.yoke/fixes/<slug>.md` for bug-fixes, dependency bumps, narrow refactors,
+and infra tweaks. Both Phase-1 artifacts are interchangeable from Phase 2
+onwards via the new existence-aware resolver `wm_phase1_artifact_path`.
+Every downstream skill reads the resolver instead of `wm_prd_path`, so
+the fix-spec and PRD flow through `/yoke:tech-spec` →
+`/yoke:acceptance-criteria` → `/yoke:generate-sprints` →
+`/yoke:implement` → `/yoke:canonize` → `/yoke:status` without any
+artifact-kind branching.
+
+### Breaking changes
+
+- **Helper-layer contract.** Every read site outside the two Phase-1
+  authoring skills must call `wm_phase1_artifact_path "$slug"` instead
+  of `wm_prd_path "$slug"`. Direct PRD reads outside
+  `skills/discover/SKILL.md` and `skills/fix/SKILL.md` are now blocked
+  by the new `tests/sensors/no-direct-prd-path.test.sh` sensor.
+- **Working-memory directory.** New artifacts can land in either
+  `.yoke/prds/<slug>.md` (for `/yoke:discover`-authored PRDs) or
+  `.yoke/fixes/<slug>.md` (for `/yoke:fix`-authored fix-specs). The
+  resolver returns whichever exists; both existing simultaneously is
+  an FR-9 ambiguous-Phase-1-state condition that hard-aborts every
+  caller with a structured recovery diagnostic.
+- **Plugin manifest.** `/yoke:fix` is now a registered skill on par
+  with `/yoke:discover`. The `description` field on `plugin.json` and
+  `marketplace.json` mentions the dual Phase-1 entry path explicitly.
+
+### New skill
+
+- **`/yoke:fix`** — Phase-1 entrypoint for fix-shaped tasks. Senior-
+  Engineer persona body opens with `**Mode:** diagnose-first` (open-
+  vocabulary Mode-tag convention; `**Mode:** design-first` is
+  backfilled into `/yoke:tech-spec` in this same release). Runs four
+  readiness checks (what broke / repro / expected / blast radius) with
+  a four-proxy narrowness gate (component breadth / contract shape /
+  trigger specificity / surface containment) encoded verbatim in the
+  persona body, with graduated refusal: 4/4 narrow → silent;
+  3/4 narrow → `scope_caution: <proxy-id>` written into the fix-spec
+  frontmatter; ≤ 2/4 narrow → abort + re-route to `/yoke:discover`.
+
+### New helpers
+
+- `wm_fix_path "<slug>"` — pure path computer; echoes
+  `.yoke/fixes/<slug>.md` deterministically. Mirrors `wm_prd_path` and
+  every other archive helper.
+- `wm_phase1_artifact_path "<slug>"` — the canonical I/O-aware
+  exception in `paths.sh`. Stats both `.yoke/prds/<slug>.md` and
+  `.yoke/fixes/<slug>.md`; returns whichever exists; hard-aborts non-
+  zero on the both-exist and neither-exists cases with verbatim
+  structured-recovery diagnostics. Its docstring states the exception
+  does not propagate to future helpers.
+- `wm_set_active` — gained the FR-9a invariant: refuses to record
+  `.yoke/runtime/.current` when both Phase-1 archives exist for the
+  slug. Same diagnostic as the resolver.
+
+### New sensors and tests
+
+- `tests/sensors/persona-mode-tag.test.sh` — walks every engineering-
+  flavored skill body and asserts each declares a well-formed Mode tag
+  matching the open-vocabulary regex on the first non-empty line under
+  `## Your role`.
+- `tests/sensors/fix-spec-frontmatter-shape.test.sh` — walks
+  `.yoke/fixes/<slug>.md` files and asserts each carries the mandatory
+  `scope_caution:` field with a documented value.
+- `tests/sensors/no-direct-prd-path.test.sh` — grep-audits `skills/`
+  and fails on any `wm_prd_path` read outside
+  `skills/discover/SKILL.md` and `skills/fix/SKILL.md`.
+- `tests/regression/phase1-backward-compat/` — five PRD-backed
+  scenarios that walk the existing PRD-backed flow end-to-end through
+  the migrated downstream skills, asserting zero path-resolution drift
+  post-`wm_phase1_artifact_path` migration.
+- `tests/smoke/fix-skill-happy-path.test.sh` — exercises `/yoke:fix`
+  minimally on a 4/4-readiness fixture input; asserts the materialized
+  fix-spec carries empty `scope_caution:` and `Status: approved`.
+
+> **Breaking.** Drain in-flight v4.x cycles before upgrading. Skills
+> that internally branch on PRD-vs-fix-spec must be migrated to call
+> `wm_phase1_artifact_path` exactly once and consume the resolved path
+> as opaque Phase-1 input.
+
 ## [4.0.0] — 2026-05-03 — Acceptance Criteria rename + reshape (**Breaking**)
 
 The Phase 3 binding artifact is renamed from "Acceptance Contract" to

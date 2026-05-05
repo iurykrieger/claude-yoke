@@ -50,6 +50,45 @@ wm_check_prd_approved() {
     return 0
 }
 
+# wm_check_phase1_approved <path>
+#   Phase-1-artifact-agnostic approval predicate. Used by every downstream
+#   skill that consumes a Phase-1 artifact through the
+#   wm_phase1_artifact_path resolver — the resolver does not branch on
+#   PRD-vs-fix-spec identity, so the approval check stays artifact-agnostic
+#   too.
+#
+#   Exits 0 when <path> exists AND its body carries a blockquote line
+#   matching `> Status: approved` (or `ratified`, mirroring
+#   wm_check_prd_approved's grammar). Exits 1 with a `wm:`-prefixed stderr
+#   diagnostic ending with the literal remediation hint
+#   `Run /yoke:discover or /yoke:fix first.` per the post-migration FR-9
+#   contract.
+#
+# Anchors:
+#   - PRD: .yoke/prds/2026-05-05-phase-1-fix-entrypoint.md (FR-9, FR-2 of
+#     the migration tier — every downstream skill's pre-flight error
+#     message updates from "Run /yoke:discover first." to "Run /yoke:discover
+#     or /yoke:fix first.")
+#   - Acceptance Criteria (binding):
+#     .yoke/acceptance-criteria/2026-05-05-phase-1-fix-entrypoint.md
+#     (US-003 DoD bullet, AC-003-1, AC-003-2)
+wm_check_phase1_approved() {
+    local path="${1:-}"
+    if [[ -z "$path" ]]; then
+        echo "wm: wm_check_phase1_approved requires <path>" >&2
+        return 2
+    fi
+    if [[ ! -f "$path" ]]; then
+        echo "wm: Phase-1 artifact missing or unapproved at $path. Run /yoke:discover or /yoke:fix first." >&2
+        return 1
+    fi
+    if ! grep -qE "^> Status:[[:space:]]*(approved|ratified)" "$path"; then
+        echo "wm: Phase-1 artifact missing or unapproved at $path. Run /yoke:discover or /yoke:fix first." >&2
+        return 1
+    fi
+    return 0
+}
+
 # wm_check_spec_approved <path>
 #   Exits 0 when <path> exists AND its body carries a blockquote line
 #   matching `> Status: approved`. Exits 1 with `wm:`-prefixed stderr
