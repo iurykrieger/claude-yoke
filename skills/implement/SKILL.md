@@ -487,10 +487,12 @@ defect that the Part-3 smoke gates against.
   (`merge-ready` | `divergence` | `contract-conflict` |
   `hard-bound` | `infeasibility`).
 - Orchestrator (in canonize mode) invokes `/yoke:canonize` via the
-  Skill tool, passing the active task's `.yoke/<task-slug>/` path
-  and `--from-orchestrator`. `/yoke:canonize` resolves the active
-  provider via `lib/canonical-memory/resolve-provider.sh` and
-  dispatches to the provider's pinned canonize skill (e.g.
+  Skill tool **with no arguments** — the v2.0.0 zero-argument facade
+  contract at `skills/canonize/SKILL.md` Phase 0 is the contract
+  authority. `/yoke:canonize` resolves the active slug from
+  `.yoke/runtime/.current` (via `wm_active_slug`), resolves the
+  active provider via `lib/canonical-memory/resolve-provider.sh`,
+  and dispatches to the provider's pinned canonize skill (e.g.
   `/bedrock:teach` for the bedrock provider per `providers.yaml`),
   which applies the five-criterion cascade, reads each candidate's
   `impact_level`, and opens PRs per Model C.
