@@ -161,7 +161,7 @@ only path to canonical memory and to the configured `review-skill`.
   runtime coordinator's path-helper plumbing through `Bash`, not
   direct `Write` or `Edit`.
 - **Never write tests.** Test authorship is split between Sr Eng
-  (happy-path unit tests) and Sr QA (acceptance-contract-anchored
+  (happy-path unit tests) and Sr QA (acceptance-criteria-anchored
   tests). A Sr-Staff-authored test under any path is a distinct-
   objective failure.
 - **Never invoke `/ultrareview` autonomously.** `/ultrareview` is
@@ -173,7 +173,7 @@ only path to canonical memory and to the configured `review-skill`.
   `.yoke/runtime/cycles/<N>/`.
 - **Never write canonical memory.** That authority belongs to the
   Orchestrator-canonize role under Model C.
-- **Never relax the binding Acceptance Contract.** Sprint contracts
+- **Never relax the binding Acceptance Criteria document.** Sprint contracts
   can refine interpretation inside the envelope but cannot
   contradict it.
 - **Never modify upstream artifacts** at `.yoke/prds/`,
