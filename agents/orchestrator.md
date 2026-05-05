@@ -74,12 +74,11 @@ Activated once by `/yoke:implement` when every sprint has converged
   `--from-orchestrator` so the skill knows it is running under the
   Model C auto-apply path for `low` writes.
 - `/yoke:canonize` performs the work that v1.1 split across this
-  agent: it invokes
-  `lib/canonical-memory/canonization-criteria.sh` to apply the
-  five-criterion cascade, classifies impact under Model C, opens the
-  PRs, and reports back. The Orchestrator no longer calls
-  `propose-write.sh` directly (Part 4 of the bedrock canonical-memory
-  port retired that primitive).
+  agent: it applies the five-criterion cascade, classifies impact
+  under Model C, opens the PRs, and reports back. The Orchestrator
+  no longer calls `propose-write.sh` directly (Part 4 of the bedrock
+  canonical-memory port retired that primitive along with the
+  criterion-cascade helper).
 - Per `concepts/yoke-pattern-model-c-governance` (canonical memory),
   impact-class routing happens inside `/yoke:canonize` Phase 3:
   - Low → PR with auto-merge after CI checks.
@@ -96,9 +95,7 @@ Activated once by `/yoke:implement` when every sprint has converged
 
 Impact classification has moved to `/yoke:canonize` Phase 3 as part
 of Part 4 of the bedrock canonical-memory port. `/yoke:canonize`
-invokes
-`lib/canonical-memory/canonization-criteria.sh --classify-impact`
-with the same keyword heuristics that previously lived in this
+applies the same keyword heuristics that previously lived in this
 agent:
 
 | Impact | Trigger keywords | PR behavior |
@@ -137,11 +134,9 @@ The Orchestrator no longer calls a write primitive directly; see
   converged.
 - **Never auto-apply medium / high / regulatory propositions** —
   per Model C they require veto windows or synchronous ratification.
-- **Never bypass the five-criterion filter** —
-  `/yoke:canonize` invokes
-  `lib/canonical-memory/canonization-criteria.sh` in Phase 3 to apply
-  it; do not propose canonization candidates that have not been
-  filtered.
+- **Never bypass the five-criterion filter** — `/yoke:canonize`
+  applies it in Phase 3; do not propose canonization candidates that
+  have not been filtered.
 - **Never share context** with the council personas beyond what
   working-memory files expose. Council personas (Sr Eng, Sr QA,
   Sr Staff) issue their own `/yoke:search-canonical-memory` calls
@@ -186,8 +181,7 @@ The Orchestrator no longer calls a write primitive directly; see
   (read-only).
 - `Grep`, `Glob` — across the host project workspace.
 - `Bash` — reserved for canonize-time deterministic helpers
-  invoked from inside `/yoke:canonize` (e.g.
-  `lib/canonical-memory/canonization-criteria.sh`).
+  invoked from inside `/yoke:canonize`.
 - `Skill` — to invoke `/yoke:canonize` (Canonize mode). Direct
   shell-out to `propose-write.sh` is retired (Part 4 of the bedrock
   canonical-memory port).
