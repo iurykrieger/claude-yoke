@@ -48,11 +48,17 @@
 #         (so dispatch is resolver-driven, not hard-coded).
 #
 #   (C) Sensor self-tests for the rewritten sensors pass (the
-#       sensor-self-tests-pass binding sensor).
-#     (6) tests/sensors/contract-promotion-bidirectional.test.sh
+#       sensor-self-tests-pass binding sensor). The legacy
+#       contract-promotion-bidirectional and yoke-doctrine-round-trip
+#       self-tests were retired alongside their sensor scripts at
+#       fix #50 (the canonical-memory invariants both sensors
+#       encoded are now substrate-side properties owned by the
+#       claude-bedrock peer plugin per the v2.0.0 namespace
+#       separation). The active rewrite of that surface is
+#       no-canonical-memory-direct-refs, which asserts the v2.0.0
+#       facade rule on lib/sensors/.
+#     (6) tests/sensors/no-canonical-memory-direct-refs.test.sh
 #         exists and passes.
-#     (7) tests/sensors/yoke-doctrine-round-trip.test.sh exists and
-#         passes.
 #
 # Sensor: end-to-end-implement-cycle (computational, expensive-tier).
 
@@ -144,26 +150,16 @@ fi
 # (C) Sensor self-tests for the rewritten sensors pass.
 # ===========================================================================
 
-# (6) contract-promotion-bidirectional self-test.
-if [ -f tests/sensors/contract-promotion-bidirectional.test.sh ]; then
-  if bash tests/sensors/contract-promotion-bidirectional.test.sh >/dev/null 2>&1; then
-    pass "(C6) tests/sensors/contract-promotion-bidirectional.test.sh exists and passes"
+# (6) no-canonical-memory-direct-refs self-test (the active rewrite of
+# the lib/sensors/ canonical-memory invariant surface; see header NOTE).
+if [ -f tests/sensors/no-canonical-memory-direct-refs.test.sh ]; then
+  if bash tests/sensors/no-canonical-memory-direct-refs.test.sh >/dev/null 2>&1; then
+    pass "(C6) tests/sensors/no-canonical-memory-direct-refs.test.sh exists and passes"
   else
-    err "(C6) tests/sensors/contract-promotion-bidirectional.test.sh exists but fails"
+    err "(C6) tests/sensors/no-canonical-memory-direct-refs.test.sh exists but fails"
   fi
 else
-  err "(C6) tests/sensors/contract-promotion-bidirectional.test.sh missing"
-fi
-
-# (7) yoke-doctrine-round-trip self-test.
-if [ -f tests/sensors/yoke-doctrine-round-trip.test.sh ]; then
-  if bash tests/sensors/yoke-doctrine-round-trip.test.sh >/dev/null 2>&1; then
-    pass "(C7) tests/sensors/yoke-doctrine-round-trip.test.sh exists and passes"
-  else
-    err "(C7) tests/sensors/yoke-doctrine-round-trip.test.sh exists but fails"
-  fi
-else
-  err "(C7) tests/sensors/yoke-doctrine-round-trip.test.sh missing"
+  err "(C6) tests/sensors/no-canonical-memory-direct-refs.test.sh missing"
 fi
 
 echo
