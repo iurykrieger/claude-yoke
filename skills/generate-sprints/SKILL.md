@@ -107,11 +107,20 @@ Steps, in order:
    slug="$(wm_active_slug)" || exit 1
    ```
 
-3. **Approved PRD.** Source `<plugin_dir>/lib/working-memory/check-approved.sh`
-   and call `wm_check_prd_approved "$(wm_prd_path "$slug")"`. The
-   helper aborts non-zero with stderr `wm: PRD missing or unapproved
-   at <path>. Run /yoke:discover first.` when the file is missing or
-   its `> Status:` line is neither `approved` nor `ratified`.
+3. **Approved Phase-1 artifact.** Source `<plugin_dir>/lib/working-memory/check-approved.sh`
+   and call `wm_check_phase1_approved "$(wm_phase1_artifact_path "$slug")"`.
+   The resolver returns whichever Phase-1 artifact backs the slug
+   (`.yoke/prds/<slug>.md` for `/yoke:discover`-authored PRDs,
+   `.yoke/fixes/<slug>.md` for `/yoke:fix`-authored fix-specs); it
+   hard-aborts non-zero with the structured FR-9 recovery diagnostic
+   when both archives exist for the same slug (PRD FR-9 / AC-004-1)
+   and when neither exists ("Run `/yoke:discover` or `/yoke:fix`
+   first."). The approval helper aborts non-zero with stderr
+   `wm: Phase-1 artifact missing or unapproved at <path>. Run /yoke:discover or /yoke:fix first.`
+   when the resolved file's `> Status:` line is neither `approved`
+   nor `ratified`. The artifact is read as opaque Phase-1 input —
+   `/yoke:generate-sprints` does not branch its core logic on
+   PRD-vs-fix-spec identity.
 
 4. **Approved Spec.** Call `wm_check_spec_approved "$(wm_spec_path
    "$slug")"`. The helper aborts non-zero with stderr `wm: spec

@@ -67,7 +67,7 @@ readonly WM_SPRINT_ID_REGEX='^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9][a-z0-9-]{0,49}
 # is now the runtime-bundle archive category. Per-task files no longer
 # exist on disk — tasks live as `### Task <ID>` anchors inside sprint
 # files.
-readonly WM_ARCHIVE_CATEGORIES=(prds specs sprints acceptance-criteria acceptance-contracts contracts)
+readonly WM_ARCHIVE_CATEGORIES=(prds fixes specs sprints acceptance-criteria acceptance-contracts contracts)
 
 # --- slug validation --------------------------------------------------------
 
@@ -96,6 +96,21 @@ wm_active_slug() {
 wm_set_active() {
     local slug="${1:-}"
     wm_validate_slug "$slug" || return 1
+    # FR-9a invariant on write — refuse to record .current when both
+    # Phase-1 archives exist for the slug. This is belt-and-suspenders
+    # against scenarios I (cross-branch merge collision) and V (manual
+    # merge resolution accepting both sides) which bypass FR-4's
+    # collision check. Prints the FR-9 ambiguous-Phase-1-state
+    # diagnostic verbatim and leaves .current unmodified on refusal.
+    #
+    # Anchors: PRD FR-9a + AC-004-3 of
+    # .yoke/acceptance-criteria/2026-05-05-phase-1-fix-entrypoint.md
+    local prd_path="${WM_ROOT}/prds/${slug}.md"
+    local fix_path="${WM_ROOT}/fixes/${slug}.md"
+    if [[ -f "$prd_path" && -f "$fix_path" ]]; then
+        _wm_emit_ambiguous_phase1_diagnostic "$slug" "$prd_path" "$fix_path" >&2
+        return 1
+    fi
     mkdir -p "$WM_RUNTIME_DIR"
     printf '%s' "$slug" > "$WM_CURRENT_FILE"
 }
@@ -121,6 +136,170 @@ wm_prd_path()                  { _wm_archive_path "prds" "${1:-}"; }
 wm_spec_path()                 { _wm_archive_path "specs" "${1:-}"; }
 wm_acceptance_criteria_path()  { _wm_archive_path "acceptance-criteria" "${1:-}"; }
 wm_contracts_path()            { _wm_archive_path "contracts" "${1:-}"; }
+# wm_fix_path "<slug>"
+#   Echoes ".yoke/fixes/<slug>.md" deterministically — pure path computer
+#   with no I/O. Mirrors wm_prd_path / wm_spec_path / wm_acceptance_criteria_path
+#   shape: validates the slug via wm_validate_slug at the boundary and aborts
+#   non-zero with a "wm:"-prefixed diagnostic on regex violation. When called
+#   without an argument, falls back to the active slug via wm_active_slug.
+#
+#   Anchored to PRD FR-3 (.yoke/prds/2026-05-05-phase-1-fix-entrypoint.md).
+#   The materialized .yoke/fixes/ directory is created lazily on first write
+#   by the /yoke:fix skill; this helper does NOT stat or mkdir.
+wm_fix_path()                  { _wm_archive_path "fixes" "${1:-}"; }
+
+# --- Phase-1 artifact resolver (existence-aware exception) -------------------
+#
+# wm_phase1_artifact_path "<slug>"
+#
+# THIS FUNCTION IS THE CANONICAL I/O-AWARE EXCEPTION IN paths.sh.
+# Its existence-aware contract does NOT propagate to future helpers;
+# every other helper in this file is a pure path computer by default and
+# new helpers added to this file MUST remain pure path computers unless a
+# fresh PRD ratifies a new I/O-aware exception. The resolver lives in
+# paths.sh (not in a sibling lib/) so that working-memory path resolution
+# stays centralized — but its docstring is the load-bearing reminder that
+# this is the sole exception.
+#
+# Contract:
+#   - Validates the slug via wm_validate_slug; falls back to wm_active_slug
+#     when called without an argument (matches every sibling helper's
+#     argument shape).
+#   - Stats both .yoke/prds/<slug>.md and .yoke/fixes/<slug>.md.
+#   - Exactly one exists  → echoes that path to stdout, exits 0.
+#   - Both exist          → emits the verbatim "wm: ambiguous Phase-1
+#                            state for slug '<slug>'" structured-recovery
+#                            diagnostic to stderr (paths + first-100-bytes
+#                            excerpts + last-commit sha + author + ISO-8601
+#                            timestamp + git rm recipe), exits non-zero.
+#                            stdout is empty on this branch.
+#   - Neither exists      → emits a "wm:"-prefixed neither-case diagnostic
+#                            ending with the literal remediation
+#                            "Run /yoke:discover or /yoke:fix first.", exits
+#                            non-zero. stdout is empty on this branch.
+#
+# No read-vs-write split — every caller (read-only or write) inherits the
+# same abort path. PRD OQ-3 / option (δ) ratifies this uniform contract.
+#
+# Anchors:
+#   - PRD: .yoke/prds/2026-05-05-phase-1-fix-entrypoint.md (FR-9)
+#   - Spec: .yoke/specs/2026-05-05-phase-1-fix-entrypoint.md (APIs and
+#     Data Model :: wm_phase1_artifact_path)
+#   - Acceptance Criteria (binding):
+#     .yoke/acceptance-criteria/2026-05-05-phase-1-fix-entrypoint.md
+#     (US-003 DoD bullet, US-004 DoD bullets, AC-004-1, AC-004-2)
+wm_phase1_artifact_path() {
+    local slug="${1:-}"
+    if [[ -z "$slug" ]]; then
+        slug="$(wm_active_slug)" || return 1
+    else
+        wm_validate_slug "$slug" || return 1
+    fi
+    local prd_path="${WM_ROOT}/prds/${slug}.md"
+    local fix_path="${WM_ROOT}/fixes/${slug}.md"
+    local prd_exists=0 fix_exists=0
+    [[ -f "$prd_path" ]] && prd_exists=1
+    [[ -f "$fix_path" ]] && fix_exists=1
+
+    if (( prd_exists == 1 && fix_exists == 1 )); then
+        _wm_emit_ambiguous_phase1_diagnostic "$slug" "$prd_path" "$fix_path" >&2
+        return 1
+    fi
+    if (( prd_exists == 0 && fix_exists == 0 )); then
+        {
+            echo "wm: no Phase-1 artifact for slug '$slug'"
+            echo
+            echo "  expected one of:"
+            echo "    $prd_path"
+            echo "    $fix_path"
+            echo
+            echo "Run /yoke:discover or /yoke:fix first."
+        } >&2
+        return 1
+    fi
+    if (( prd_exists == 1 )); then
+        printf '%s' "$prd_path"
+    else
+        printf '%s' "$fix_path"
+    fi
+}
+
+# _wm_emit_ambiguous_phase1_diagnostic <slug> <prd-path> <fix-path>
+#   Internal helper — emits the verbatim FR-9 "ambiguous Phase-1 state"
+#   diagnostic to stdout (callers redirect to stderr). Body carries:
+#     1. The "wm: ambiguous Phase-1 state for slug '<slug>'" header — the
+#        stable substring that AC-004-1 ratifies and the no-ambiguous-phase1
+#        sensor scans CI logs for.
+#     2. Both paths with first-100-bytes excerpts, last-commit sha, author,
+#        and ISO-8601 commit timestamp (when the file is git-tracked).
+#     3. A "git rm" example recipe and the literal "Exactly one Phase-1
+#        artifact must exist per slug" closing reminder.
+#
+#   Files outside git (untracked or no .git directory) print
+#   "<unversioned>" in the commit-metadata slot — the diagnostic remains
+#   well-formed and stable.
+_wm_emit_ambiguous_phase1_diagnostic() {
+    local slug="$1"
+    local prd_path="$2"
+    local fix_path="$3"
+    echo "wm: ambiguous Phase-1 state for slug '$slug'"
+    echo
+    _wm_emit_phase1_artifact_block "$prd_path"
+    _wm_emit_phase1_artifact_block "$fix_path"
+    echo
+    echo "Exactly one Phase-1 artifact must exist per slug. Resolve via:"
+    echo "  git rm $prd_path && git commit"
+    echo "or"
+    echo "  git rm $fix_path && git commit"
+    echo "or rename one slug. The canonical Phase-1 lifecycle expects"
+    echo "one of (PRD, fix-spec) per slug, never both."
+}
+
+# _wm_emit_phase1_artifact_block <path>
+#   Internal helper — emits one indented artifact block:
+#     <path>
+#       first 100 bytes: <excerpt>
+#       last commit:     <sha> by <author> on <iso8601>
+#   Falls back to "<unversioned>" when git is unavailable or the path is
+#   not tracked. The first-100-bytes excerpt has its newlines collapsed
+#   to a single space and trailing whitespace trimmed, so the diagnostic
+#   stays single-line per byte regardless of file content.
+_wm_emit_phase1_artifact_block() {
+    local path="$1"
+    local excerpt commit_line
+    if [[ -f "$path" ]]; then
+        excerpt="$(head -c 100 "$path" 2>/dev/null | tr '\n\r' '  ' | sed -E 's/[[:space:]]+$//')"
+    else
+        excerpt="<missing>"
+    fi
+    commit_line="$(_wm_last_commit_for "$path")"
+    echo "  $path"
+    echo "    first 100 bytes: $excerpt"
+    echo "    last commit:     $commit_line"
+}
+
+# _wm_last_commit_for <path>
+#   Echoes "<sha> by <author> on <iso8601>" for the path's last git
+#   commit. Echoes "<unversioned>" when git is unavailable, when the path
+#   is outside a git working tree, or when the path is untracked.
+_wm_last_commit_for() {
+    local path="$1"
+    if ! command -v git >/dev/null 2>&1; then
+        echo "<unversioned>"
+        return 0
+    fi
+    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        echo "<unversioned>"
+        return 0
+    fi
+    local info
+    info="$(git log -n 1 --pretty=format:'%h by %an on %aI' -- "$path" 2>/dev/null)"
+    if [[ -z "$info" ]]; then
+        echo "<unversioned>"
+    else
+        echo "$info"
+    fi
+}
 
 # wm_acceptance_criteria_in_use "<slug>"
 #   Returns 0 when .yoke/acceptance-criteria/<slug>.md exists, 1 otherwise.

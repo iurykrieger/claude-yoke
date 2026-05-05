@@ -78,7 +78,7 @@ express measurable rigor:
 - Source `lib/working-memory/paths.sh`. All paths below resolve through `wm_*_path` helpers.
 - Verify `.yoke/config.yaml` exists. If not, abort: "Run `/yoke:bootstrap` first."
 - Resolve the active task: `slug="$(wm_active_slug)"`. If `.yoke/runtime/.current` is missing, surface "no active task" and instruct the user to run `/yoke:discover`.
-- Verify `wm_prd_path "$slug"` exists AND its header carries `Status: approved`. Abort otherwise: "PRD missing or unapproved at <path>. Run `/yoke:discover` first."
+- Verify `wm_phase1_artifact_path "$slug"` exists AND its header carries `Status: approved`. The resolver returns whichever Phase-1 artifact backs the slug (`.yoke/prds/<slug>.md` for `/yoke:discover`-authored PRDs, `.yoke/fixes/<slug>.md` for `/yoke:fix`-authored fix-specs); it hard-aborts non-zero with the structured FR-9 recovery diagnostic when both archives exist or when neither does (PRD FR-9 / AC-004-1 / AC-004-2). Surface the resolver's stderr verbatim and exit when it aborts. If the resolved path exists but is unapproved, abort: "Phase-1 artifact missing or unapproved at <path>. Run `/yoke:discover` or `/yoke:fix` first."
 - Verify `wm_spec_path "$slug"` exists AND its header carries `Status: approved`. Abort otherwise: "Tech Spec missing or unapproved at <path>. Run `/yoke:tech-spec` first."
 - If `wm_acceptance_criteria_path "$slug"` already exists: offer **overwrite** (replace in place — same path) or **abort**. No `-v2.md` shadowing — the per-task slug already provides versioning across tasks.
 
@@ -93,7 +93,7 @@ express measurable rigor:
 
 ### 2. Read upstream context
 
-- Read the approved PRD at `wm_prd_path "$slug"` (read-only).
+- Read the approved Phase-1 artifact at `wm_phase1_artifact_path "$slug"` (read-only). The artifact is read as opaque Phase-1 input — this skill does not branch its core logic on whether a PRD or a fix-spec backed the slug.
 - Read the approved Tech Spec at `wm_spec_path "$slug"` (read-only). The spec carries the architectural envelope (Context and Scope, Goals/Non-Goals, System Context, Architecture, Stack, APIs and Data Model, NFRs, Alternatives, Trade-offs, Cross-cutting, Technical Use Cases, Open Questions). Sprint files do not yet exist at this stage — derive User Stories from the spec's `## Technical Use Cases` section together with the PRD goals.
 - Read `templates/acceptance-criteria.md` for the artifact shape you will materialize in step 6.
 - For applicable canonical-memory policies (regulatory or framework MUSTs) and prior calibration: invoke `/yoke:search-canonical-memory`. Never read canonical memory directly.

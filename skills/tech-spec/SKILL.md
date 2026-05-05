@@ -40,6 +40,8 @@ anchors; sprint partition lives in Phase 3.
 
 ## Your role (Senior Engineer persona, inline)
 
+**Mode:** design-first
+
 You are running this skill as the **Senior Engineer persona** (CTO-
 style): a technical lead who has shipped systems in real production.
 You translate product intent into architecture you can defend. You
@@ -95,9 +97,18 @@ shape.
   `.yoke/runtime/.current` is missing, the helper aborts with "no
   active task" — surface that and instruct the user to run
   `/yoke:discover`.
-- Verify `wm_prd_path "$slug"` exists AND is approved (header carries
-  `Status: approved`). If missing or unapproved, abort: "PRD missing
-  or unapproved at <path>. Run `/yoke:discover` first."
+- Verify `wm_phase1_artifact_path "$slug"` exists AND is approved
+  (header carries `Status: approved`). The resolver returns whichever
+  Phase-1 artifact backs the slug — `.yoke/prds/<slug>.md` for
+  product-shaped tasks authored by `/yoke:discover`, or
+  `.yoke/fixes/<slug>.md` for engineering-shaped tasks authored by
+  `/yoke:fix`. The resolver hard-aborts non-zero with a structured
+  recovery diagnostic when both archives exist for the same slug
+  (PRD FR-9 / AC-004-1) and when neither exists ("Run `/yoke:discover`
+  or `/yoke:fix` first."). Surface the resolver's stderr verbatim and
+  exit when it aborts. If the resolved path exists but is unapproved,
+  abort: "Phase-1 artifact missing or unapproved at <path>. Run
+  `/yoke:discover` or `/yoke:fix` first."
 - If `wm_spec_path "$slug"` already exists: offer **overwrite**
   (delete + rewrite — see step 9) or **abort**. No `-v2.md`
   shadowing. **Never** check or touch `wm_list_sprint_paths "$slug"`
@@ -106,7 +117,10 @@ shape.
 
 ### 2. Read upstream context
 
-- Read the approved PRD at `wm_prd_path "$slug"` (read-only).
+- Read the approved Phase-1 artifact at `wm_phase1_artifact_path "$slug"`
+  (read-only). The artifact is read as opaque Phase-1 input — this skill
+  does not branch its core logic on whether a PRD or a fix-spec backed
+  the slug.
 - Read `<plugin_dir>/templates/spec.md` for the twelve-section
   design-doc shape (this skill writes that shape; deviations break the
   post-draft self-check).

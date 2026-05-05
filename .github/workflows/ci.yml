@@ -84,6 +84,10 @@ jobs:
           - tests/smoke/tech-spec-design-doc-shape.test.sh
           - tests/smoke/scaffold-sprints-callable-from-phase-3.test.sh
           - tests/smoke/canonize-active-task-scope.test.sh
+          - tests/sensors/persona-mode-tag.test.sh
+          - tests/sensors/fix-spec-frontmatter-shape.test.sh
+          - tests/regression/phase1-backward-compat/run.test.sh
+          - tests/smoke/fix-skill-happy-path.test.sh
     steps:
       - name: Check out
         uses: actions/checkout@v4

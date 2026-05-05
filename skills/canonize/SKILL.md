@@ -4,8 +4,9 @@ description: >
   Provider-agnostic facade that hands the active task's working memory
   to the configured canonical-memory provider. Resolves the provider
   via lib/canonical-memory/resolve-provider.sh, stages the active
-  slug's archive files (prds/, specs/, sprints/, acceptance-criteria/,
-  contracts/, runtime/, plus config.yaml) into a fresh tmp directory
+  slug's archive files (prds/, fixes/, specs/, sprints/,
+  acceptance-criteria/, contracts/, runtime/, plus config.yaml) into a
+  fresh tmp directory
   shaped like .yoke/, dispatches the provider's pinned canonize skill
   with --working-memory <stage-path>, removes the stage on exit, and
   appends a single canonize: line to .yoke/runtime/progress.md. The

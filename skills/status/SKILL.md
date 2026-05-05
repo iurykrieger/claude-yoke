@@ -73,7 +73,11 @@ Source `lib/working-memory/paths.sh`.
 For the active slug, check which archive categories contain
 `<slug>.md`:
 
-- `prds/<slug>.md` exists → at least Phase 1 reached.
+- `prds/<slug>.md` OR `fixes/<slug>.md` exists → at least Phase 1
+  reached. Both archives count toward Phase 1: PRDs land via
+  `/yoke:discover`, fix specs via `/yoke:fix` (forward-looking; the
+  skill ships in a follow-up sprint of the Phase-1 fix-entrypoint
+  PRD `.yoke/prds/2026-05-05-phase-1-fix-entrypoint.md`).
 - `specs/<slug>.md` plus at least one `sprints/<slug>-s*.md` → Phase 2.
 - `acceptance-criteria/<slug>.md` → Phase 3.
 - `contracts/<slug>.md` → Phase 4 has run.
